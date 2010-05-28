@@ -46,6 +46,7 @@ OBJ/netlist_create_from_ast.o \
 OBJ/netlist_utils.o \
 OBJ/odin_util.o \
 OBJ/ast_optimizations.o \
+OBJ/high_level_data.o \
 OBJ/ast_util.o \
 OBJ/read_xml_config_file.o \
 OBJ/parse_making_ast.o \
@@ -76,6 +77,7 @@ SRC/netlist_create_from_ast.c \
 SRC/netlist_utils.c \
 SRC/odin_util.c \
 SRC/ast_optimizations.c \
+SRC/high_level_data.c \
 SRC/ast_util.c \
 SRC/read_xml_config_file.c \
 SRC/parse_making_ast.c \
@@ -104,6 +106,7 @@ SRC/netlist_create_from_ast.h \
 SRC/netlist_utils.h \
 SRC/odin_util.h \
 SRC/ast_optimizations.h \
+SRC/high_level_data.h \
 SRC/ast_util.h \
 SRC/read_xml_config_file.h \
 SRC/parse_making_ast.h \

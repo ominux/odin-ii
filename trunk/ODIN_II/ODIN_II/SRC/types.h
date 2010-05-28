@@ -105,6 +105,7 @@ global_args_t
 	char *arch_file; // Name of the FPGA architecture file
 	char *activation_blif_file;
 	char *activation_netlist_file;
+	char *high_level_block;
 };
 
 #endif // TYPES_H
@@ -233,6 +234,8 @@ typedef enum
 ast_node_t
 {
 	int unique_count;
+	int far_tag;
+	int high_number;
 	short type;
 	union
 	{

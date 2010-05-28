@@ -1,4 +1,4 @@
-Odin II - Version 0.1 - Quick Start
+Odin II - Version 0.2 - Quick Start
 
 In the DOCUMENTATION directory there is more thorough details about
 Odin II.  This is a quick start guide.
@@ -11,6 +11,10 @@ INSTALL
 This library needs to be built for your platform.  The Makefile for
 Odin will link the LIBVPR library located in:
 ../libvpr_5 or/and ../libvpr_6
+
+Note: 
+- for WIN32 vs. NIX compilation you'll have to edit the ezxml.c files
+to "#define WIN32" or not.
 
 2. Odin II
 

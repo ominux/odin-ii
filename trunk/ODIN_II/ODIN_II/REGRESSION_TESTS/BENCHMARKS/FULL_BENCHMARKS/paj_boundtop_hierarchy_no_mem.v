@@ -2623,35 +2623,35 @@ module listhandler (dataarrayin, commit, hitmask, ack, boundnodeID, level, empty
           1 :
                    begin
 /* PAJ -- Unrolled loop */
-						if (0 == address[2:0])
+						if (3'd0 == address[2:0])
 						begin
-   	                     datain = dataarrayin[(1) * 13 - 1:0 * 13] ; 
+   	                     datain = dataarrayin[13 - 1:0] ; 
 						end
-						else if (1 == address[2:0])
+						else if (3'd1 == address[2:0])
 						begin
    	                     datain = dataarrayin[(2) * 13 - 1:1 * 13] ; 
 						end
-						else if (2 == address[2:0])
+						else if (3'd2 == address[2:0])
 						begin
    	                     datain = dataarrayin[(3) * 13 - 1:2 * 13] ; 
 						end
-						else if (3 == address[2:0])
+						else if (3'd3 == address[2:0])
 						begin
    	                     datain = dataarrayin[(4) * 13 - 1:3 * 13] ; 
 						end
-						else if (4 == address[2:0])
+						else if (3'd4 == address[2:0])
 						begin
    	                     datain = dataarrayin[(5) * 13 - 1:4 * 13] ; 
 						end
-						else if (5 == address[2:0])
+						else if (3'd5 == address[2:0])
 						begin
    	                     datain = dataarrayin[(6) * 13 - 1:5 * 13] ; 
 						end
-						else if (6 == address[2:0])
+						else if (3'd6 == address[2:0])
 						begin
    	                     datain = dataarrayin[(7) * 13 - 1:6 * 13] ; 
 						end
-						else if (7 == address[2:0])
+						else if (3'd7 == address[2:0])
 						begin
    	                     datain = dataarrayin[(8) * 13 - 1:7 * 13] ; 
 						end

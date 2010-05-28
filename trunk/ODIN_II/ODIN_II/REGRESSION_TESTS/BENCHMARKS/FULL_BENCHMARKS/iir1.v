@@ -434,8 +434,8 @@ endmodule
 
 module multa
 	(
-	clk,
-	nreset,
+//	clk,
+//	nreset,
 	a,			/* data input */
 	b,			/* input data valid */
 	r			/* filter pole coefficient */

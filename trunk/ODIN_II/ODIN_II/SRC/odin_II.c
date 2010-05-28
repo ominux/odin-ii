@@ -42,13 +42,13 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "read_blif.h"
 #include "read_netlist.h"
 #include "activity_estimation.h"
-#include "hard_blocks.h"
+#include "high_level_data.h"
 
 global_args_t global_args;
 int current_parse_file;
 t_arch Arch;
 t_type_descriptor* type_descriptors;
-
+int block_tag;
 void get_options(int argc, char **argv);
 void do_high_level_synthesis();
 void do_activation_estimation( int num_types, t_type_descriptor * type_descriptors);
@@ -101,7 +101,7 @@ int main(int argc, char **argv)
 	return 0;
 } 
 
-static const char *optString = "hHc:V:h:o:O:a:B:N:"; // list must end in ":"
+static const char *optString = "hHc:V:h:o:O:a:B:N:f:"; // list must end in ":"
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
@@ -116,6 +116,7 @@ void get_options(int argc, char **argv)
 	global_args.arch_file = NULL;
 	global_args.activation_blif_file = NULL;
 	global_args.activation_netlist_file = NULL;
+	global_args.high_level_block = NULL;
 
 	/* set up the global configuration ahead of time */
 	configuration.list_of_file_names = NULL;
@@ -151,6 +152,14 @@ void get_options(int argc, char **argv)
 			break;
 		case 'N':
 			global_args.activation_netlist_file = optarg;
+			break;
+		case 'f':
+#ifdef VPR5
+			global_args.high_level_block = optarg;
+#endif
+#ifdef VPR6
+			warning_message(0, -1, 0, "VPR 6.0 doesn't have this feature yet.  You'll need to deal with the output_blif.c differences wrapped by \"if (global_args.high_level_block != NULL)\"\n");
+#endif
 			break;
 		case 'h':
 		case 'H':
@@ -196,6 +205,12 @@ void do_high_level_synthesis()
 	printf("Parser starting - we'll create an abstract syntax tree.  Note this tree can be viewed using GraphViz (see dosumentation)\n");
 	parse_to_ast();
 	/* Note that the entry point for ast optimzations is done per module with the function void next_parsed_verilog_file(ast_node_t *file_items_list) */
+
+	/* after the ast is made potentiatlly do tagging for downstream links to verilog */
+	if (global_args.high_level_block != NULL)
+	{
+		add_tag_data();
+	}
 
 	/* Now that we have a parse tree (abstract syntax tree [ast]) of the Verilog we want to make into a netlist. */
 	printf("Converting AST into a Netlist - Note this netlist can be viewed using GraphViz (see dosumentation)\n");

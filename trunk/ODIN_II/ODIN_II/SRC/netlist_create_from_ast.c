@@ -185,7 +185,9 @@ ast_node_t *find_top_module()
 		{
 			/* Check to see if the module is a hard block - a hard block is 
 				never the top level! */
+#ifdef VPR6
 			if ((sc_spot = sc_lookup_string(hard_block_names, ast_modules[i]->types.module.module_instantiations_instance[j]->children[0]->types.identifier)) == -1)
+#endif
 			{
 				/* get the module index from the string cache */
 				if ((sc_spot = sc_lookup_string(module_names_to_idx, ast_modules[i]->types.module.module_instantiations_instance[j]->children[0]->types.identifier)) == -1)
@@ -1441,7 +1443,7 @@ void connect_module_instantiation_and_alias(short PASS, ast_node_t* module_insta
 					}
 				}
 
-				/* IF the designer users port names then make sure they line up */
+				/* IF the designer uses port names then make sure they line up */
 				if (module_instance_list->children[i]->children[0] != NULL)
 				{
 					if (strcmp(module_instance_list->children[i]->children[0]->types.identifier, module_list->children[i]->children[0]->children[0]->types.identifier) != 0)

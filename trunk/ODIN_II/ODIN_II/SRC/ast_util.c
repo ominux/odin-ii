@@ -56,6 +56,9 @@ ast_node_t* create_node_w_type(short id, int line_number, int file_number)
 	new_node->file_number = file_number;
 	new_node->unique_count = unique_count++;
 
+	new_node->far_tag = 0;
+	new_node->high_number = 0;
+
 	return new_node;
 }
 
