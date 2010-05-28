@@ -1,9 +1,10 @@
 module Fadder_(
-  in1,
-  in2,
-  in3,
+carry,
   sum,
-  carry);
+  in3,
+  in2,
+  in1
+  );
 
   input in1, in2, in3;
   output sum, carry;
@@ -13,11 +14,29 @@ module Fadder_(
 
 endmodule 
 
-module Hadder_(
+module Fadder_2(
   in1,
   in2,
+  in3,
   sum,
-  carry);
+carry
+  );
+
+  input in1, in2, in3;
+  output sum, carry;
+
+  assign sum=in1^in2^in3;
+  assign carry=(in1&in2) | (in2&in3) | (in1&in3);
+
+endmodule 
+
+
+module Hadder_(
+carry,
+  sum,
+  in2,
+  in1
+  );
 
 
   input in1, in2;
@@ -1510,76 +1529,76 @@ module add_csa70(
   assign comp_sum = (if_add==1'b1)? in_sum : (~in_sum);
   assign comp_carry = (if_add==1'b1)? in_carry : (~in_carry);
 
-  Fadder_ u0( .in1(comp_sum[0]), .in2(product[0]), .in3(inc), .sum(out_sum[0]), .carry(out_carry[0]) );
-  Fadder_ u1( .in1(comp_sum[1]), .in2(comp_carry[0]), .in3(product[1]), .sum(out_sum[1]), .carry(out_carry[1]) );
-  Fadder_ u2( .in1(comp_sum[2]), .in2(comp_carry[1]), .in3(product[2]), .sum(out_sum[2]), .carry(out_carry[2]) );
-  Fadder_ u3( .in1(comp_sum[3]), .in2(comp_carry[2]), .in3(product[3]), .sum(out_sum[3]), .carry(out_carry[3]) );
-  Fadder_ u4( .in1(comp_sum[4]), .in2(comp_carry[3]), .in3(product[4]), .sum(out_sum[4]), .carry(out_carry[4]) );
-  Fadder_ u5( .in1(comp_sum[5]), .in2(comp_carry[4]), .in3(product[5]), .sum(out_sum[5]), .carry(out_carry[5]) );
-  Fadder_ u6( .in1(comp_sum[6]), .in2(comp_carry[5]), .in3(product[6]), .sum(out_sum[6]), .carry(out_carry[6]) );
-  Fadder_ u7( .in1(comp_sum[7]), .in2(comp_carry[6]), .in3(product[7]), .sum(out_sum[7]), .carry(out_carry[7]) );
-  Fadder_ u8( .in1(comp_sum[8]), .in2(comp_carry[7]), .in3(product[8]), .sum(out_sum[8]), .carry(out_carry[8]) );
-  Fadder_ u9( .in1(comp_sum[9]), .in2(comp_carry[8]), .in3(product[9]), .sum(out_sum[9]), .carry(out_carry[9]) );
-  Fadder_ u10( .in1(comp_sum[10]), .in2(comp_carry[9]), .in3(product[10]), .sum(out_sum[10]), .carry(out_carry[10]) );
-  Fadder_ u11( .in1(comp_sum[11]), .in2(comp_carry[10]), .in3(product[11]), .sum(out_sum[11]), .carry(out_carry[11]) );
-  Fadder_ u12( .in1(comp_sum[12]), .in2(comp_carry[11]), .in3(product[12]), .sum(out_sum[12]), .carry(out_carry[12]) );
-  Fadder_ u13( .in1(comp_sum[13]), .in2(comp_carry[12]), .in3(product[13]), .sum(out_sum[13]), .carry(out_carry[13]) );
-  Fadder_ u14( .in1(comp_sum[14]), .in2(comp_carry[13]), .in3(product[14]), .sum(out_sum[14]), .carry(out_carry[14]) );
-  Fadder_ u15( .in1(comp_sum[15]), .in2(comp_carry[14]), .in3(product[15]), .sum(out_sum[15]), .carry(out_carry[15]) );
-  Fadder_ u16( .in1(comp_sum[16]), .in2(comp_carry[15]), .in3(product[16]), .sum(out_sum[16]), .carry(out_carry[16]) );
-  Fadder_ u17( .in1(comp_sum[17]), .in2(comp_carry[16]), .in3(product[17]), .sum(out_sum[17]), .carry(out_carry[17]) );
-  Fadder_ u18( .in1(comp_sum[18]), .in2(comp_carry[17]), .in3(product[18]), .sum(out_sum[18]), .carry(out_carry[18]) );
-  Fadder_ u19( .in1(comp_sum[19]), .in2(comp_carry[18]), .in3(product[19]), .sum(out_sum[19]), .carry(out_carry[19]) );
-  Fadder_ u20( .in1(comp_sum[20]), .in2(comp_carry[19]), .in3(product[20]), .sum(out_sum[20]), .carry(out_carry[20]) );
-  Fadder_ u21( .in1(comp_sum[21]), .in2(comp_carry[20]), .in3(product[21]), .sum(out_sum[21]), .carry(out_carry[21]) );
-  Fadder_ u22( .in1(comp_sum[22]), .in2(comp_carry[21]), .in3(product[22]), .sum(out_sum[22]), .carry(out_carry[22]) );
-  Fadder_ u23( .in1(comp_sum[23]), .in2(comp_carry[22]), .in3(product[23]), .sum(out_sum[23]), .carry(out_carry[23]) );
-  Fadder_ u24( .in1(comp_sum[24]), .in2(comp_carry[23]), .in3(product[24]), .sum(out_sum[24]), .carry(out_carry[24]) );
-  Fadder_ u25( .in1(comp_sum[25]), .in2(comp_carry[24]), .in3(product[25]), .sum(out_sum[25]), .carry(out_carry[25]) );
-  Fadder_ u26( .in1(comp_sum[26]), .in2(comp_carry[25]), .in3(product[26]), .sum(out_sum[26]), .carry(out_carry[26]) );
-  Fadder_ u27( .in1(comp_sum[27]), .in2(comp_carry[26]), .in3(product[27]), .sum(out_sum[27]), .carry(out_carry[27]) );
-  Fadder_ u28( .in1(comp_sum[28]), .in2(comp_carry[27]), .in3(product[28]), .sum(out_sum[28]), .carry(out_carry[28]) );
-  Fadder_ u29( .in1(comp_sum[29]), .in2(comp_carry[28]), .in3(product[29]), .sum(out_sum[29]), .carry(out_carry[29]) );
-  Fadder_ u30( .in1(comp_sum[30]), .in2(comp_carry[29]), .in3(product[30]), .sum(out_sum[30]), .carry(out_carry[30]) );
-  Fadder_ u31( .in1(comp_sum[31]), .in2(comp_carry[30]), .in3(product[31]), .sum(out_sum[31]), .carry(out_carry[31]) );
-  Fadder_ u32( .in1(comp_sum[32]), .in2(comp_carry[31]), .in3(product[32]), .sum(out_sum[32]), .carry(out_carry[32]) );
-  Fadder_ u33( .in1(comp_sum[33]), .in2(comp_carry[32]), .in3(product[33]), .sum(out_sum[33]), .carry(out_carry[33]) );
-  Fadder_ u34( .in1(comp_sum[34]), .in2(comp_carry[33]), .in3(product[34]), .sum(out_sum[34]), .carry(out_carry[34]) );
-  Fadder_ u35( .in1(comp_sum[35]), .in2(comp_carry[34]), .in3(product[35]), .sum(out_sum[35]), .carry(out_carry[35]) );
-  Fadder_ u36( .in1(comp_sum[36]), .in2(comp_carry[35]), .in3(product[36]), .sum(out_sum[36]), .carry(out_carry[36]) );
-  Fadder_ u37( .in1(comp_sum[37]), .in2(comp_carry[36]), .in3(product[37]), .sum(out_sum[37]), .carry(out_carry[37]) );
-  Fadder_ u38( .in1(comp_sum[38]), .in2(comp_carry[37]), .in3(product[38]), .sum(out_sum[38]), .carry(out_carry[38]) );
-  Fadder_ u39( .in1(comp_sum[39]), .in2(comp_carry[38]), .in3(product[39]), .sum(out_sum[39]), .carry(out_carry[39]) );
-  Fadder_ u40( .in1(comp_sum[40]), .in2(comp_carry[39]), .in3(product[40]), .sum(out_sum[40]), .carry(out_carry[40]) );
-  Fadder_ u41( .in1(comp_sum[41]), .in2(comp_carry[40]), .in3(product[41]), .sum(out_sum[41]), .carry(out_carry[41]) );
-  Fadder_ u42( .in1(comp_sum[42]), .in2(comp_carry[41]), .in3(product[42]), .sum(out_sum[42]), .carry(out_carry[42]) );
-  Fadder_ u43( .in1(comp_sum[43]), .in2(comp_carry[42]), .in3(product[43]), .sum(out_sum[43]), .carry(out_carry[43]) );
-  Fadder_ u44( .in1(comp_sum[44]), .in2(comp_carry[43]), .in3(product[44]), .sum(out_sum[44]), .carry(out_carry[44]) );
-  Fadder_ u45( .in1(comp_sum[45]), .in2(comp_carry[44]), .in3(product[45]), .sum(out_sum[45]), .carry(out_carry[45]) );
-  Fadder_ u46( .in1(comp_sum[46]), .in2(comp_carry[45]), .in3(product[46]), .sum(out_sum[46]), .carry(out_carry[46]) );
-  Fadder_ u47( .in1(comp_sum[47]), .in2(comp_carry[46]), .in3(product[47]), .sum(out_sum[47]), .carry(out_carry[47]) );
-  Fadder_ u48( .in1(comp_sum[48]), .in2(comp_carry[47]), .in3(product[48]), .sum(out_sum[48]), .carry(out_carry[48]) );
-  Fadder_ u49( .in1(comp_sum[49]), .in2(comp_carry[48]), .in3(product[49]), .sum(out_sum[49]), .carry(out_carry[49]) );
-  Fadder_ u50( .in1(comp_sum[50]), .in2(comp_carry[49]), .in3(product[50]), .sum(out_sum[50]), .carry(out_carry[50]) );
-  Fadder_ u51( .in1(comp_sum[51]), .in2(comp_carry[50]), .in3(product[51]), .sum(out_sum[51]), .carry(out_carry[51]) );
-  Fadder_ u52( .in1(comp_sum[52]), .in2(comp_carry[51]), .in3(product[52]), .sum(out_sum[52]), .carry(out_carry[52]) );
-  Fadder_ u53( .in1(comp_sum[53]), .in2(comp_carry[52]), .in3(product[53]), .sum(out_sum[53]), .carry(out_carry[53]) );
-  Fadder_ u54( .in1(comp_sum[54]), .in2(comp_carry[53]), .in3(product[54]), .sum(out_sum[54]), .carry(out_carry[54]) );
-  Fadder_ u55( .in1(comp_sum[55]), .in2(comp_carry[54]), .in3(product[55]), .sum(out_sum[55]), .carry(out_carry[55]) );
-  Fadder_ u56( .in1(comp_sum[56]), .in2(comp_carry[55]), .in3(product[56]), .sum(out_sum[56]), .carry(out_carry[56]) );
-  Fadder_ u57( .in1(comp_sum[57]), .in2(comp_carry[56]), .in3(product[57]), .sum(out_sum[57]), .carry(out_carry[57]) );
-  Fadder_ u58( .in1(comp_sum[58]), .in2(comp_carry[57]), .in3(product[58]), .sum(out_sum[58]), .carry(out_carry[58]) );
-  Fadder_ u59( .in1(comp_sum[59]), .in2(comp_carry[58]), .in3(product[59]), .sum(out_sum[59]), .carry(out_carry[59]) );
-  Fadder_ u60( .in1(comp_sum[60]), .in2(comp_carry[59]), .in3(product[60]), .sum(out_sum[60]), .carry(out_carry[60]) );
-  Fadder_ u61( .in1(comp_sum[61]), .in2(comp_carry[60]), .in3(product[61]), .sum(out_sum[61]), .carry(out_carry[61]) );
-  Fadder_ u62( .in1(comp_sum[62]), .in2(comp_carry[61]), .in3(product[62]), .sum(out_sum[62]), .carry(out_carry[62]) );
-  Fadder_ u63( .in1(comp_sum[63]), .in2(comp_carry[62]), .in3(product[63]), .sum(out_sum[63]), .carry(out_carry[63]) );
-  Fadder_ u64( .in1(comp_sum[64]), .in2(comp_carry[63]), .in3(product[64]), .sum(out_sum[64]), .carry(out_carry[64]) );
-  Fadder_ u65( .in1(comp_sum[65]), .in2(comp_carry[64]), .in3(product[65]), .sum(out_sum[65]), .carry(out_carry[65]) );
-  Fadder_ u66( .in1(comp_sum[66]), .in2(comp_carry[65]), .in3(product[66]), .sum(out_sum[66]), .carry(out_carry[66]) );
-  Fadder_ u67( .in1(comp_sum[67]), .in2(comp_carry[66]), .in3(product[67]), .sum(out_sum[67]), .carry(out_carry[67]) );
-  Fadder_ u68( .in1(comp_sum[68]), .in2(comp_carry[67]), .in3(product[68]), .sum(out_sum[68]), .carry(out_carry[68]) );
-  Fadder_ u69( .in1(comp_sum[69]), .in2(comp_carry[68]), .in3(product[69]), .sum(out_sum[69]), .carry(out_carry[69]) );
+  Fadder_2 u0( .in1(comp_sum[0]), .in2(product[0]), .in3(inc), .sum(out_sum[0]), .carry(out_carry[0]) );
+  Fadder_2 u1( .in1(comp_sum[1]), .in2(comp_carry[0]), .in3(product[1]), .sum(out_sum[1]), .carry(out_carry[1]) );
+  Fadder_2 u2( .in1(comp_sum[2]), .in2(comp_carry[1]), .in3(product[2]), .sum(out_sum[2]), .carry(out_carry[2]) );
+  Fadder_2 u3( .in1(comp_sum[3]), .in2(comp_carry[2]), .in3(product[3]), .sum(out_sum[3]), .carry(out_carry[3]) );
+  Fadder_2 u4( .in1(comp_sum[4]), .in2(comp_carry[3]), .in3(product[4]), .sum(out_sum[4]), .carry(out_carry[4]) );
+  Fadder_2 u5( .in1(comp_sum[5]), .in2(comp_carry[4]), .in3(product[5]), .sum(out_sum[5]), .carry(out_carry[5]) );
+  Fadder_2 u6( .in1(comp_sum[6]), .in2(comp_carry[5]), .in3(product[6]), .sum(out_sum[6]), .carry(out_carry[6]) );
+  Fadder_2 u7( .in1(comp_sum[7]), .in2(comp_carry[6]), .in3(product[7]), .sum(out_sum[7]), .carry(out_carry[7]) );
+  Fadder_2 u8( .in1(comp_sum[8]), .in2(comp_carry[7]), .in3(product[8]), .sum(out_sum[8]), .carry(out_carry[8]) );
+  Fadder_2 u9( .in1(comp_sum[9]), .in2(comp_carry[8]), .in3(product[9]), .sum(out_sum[9]), .carry(out_carry[9]) );
+  Fadder_2 u10( .in1(comp_sum[10]), .in2(comp_carry[9]), .in3(product[10]), .sum(out_sum[10]), .carry(out_carry[10]) );
+  Fadder_2 u11( .in1(comp_sum[11]), .in2(comp_carry[10]), .in3(product[11]), .sum(out_sum[11]), .carry(out_carry[11]) );
+  Fadder_2 u12( .in1(comp_sum[12]), .in2(comp_carry[11]), .in3(product[12]), .sum(out_sum[12]), .carry(out_carry[12]) );
+  Fadder_2 u13( .in1(comp_sum[13]), .in2(comp_carry[12]), .in3(product[13]), .sum(out_sum[13]), .carry(out_carry[13]) );
+  Fadder_2 u14( .in1(comp_sum[14]), .in2(comp_carry[13]), .in3(product[14]), .sum(out_sum[14]), .carry(out_carry[14]) );
+  Fadder_2 u15( .in1(comp_sum[15]), .in2(comp_carry[14]), .in3(product[15]), .sum(out_sum[15]), .carry(out_carry[15]) );
+  Fadder_2 u16( .in1(comp_sum[16]), .in2(comp_carry[15]), .in3(product[16]), .sum(out_sum[16]), .carry(out_carry[16]) );
+  Fadder_2 u17( .in1(comp_sum[17]), .in2(comp_carry[16]), .in3(product[17]), .sum(out_sum[17]), .carry(out_carry[17]) );
+  Fadder_2 u18( .in1(comp_sum[18]), .in2(comp_carry[17]), .in3(product[18]), .sum(out_sum[18]), .carry(out_carry[18]) );
+  Fadder_2 u19( .in1(comp_sum[19]), .in2(comp_carry[18]), .in3(product[19]), .sum(out_sum[19]), .carry(out_carry[19]) );
+  Fadder_2 u20( .in1(comp_sum[20]), .in2(comp_carry[19]), .in3(product[20]), .sum(out_sum[20]), .carry(out_carry[20]) );
+  Fadder_2 u21( .in1(comp_sum[21]), .in2(comp_carry[20]), .in3(product[21]), .sum(out_sum[21]), .carry(out_carry[21]) );
+  Fadder_2 u22( .in1(comp_sum[22]), .in2(comp_carry[21]), .in3(product[22]), .sum(out_sum[22]), .carry(out_carry[22]) );
+  Fadder_2 u23( .in1(comp_sum[23]), .in2(comp_carry[22]), .in3(product[23]), .sum(out_sum[23]), .carry(out_carry[23]) );
+  Fadder_2 u24( .in1(comp_sum[24]), .in2(comp_carry[23]), .in3(product[24]), .sum(out_sum[24]), .carry(out_carry[24]) );
+  Fadder_2 u25( .in1(comp_sum[25]), .in2(comp_carry[24]), .in3(product[25]), .sum(out_sum[25]), .carry(out_carry[25]) );
+  Fadder_2 u26( .in1(comp_sum[26]), .in2(comp_carry[25]), .in3(product[26]), .sum(out_sum[26]), .carry(out_carry[26]) );
+  Fadder_2 u27( .in1(comp_sum[27]), .in2(comp_carry[26]), .in3(product[27]), .sum(out_sum[27]), .carry(out_carry[27]) );
+  Fadder_2 u28( .in1(comp_sum[28]), .in2(comp_carry[27]), .in3(product[28]), .sum(out_sum[28]), .carry(out_carry[28]) );
+  Fadder_2 u29( .in1(comp_sum[29]), .in2(comp_carry[28]), .in3(product[29]), .sum(out_sum[29]), .carry(out_carry[29]) );
+  Fadder_2 u30( .in1(comp_sum[30]), .in2(comp_carry[29]), .in3(product[30]), .sum(out_sum[30]), .carry(out_carry[30]) );
+  Fadder_2 u31( .in1(comp_sum[31]), .in2(comp_carry[30]), .in3(product[31]), .sum(out_sum[31]), .carry(out_carry[31]) );
+  Fadder_2 u32( .in1(comp_sum[32]), .in2(comp_carry[31]), .in3(product[32]), .sum(out_sum[32]), .carry(out_carry[32]) );
+  Fadder_2 u33( .in1(comp_sum[33]), .in2(comp_carry[32]), .in3(product[33]), .sum(out_sum[33]), .carry(out_carry[33]) );
+  Fadder_2 u34( .in1(comp_sum[34]), .in2(comp_carry[33]), .in3(product[34]), .sum(out_sum[34]), .carry(out_carry[34]) );
+  Fadder_2 u35( .in1(comp_sum[35]), .in2(comp_carry[34]), .in3(product[35]), .sum(out_sum[35]), .carry(out_carry[35]) );
+  Fadder_2 u36( .in1(comp_sum[36]), .in2(comp_carry[35]), .in3(product[36]), .sum(out_sum[36]), .carry(out_carry[36]) );
+  Fadder_2 u37( .in1(comp_sum[37]), .in2(comp_carry[36]), .in3(product[37]), .sum(out_sum[37]), .carry(out_carry[37]) );
+  Fadder_2 u38( .in1(comp_sum[38]), .in2(comp_carry[37]), .in3(product[38]), .sum(out_sum[38]), .carry(out_carry[38]) );
+  Fadder_2 u39( .in1(comp_sum[39]), .in2(comp_carry[38]), .in3(product[39]), .sum(out_sum[39]), .carry(out_carry[39]) );
+  Fadder_2 u40( .in1(comp_sum[40]), .in2(comp_carry[39]), .in3(product[40]), .sum(out_sum[40]), .carry(out_carry[40]) );
+  Fadder_2 u41( .in1(comp_sum[41]), .in2(comp_carry[40]), .in3(product[41]), .sum(out_sum[41]), .carry(out_carry[41]) );
+  Fadder_2 u42( .in1(comp_sum[42]), .in2(comp_carry[41]), .in3(product[42]), .sum(out_sum[42]), .carry(out_carry[42]) );
+  Fadder_2 u43( .in1(comp_sum[43]), .in2(comp_carry[42]), .in3(product[43]), .sum(out_sum[43]), .carry(out_carry[43]) );
+  Fadder_2 u44( .in1(comp_sum[44]), .in2(comp_carry[43]), .in3(product[44]), .sum(out_sum[44]), .carry(out_carry[44]) );
+  Fadder_2 u45( .in1(comp_sum[45]), .in2(comp_carry[44]), .in3(product[45]), .sum(out_sum[45]), .carry(out_carry[45]) );
+  Fadder_2 u46( .in1(comp_sum[46]), .in2(comp_carry[45]), .in3(product[46]), .sum(out_sum[46]), .carry(out_carry[46]) );
+  Fadder_2 u47( .in1(comp_sum[47]), .in2(comp_carry[46]), .in3(product[47]), .sum(out_sum[47]), .carry(out_carry[47]) );
+  Fadder_2 u48( .in1(comp_sum[48]), .in2(comp_carry[47]), .in3(product[48]), .sum(out_sum[48]), .carry(out_carry[48]) );
+  Fadder_2 u49( .in1(comp_sum[49]), .in2(comp_carry[48]), .in3(product[49]), .sum(out_sum[49]), .carry(out_carry[49]) );
+  Fadder_2 u50( .in1(comp_sum[50]), .in2(comp_carry[49]), .in3(product[50]), .sum(out_sum[50]), .carry(out_carry[50]) );
+  Fadder_2 u51( .in1(comp_sum[51]), .in2(comp_carry[50]), .in3(product[51]), .sum(out_sum[51]), .carry(out_carry[51]) );
+  Fadder_2 u52( .in1(comp_sum[52]), .in2(comp_carry[51]), .in3(product[52]), .sum(out_sum[52]), .carry(out_carry[52]) );
+  Fadder_2 u53( .in1(comp_sum[53]), .in2(comp_carry[52]), .in3(product[53]), .sum(out_sum[53]), .carry(out_carry[53]) );
+  Fadder_2 u54( .in1(comp_sum[54]), .in2(comp_carry[53]), .in3(product[54]), .sum(out_sum[54]), .carry(out_carry[54]) );
+  Fadder_2 u55( .in1(comp_sum[55]), .in2(comp_carry[54]), .in3(product[55]), .sum(out_sum[55]), .carry(out_carry[55]) );
+  Fadder_2 u56( .in1(comp_sum[56]), .in2(comp_carry[55]), .in3(product[56]), .sum(out_sum[56]), .carry(out_carry[56]) );
+  Fadder_2 u57( .in1(comp_sum[57]), .in2(comp_carry[56]), .in3(product[57]), .sum(out_sum[57]), .carry(out_carry[57]) );
+  Fadder_2 u58( .in1(comp_sum[58]), .in2(comp_carry[57]), .in3(product[58]), .sum(out_sum[58]), .carry(out_carry[58]) );
+  Fadder_2 u59( .in1(comp_sum[59]), .in2(comp_carry[58]), .in3(product[59]), .sum(out_sum[59]), .carry(out_carry[59]) );
+  Fadder_2 u60( .in1(comp_sum[60]), .in2(comp_carry[59]), .in3(product[60]), .sum(out_sum[60]), .carry(out_carry[60]) );
+  Fadder_2 u61( .in1(comp_sum[61]), .in2(comp_carry[60]), .in3(product[61]), .sum(out_sum[61]), .carry(out_carry[61]) );
+  Fadder_2 u62( .in1(comp_sum[62]), .in2(comp_carry[61]), .in3(product[62]), .sum(out_sum[62]), .carry(out_carry[62]) );
+  Fadder_2 u63( .in1(comp_sum[63]), .in2(comp_carry[62]), .in3(product[63]), .sum(out_sum[63]), .carry(out_carry[63]) );
+  Fadder_2 u64( .in1(comp_sum[64]), .in2(comp_carry[63]), .in3(product[64]), .sum(out_sum[64]), .carry(out_carry[64]) );
+  Fadder_2 u65( .in1(comp_sum[65]), .in2(comp_carry[64]), .in3(product[65]), .sum(out_sum[65]), .carry(out_carry[65]) );
+  Fadder_2 u66( .in1(comp_sum[66]), .in2(comp_carry[65]), .in3(product[66]), .sum(out_sum[66]), .carry(out_carry[66]) );
+  Fadder_2 u67( .in1(comp_sum[67]), .in2(comp_carry[66]), .in3(product[67]), .sum(out_sum[67]), .carry(out_carry[67]) );
+  Fadder_2 u68( .in1(comp_sum[68]), .in2(comp_carry[67]), .in3(product[68]), .sum(out_sum[68]), .carry(out_carry[68]) );
+  Fadder_2 u69( .in1(comp_sum[69]), .in2(comp_carry[68]), .in3(product[69]), .sum(out_sum[69]), .carry(out_carry[69]) );
 
 endmodule
 
@@ -1682,9 +1701,9 @@ module Adder71(
 endmodule
 
 module cla_csa70(
+  if_add,
   sum,
   carry,
-  if_add,
   result,
   overflow);
 

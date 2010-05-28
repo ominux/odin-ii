@@ -237,6 +237,9 @@ void instantiate_simple_soft_multiplier(nnode_t *node, short mark, netlist_t *ne
 }
 
 #ifdef VPR6
+/*---------------------------------------------------------------------------
+ * (function: init_mult_distribution)
+ *-------------------------------------------------------------------------*/
 void init_mult_distribution()
 {
 	int i, j;
@@ -249,6 +252,9 @@ void init_mult_distribution()
 	return;
 }
 
+/*---------------------------------------------------------------------------
+ * (function: record_mult_distribution)
+ *-------------------------------------------------------------------------*/
 void record_mult_distribution(nnode_t *node)
 {
 	int a, b;
@@ -291,42 +297,61 @@ void record_mult_distribution(nnode_t *node)
 	return;
 }
 
+/*---------------------------------------------------------------------------
+ * (function: report_mult_distribution)
+ *-------------------------------------------------------------------------*/
 void report_mult_distribution()
 {
 	int i, j;
 	int total = 0;
 
-	oassert(hard_multipliers != NULL);
+	if(hard_multipliers == NULL)
+		return;
+
 	printf("\nHard Multiplier Distribution\n");
 	printf("============================\n");
 	for (i = 0; i <= hard_multipliers->inputs->size; i++)
+	{
 		for (j = 1; j <= hard_multipliers->inputs->next->size; j++)
+		{
 			if (mults[i * hard_multipliers->inputs->size + j] != 0)
 			{
 				total += mults[i * hard_multipliers->inputs->size + j];
 				printf("%d X %d => %d\n", i, j, mults[i * hard_multipliers->inputs->size + j]);
 			}
+		}
+	}
 	printf("\n");
 	printf("\nTotal # of multipliers = %d\n", total);
 	return;
 }
 
+/*---------------------------------------------------------------------------
+ * (function: find_hard_multipliers)
+ *-------------------------------------------------------------------------*/
 void find_hard_multipliers()
 {
 	hard_multipliers = Arch.models;
 	min_mult = configuration.min_hard_multiplier;
 	while (hard_multipliers != NULL)
+	{
 		if (strcmp(hard_multipliers->name, "multiply") == 0)
 		{
 			init_mult_distribution();
 			return;
 		}
 		else
+		{
 			hard_multipliers = hard_multipliers->next;
+		}
+	}
 
 	return;
 }
 
+/*---------------------------------------------------------------------------
+ * (function: declare_hard_multiplier)
+ *-------------------------------------------------------------------------*/
 void declare_hard_multiplier(nnode_t *node)
 {
 	t_multiplier *tmp;
@@ -334,7 +359,9 @@ void declare_hard_multiplier(nnode_t *node)
 
 	/* See if this size instance of multiplier exists? */
 	if (hard_multipliers == NULL)
+	{
 		printf(ERRTAG "Instantiating multiplier where multipliers do not exist\n");
+	}
 	tmp = hard_multipliers->instances;
 	width_a = node->input_port_sizes[0];
 	width_b = node->input_port_sizes[1];
@@ -346,10 +373,12 @@ void declare_hard_multiplier(nnode_t *node)
 		width_a = swap;
 	}
 	while (tmp != NULL)
+	{
 		if ((tmp->size_a == width_a) && (tmp->size_b == width_b) && (tmp->size_out == width))
 			return;
 		else
 			tmp = tmp->next;
+	}
 
 	/* Does not exist - must create an instance */
 	tmp = (t_multiplier *)malloc(sizeof(t_multiplier));
@@ -364,8 +393,7 @@ void declare_hard_multiplier(nnode_t *node)
 /*---------------------------------------------------------------------------
  * (function: instantiate_hard_multiplier )
  *-------------------------------------------------------------------------*/
-void
-instantiate_hard_multiplier(nnode_t *node, short mark, netlist_t *netlist)
+void instantiate_hard_multiplier(nnode_t *node, short mark, netlist_t *netlist)
 {
 	char *new_name;
 	int len, sanity, i;
@@ -390,7 +418,9 @@ instantiate_hard_multiplier(nnode_t *node, short mark, netlist_t *netlist)
 	for (i = 0; i < node->num_output_pins;  i++)
 	{
 		if (node->output_pins[i]->name != NULL)
+		{
 			free(node->output_pins[i]->name);
+		}
 		len = strlen(node->name) + 6; /* 6 chars for pin idx */
 		new_name = (char*)malloc(len);
 		sprintf(new_name, "%s~%d", node->name, node->output_pins[i]->pin_node_idx);
@@ -503,15 +533,21 @@ void define_mult_function(nnode_t *node, short type, FILE *out)
 	oassert(node->output_port_sizes[0] > 0);
 
 	if (configuration.fixed_hard_multiplier != 0)
+	{
 		count += fprintf(out, " multiply");
+	}
 	else
 	{
 		if (node->input_port_sizes[0] > node->input_port_sizes[1])
+		{
 			count += fprintf(out, " mult_%d_%d_%d", node->input_port_sizes[0],
 				node->input_port_sizes[1], node->output_port_sizes[0]);
+		}
 		else
+		{
 			count += fprintf(out, " mult_%d_%d_%d", node->input_port_sizes[1],
 				node->input_port_sizes[0], node->output_port_sizes[0]);
+		}
 	}
 
 	for (i = 0;  i < node->num_input_pins; i++)
@@ -564,8 +600,7 @@ void define_mult_function(nnode_t *node, short type, FILE *out)
  *	to original pins, output pins are set to NULL for later connecting
  *	with temp pins to connect cascading multipliers/adders.
  *---------------------------------------------------------------------*/
-void
-init_split_multiplier(nnode_t *node, nnode_t *ptr, int offa, int a, int offb, int b)
+void init_split_multiplier(nnode_t *node, nnode_t *ptr, int offa, int a, int offb, int b)
 {
 	int i;
 
@@ -613,8 +648,7 @@ init_split_multiplier(nnode_t *node, nnode_t *ptr, int offa, int a, int offb, in
  * This function is used to initialize an adder that is within
  *	a split multiplier.
  *-----------------------------------------------------------------------*/
-void
-init_cascade_adder(nnode_t *node, nnode_t *a, int b)
+void init_cascade_adder(nnode_t *node, nnode_t *a, int b)
 {
 	int i, size;
 
