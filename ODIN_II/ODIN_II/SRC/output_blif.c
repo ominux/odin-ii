@@ -474,8 +474,8 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 			fprintf(out, " 1\n");
 			break;
 		}
-		case LOGICAL_EQUAL:
-		case LOGICAL_XNOR:
+		case NOT_EQUAL:
+		case LOGICAL_XOR:
 		{
 			/* generates: a 1 when odd number of 1s */
 			for (i = 0; i < my_power(2, node->num_input_pins); i++)
@@ -490,8 +490,8 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 			}
 			break;
 		}
-		case NOT_EQUAL:
-		case LOGICAL_XOR:
+		case LOGICAL_EQUAL:
+		case LOGICAL_XNOR:
 		{
 			for (i = 0; i < my_power(2, node->num_input_pins); i++)
 			{
