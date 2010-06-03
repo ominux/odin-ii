@@ -188,6 +188,7 @@ ast_node_t *create_tree_node_number(char* number, int line_number, int file_numb
 	char *string_pointer = number;
 	int index_string_pointer = 0;
 	char *temp_string;
+	short flag_constant_decimal = FALSE;
 
 	/* find the ' character if it's a base */
 	for (string_pointer=number; *string_pointer; string_pointer++) 
@@ -201,6 +202,7 @@ ast_node_t *create_tree_node_number(char* number, int line_number, int file_numb
 
 	if (index_string_pointer == strlen(number))
 	{
+		flag_constant_decimal = TRUE;
 		/* this is base d */
 		new_node->types.number.base = DEC;
 		/* reset to the front */
@@ -247,8 +249,24 @@ ast_node_t *create_tree_node_number(char* number, int line_number, int file_numb
 		new_node->types.number.number = strdup((string_pointer));
 	}
 
-	/* size describes how may bits */
-	new_node->types.number.binary_size = new_node->types.number.size;
+	/* check for decimal numbers without the formal 2'd... format */
+	if (flag_constant_decimal == FALSE)
+	{
+		/* size describes how may bits */
+		new_node->types.number.binary_size = new_node->types.number.size;
+	}
+	else
+	{
+		/* size is for a constant that needs */
+		if (strcmp(new_node->types.number.number, "0") != 0)
+		{
+			new_node->types.number.binary_size = ceil(log(convert_dec_string_of_size_to_long(new_node->types.number.number, new_node->types.number.size))/log(2));
+		}
+		else
+		{
+			new_node->types.number.binary_size = 1;
+		}
+	}
 	/* add in the values for all the numbers */
 	switch (new_node->types.number.base)
 	{

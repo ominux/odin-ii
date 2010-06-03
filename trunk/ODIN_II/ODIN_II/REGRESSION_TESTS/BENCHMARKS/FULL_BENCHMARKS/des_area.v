@@ -924,7 +924,7 @@ assign IP[1:64] = {	desIn[06], desIn[14], desIn[22], desIn[30], desIn[38], desIn
 			desIn[54], desIn[62], desIn[04], desIn[12], desIn[20], desIn[28],
 			desIn[36], desIn[44], desIn[52], desIn[60], desIn[02], desIn[10], 
 			desIn[18], desIn[26], desIn[34], desIn[42], desIn[50], desIn[58], 
-			desIn[00], desIn[08], desIn[16], desIn[24], desIn[32], desIn[40], 
+			desIn[0], desIn[08], desIn[16], desIn[24], desIn[32], desIn[40], 
 			desIn[48], desIn[56], desIn[07], desIn[15], desIn[23], desIn[31], 
 			desIn[39], desIn[47], desIn[55], desIn[63], desIn[05], desIn[13],
 			desIn[21], desIn[29], desIn[37], desIn[45], desIn[53], desIn[61],

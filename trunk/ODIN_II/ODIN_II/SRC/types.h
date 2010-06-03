@@ -75,6 +75,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define LEVELIZE 12
 #define ACTIVATION 13
 
+//#define oassert(x) {if(!(x)){exit(-1);}} // causes an interrupt in GDB
 #define oassert(x) {if(!(x)){__asm("int3");}} // causes an interrupt in GDB
 // bitvector library (PETER_LIB) defines it, so we don't
 
