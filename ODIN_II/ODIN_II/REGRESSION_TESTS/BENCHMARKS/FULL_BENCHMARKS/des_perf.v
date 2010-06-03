@@ -213,7 +213,7 @@ assign IP[1:64] = {	desIn_r[06], desIn_r[14], desIn_r[22], desIn_r[30], desIn_r[
 			desIn_r[54], desIn_r[62], desIn_r[04], desIn_r[12], desIn_r[20], desIn_r[28],
 			desIn_r[36], desIn_r[44], desIn_r[52], desIn_r[60], desIn_r[02], desIn_r[10], 
 			desIn_r[18], desIn_r[26], desIn_r[34], desIn_r[42], desIn_r[50], desIn_r[58], 
-			desIn_r[00], desIn_r[08], desIn_r[16], desIn_r[24], desIn_r[32], desIn_r[40], 
+			desIn_r[0], desIn_r[08], desIn_r[16], desIn_r[24], desIn_r[32], desIn_r[40], 
 			desIn_r[48], desIn_r[56], desIn_r[07], desIn_r[15], desIn_r[23], desIn_r[31], 
 			desIn_r[39], desIn_r[47], desIn_r[55], desIn_r[63], desIn_r[05], desIn_r[13],
 			desIn_r[21], desIn_r[29], desIn_r[37], desIn_r[45], desIn_r[53], desIn_r[61],
