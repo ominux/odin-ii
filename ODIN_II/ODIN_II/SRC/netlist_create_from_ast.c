@@ -382,7 +382,10 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 				}
 				break;
 			case NON_BLOCKING_STATEMENT:
-				oassert (type_of_circuit == SEQUENTIAL);
+				if (type_of_circuit != SEQUENTIAL)
+				{
+					error_message(NETLIST_ERROR, node->line_number, node->file_number, "ODIN doesn't handle non blocking statements in combinational blocks\n");
+				}
 				return_sig_list = assignment_alias(node, instance_name_prefix); 	
 				skip_children = TRUE;
 				break;
