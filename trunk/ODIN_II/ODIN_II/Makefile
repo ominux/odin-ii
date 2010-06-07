@@ -16,11 +16,11 @@ OPT_FLAGS = -O2
 
 ifeq "$(BUILD)" "VPR5"
 INC_FLAGS =  -I../libvpr_5/include
-LIB = -L../libvpr_5 -lvpr_5 
+LIB = -L../libvpr_5 -lvpr_5 -lm
 C_DIRECTIVE = -DVPR5 -DUSING_BISON
 else
 INC_FLAGS =  -I../libvpr_6/include 
-LIB = -L../libvpr_6 -lvpr_6
+LIB = -L../libvpr_6 -lvpr_6 -lm
 C_DIRECTIVE = -DVPR6 -DUSING_BISON
 endif
 
