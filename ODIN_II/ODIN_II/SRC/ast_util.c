@@ -27,6 +27,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdarg.h>
+#include <math.h>
 #include "globals.h"
 #include "types.h"
 #include "errors.h"
