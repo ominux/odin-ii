@@ -22,7 +22,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#define WIN32
+//#define WIN32
 
 /* Ted Campbell, Aug 14 2007 */
 #if defined(WIN32) || defined(_WIN32)

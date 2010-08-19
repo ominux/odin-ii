@@ -373,6 +373,7 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 {
 	int i, j;
 	char *temp_string;
+	int flag = 0;
 
 	fprintf(out, ".names");
 
@@ -474,13 +475,13 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 			fprintf(out, " 1\n");
 			break;
 		}
-		case NOT_EQUAL:
+		case LOGICAL_EQUAL:
 		case LOGICAL_XOR:
 		{
 			/* generates: a 1 when odd number of 1s */
 			for (i = 0; i < my_power(2, node->num_input_pins); i++)
 			{
-				if ((i % 8 == 1) || (i % 8 == 2) || (i % 8 == 5) || (i % 8 == 6))
+				if ((i % 8 == 1) || (i % 8 == 2) || (i % 8 == 4) || (i % 8 == 7))
 				{
 					temp_string = convert_long_to_bit_string(i, node->num_input_pins);
 					fprintf(out, "%s", temp_string);
@@ -490,12 +491,12 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 			}
 			break;
 		}
-		case LOGICAL_EQUAL:
+		case NOT_EQUAL:
 		case LOGICAL_XNOR:
 		{
 			for (i = 0; i < my_power(2, node->num_input_pins); i++)
 			{
-				if ((i % 8 == 0) || (i % 8 == 3) || (i % 8 == 4) || (i % 8 == 7))
+				if ((i % 8 == 0) || (i % 8 == 3) || (i % 8 == 5) || (i % 8 == 6))
 				{
 					temp_string = convert_long_to_bit_string(i, node->num_input_pins);
 					fprintf(out, "%s", temp_string);
@@ -511,6 +512,8 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 	}
 
 	fprintf(out, "\n");
+	if (flag == 1)
+		output_blif_pin_connect(node, out);
 }
 
 /*------------------------------------------------------------------------
@@ -519,6 +522,8 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 void define_set_input_logical_function(nnode_t *node, char *bit_output, FILE *out)
 {
 	int i;
+	int flag = 0;
+
 	fprintf(out, ".names");
 
 	oassert(node->num_output_pins == 1);
@@ -570,8 +575,6 @@ void define_set_input_logical_function(nnode_t *node, char *bit_output, FILE *ou
 		}
 	
 		/* now print the output */
-		if (0 == strncmp(node->name, "top.or1200_ctrl+or1200_ctrl^MULTI_PORT_MUX~761^MUX_2~14411", 58))
-			printf("FOUND IT\n");
 		fprintf(out, " %s", node->name);
 		fprintf(out, "\n");
 	
@@ -582,6 +585,9 @@ void define_set_input_logical_function(nnode_t *node, char *bit_output, FILE *ou
 		}
 		fprintf(out, "\n");
 	}
+
+	if ((flag == 1) && (node->type == HARD_IP))
+		output_blif_pin_connect(node, out);
 }
 
 

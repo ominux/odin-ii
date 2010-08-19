@@ -320,29 +320,28 @@ void backward_traversal_net_graph_display(FILE *fp, short marker_value, nnode_t 
 		
 		/* printout the details of it */
 		temp_string = make_simple_name(current_node->name, "^-+.", '_');
-		if (index_in_stack == 0)
+		if (index_in_stack != 0)
 		{
-			NULL;
-		}
-		else if ((current_node->type == FF_NODE) || (current_node->type == BUF_NODE))
-		{
-			fprintf(fp, "\t%s [shape=box];\n", temp_string);
-		}
-		else if (current_node->type == INPUT_NODE)
-		{
-			fprintf(fp, "\t%s [shape=triangle];\n", temp_string);
-		}
-		else if (current_node->type == CLOCK_NODE)
-		{
-			fprintf(fp, "\t%s [shape=triangle];\n", temp_string);
-		}
-		else if (current_node->type == OUTPUT_NODE)
-		{
-			fprintf(fp, "\t%s_O [shape=triangle];\n", temp_string);
-		}
-		else
-		{
-			fprintf(fp, "\t%s [label=\"%d:%d\"];\n", temp_string, current_node->forward_level, current_node->backward_level);
+			if ((current_node->type == FF_NODE) || (current_node->type == BUF_NODE))
+			{
+				fprintf(fp, "\t%s [shape=box];\n", temp_string);
+			}
+			else if (current_node->type == INPUT_NODE)
+			{
+				fprintf(fp, "\t%s [shape=triangle];\n", temp_string);
+			}
+			else if (current_node->type == CLOCK_NODE)
+			{
+				fprintf(fp, "\t%s [shape=triangle];\n", temp_string);
+			}
+			else if (current_node->type == OUTPUT_NODE)
+			{
+				fprintf(fp, "\t%s_O [shape=triangle];\n", temp_string);
+			}
+			else
+			{
+				fprintf(fp, "\t%s [label=\"%d:%d\"];\n", temp_string, current_node->forward_level, current_node->backward_level);
+			}
 		}
 		free(temp_string);
 

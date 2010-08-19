@@ -38,6 +38,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define ast_node_t struct ast_node_t_t
 #define info_ast_visit_t struct info_on_ast_visit_t_t
 
+#define sim_state_t struct sim_state_t_t
 #define nnode_t struct nnode_t_t
 #define npin_t struct npin_t_t
 #define nnet_t struct nnet_t_t
@@ -59,6 +60,8 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define NETLIST_FILE_ERROR -6
 /* for errors in activation estimateion creation */
 #define ACTIVATION_ERROR -7
+/* for errors in the netlist simulation */
+#define SIMULATION_ERROR -8
 
 /* unique numbers to mark the nodes as we DFS traverse the netlist */
 #define PARTIAL_MAP_TRAVERSE_VALUE 10
@@ -95,7 +98,14 @@ config_t
 	int fracture_hard_multiplier; // flag for fractured hard multipliers
 	short split_memory_width;
 	short split_memory_depth;
+	char *arch_file; // Name of the FPGA architecture file
 };
+
+typedef enum {
+	NO_SIMULATION = 0,
+	TEST_EXISTING_VECTORS,
+	GENERATE_VECTORS,
+}simulation_type;
 
 /* the global arguments of the software */
 global_args_t
@@ -107,6 +117,9 @@ global_args_t
 	char *activation_blif_file;
 	char *activation_netlist_file;
 	char *high_level_block;
+	char *sim_vectors_file;
+	int num_test_vectors;
+	simulation_type sim_type;
 };
 
 #endif // TYPES_H
@@ -308,6 +321,13 @@ info_ast_visit_t
 #ifndef NETLIST_UTILS_H
 #define NETLIST_UTILS_H
 
+sim_state_t
+{
+	int cycle;
+	int value;
+	int prev_value;
+};
+
 /* DEFINTIONS for all the different types of nodes there are.  This is also used cross-referenced in utils.c so that I can get a string version 
  * of these names, so if you add new tpyes in here, be sure to add those same types in utils.c */
 nnode_t
@@ -339,6 +359,9 @@ nnode_t
 
 	netlist_t* internal_netlist; // this is a point of having a subgraph in a node
 
+	int *memory_data1;
+	int *memory_data2;
+
 	short *associated_function;
 };
 
@@ -354,6 +377,8 @@ npin_t
 	nnode_t *node; // related node
 	int pin_node_idx; // pin on the node where we're located
 	char *mapping; // name of mapped port from hard block
+
+	sim_state_t *sim_state;
 };
 
 nnet_t

@@ -68,6 +68,9 @@ nnode_t* allocate_nnode()
 
 	new_node->associated_function = NULL;
 
+	new_node->memory_data1 = NULL;
+	new_node->memory_data2 = NULL;
+
 	return new_node;
 }
 
@@ -201,6 +204,11 @@ npin_t* allocate_npin()
 	new_pin->pin_node_idx = -1;
 	new_pin->mapping = NULL;
 
+	new_pin->sim_state = malloc(sizeof(sim_state_t));
+	new_pin->sim_state->cycle = -1;
+	new_pin->sim_state->value = -1;
+	new_pin->sim_state->prev_value = -1;
+
 	return new_pin;
 }
 
@@ -248,6 +256,7 @@ void free_npin(npin_t *to_free)
 {
 	if (to_free != NULL)
 	{
+		free(to_free->sim_state);
 		free(to_free);
 	}
 }
