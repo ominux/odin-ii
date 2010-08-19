@@ -56,7 +56,9 @@ OBJ/verilog_flex.o \
 OBJ/hard_blocks.o \
 OBJ/memories.o \
 OBJ/verilog_preprocessor.o \
-OBJ/odin_II.o
+OBJ/queue.o \
+OBJ/simulate_blif.o \
+OBJ/odin_ii.o
 
 SRC = \
 SRC/netlist_stats.c \
@@ -85,7 +87,9 @@ SRC/string_cache.c \
 SRC/hard_blocks.c \
 SRC/memories.c \
 SRC/verilog_preprocessor.c \
-SRC/odin_II.c
+SRC/queue.c \
+SRC/simulate_blif.c \
+SRC/odin_ii.c
 
 H = \
 SRC/netlist_stats.h \
@@ -115,6 +119,8 @@ SRC/types.h \
 SRC/hard_blocks.h \
 SRC/memories.h \
 SRC/verilog_preprocessor.h \
+SRC/queue.h \
+SRC/simulate_blif.h \
 SRC/globals.h
 
 $(EXE): CTAGS OBJ/verilog_bison.o OBJ/verilog_flex.o $(OBJS)

@@ -43,6 +43,8 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "read_netlist.h"
 #include "activity_estimation.h"
 #include "high_level_data.h"
+#include "hard_blocks.h"
+#include "simulate_blif.h"
 
 global_args_t global_args;
 int current_parse_file;
@@ -51,6 +53,7 @@ t_type_descriptor* type_descriptors;
 int block_tag;
 void get_options(int argc, char **argv);
 void do_high_level_synthesis();
+void do_simulation_of_netlist();
 void do_activation_estimation( int num_types, t_type_descriptor * type_descriptors);
 
 int main(int argc, char **argv)
@@ -88,6 +91,9 @@ int main(int argc, char **argv)
 	/* High level synthesis tool */
 	do_high_level_synthesis();
 
+	/* Simulate blif netlist */
+	do_simulation_of_netlist();
+
 	/* activation estimation tool */
 #ifdef VPR5
 	do_activation_estimation(num_types, type_descriptors);
@@ -101,7 +107,7 @@ int main(int argc, char **argv)
 	return 0;
 } 
 
-static const char *optString = "hHc:V:h:o:O:a:B:N:f:"; // list must end in ":"
+static const char *optString = "hHc:V:h:o:O:a:B:N:f:s:S:g:G:t:T:"; // list must end in ":"
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
@@ -117,6 +123,9 @@ void get_options(int argc, char **argv)
 	global_args.activation_blif_file = NULL;
 	global_args.activation_netlist_file = NULL;
 	global_args.high_level_block = NULL;
+	global_args.sim_vectors_file = NULL;
+	global_args.sim_type = NO_SIMULATION;
+	global_args.num_test_vectors = 0;
 
 	/* set up the global configuration ahead of time */
 	configuration.list_of_file_names = NULL;
@@ -125,6 +134,7 @@ void get_options(int argc, char **argv)
 	configuration.output_ast_graphs = 0;
 	configuration.output_netlist_graphs = 0;
 	configuration.debug_output_path = ".";
+	configuration.arch_file = NULL;
 
 	/* read in the option line */
 	opt = getopt(argc, argv, optString);
@@ -135,6 +145,7 @@ void get_options(int argc, char **argv)
 		/* arch file */
 		case 'a': 
 			global_args.arch_file = optarg;
+			configuration.arch_file = optarg;
 			break;
 		/* config file */
 		case 'c': 
@@ -165,6 +176,20 @@ void get_options(int argc, char **argv)
 		case 'H':
 			printf("Usage: odin_II.exe\n\tOne of:\n\t\t-c <config_file_name.xml>\n\t\t-V <verilog_file_name.v>\n\tAlso options of:\n\t\t-o <output_path and file name>\n\t\t-a <architecture_file_in_VPR6.0_form>\n\t\t-A <blif_file_for_activation_estimation>\n\t\t \n");
 			exit(-1);
+			break;
+		case 'g':
+		case 'G':
+			global_args.num_test_vectors = atoi(optarg);
+			global_args.sim_type = GENERATE_VECTORS;
+			break;
+		case 't':
+		case 'T':
+			global_args.sim_vectors_file = optarg;
+			global_args.sim_type = TEST_EXISTING_VECTORS;
+			break;
+		case 's':
+		case 'S':
+			global_args.sim_vectors_file = optarg;
 			break;
 		default : 
 			printf("Usage: \"odin_II.exe -h\" for usage\n");
@@ -238,6 +263,27 @@ void do_high_level_synthesis()
 
 	printf("Successful High-level synthesis by Odin\n");
 	printf("--------------------------------------------------------------------\n");
+}
+
+/*---------------------------------------------------------------------------------------------
+ * (function: do_simulation_of_netlist)
+ *-------------------------------------------------------------------------------------------*/
+void do_simulation_of_netlist()
+{
+	if (global_args.sim_type == NO_SIMULATION)
+		return;
+	printf("Netlist Simulation Begin\n");
+	if (global_args.sim_type == GENERATE_VECTORS)
+	{
+		printf("Testing new (random) vectors.\n");
+		simulate_new_vectors(global_args.num_test_vectors, verilog_netlist);
+	}
+	else //global_args.sim_type == TEST_EXISTING_VECTORS
+	{
+		printf("Testing existing vectors.\n");
+		simulate_blif(global_args.sim_vectors_file, verilog_netlist);
+	}
+	printf("\n--------------------------------------------------------------------\n");
 }
 
 /*---------------------------------------------------------------------------------------------

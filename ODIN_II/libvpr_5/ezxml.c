@@ -23,7 +23,7 @@
  */
 
 /* Ted Campbell, Aug 14 2007 */
-#define WIN32
+//#define WIN32
 
 #if defined(WIN32) || defined(_WIN32)
 #include <io.h>
