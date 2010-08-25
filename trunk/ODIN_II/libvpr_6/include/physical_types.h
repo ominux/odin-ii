@@ -33,6 +33,14 @@ enum e_side
 enum e_pb_type_class
 { UNKNOWN_CLASS = 0, LUT_CLASS = 1, LATCH_CLASS = 2, MEMORY_CLASS = 3 };
 
+/* Annotations for pin-to-pin connections */
+enum e_pin_to_pin_annotation_type
+{E_ANNOT_PIN_TO_PIN_DELAY = 0, E_ANNOT_PIN_TO_PIN_CAPACITANCE};
+enum e_pin_to_pin_delay_annotations
+{E_ANNOT_PIN_TO_PIN_DELAY_MIN = 0, E_ANNOT_PIN_TO_PIN_DELAY_MAX, E_ANNOT_PIN_TO_PIN_DELAY_TSETUP, 
+E_ANNOT_PIN_TO_PIN_DELAY_THOLD};
+enum e_pin_to_pin_capacitance_annotations
+{E_ANNOT_PIN_TO_PIN_CAPACITANCE_C = 0};
 
 
 /*************************************************************************************************/
@@ -124,6 +132,29 @@ struct s_port
 };
 typedef struct s_port t_port;
 
+/** 
+ * Info placed between pins that can be processed later for additional information
+ * value: value/property pair
+ * prop: value/property pair
+ * type: type of annotation
+ * input_port: input string verbatim to parse later
+ * output_port: input string output to parse later
+ */
+struct s_pin_to_pin_annotation
+{
+    char ** value; /* [0..num_value_prop_pairs - 1] */
+	int * prop; /* [0..num_value_prop_pairs - 1] */
+	int num_value_prop_pairs;
+
+	enum e_pin_to_pin_annotation_type type;
+
+	char * input_pins;
+	char * output_pins;
+	char * clock;
+};
+typedef struct s_pin_to_pin_annotation t_pin_to_pin_annotation;
+
+
 /** Describes interconnect edge inside a cluster
  * type: type of the interconnect
  * input_string: input string verbatim to parse later
@@ -132,8 +163,15 @@ typedef struct s_port t_port;
 struct s_interconnect
 {
     enum e_interconnect type;
+	char *name;
+
 	char *input_string;
 	char *output_string;
+	float area;
+
+	t_pin_to_pin_annotation *annotations;	/* [0..num_annotations-1] */
+	int num_annotations;
+	int parent_mode_index;
 };
 typedef struct s_interconnect t_interconnect;
 
@@ -151,6 +189,7 @@ struct s_mode
 	t_interconnect *interconnect;
 	int num_interconnect;
 	struct s_pb_type *parent_pb_type;
+	int index;
 };
 typedef struct s_mode t_mode;
 
@@ -172,7 +211,6 @@ struct s_pb_graph_pin
 	struct s_pb_graph_edge** output_edges; /* [0..num_output_edges] */
 	int num_output_edges;
 	struct s_pb_graph_node *parent_node;
-
 	int pin_count_in_cluster;
 };
 typedef struct s_pb_graph_pin t_pb_graph_pin;
@@ -191,6 +229,14 @@ struct s_pb_graph_edge
 	int num_input_pins;
 	t_pb_graph_pin **output_pins;
 	int num_output_pins;
+	
+	float delay_max;
+	float delay_min;
+	float capacitance;
+
+	t_interconnect * interconnect;
+	int driver_set;
+	int driver_pin;
 };
 typedef struct s_pb_graph_edge t_pb_graph_edge;
 
@@ -218,7 +264,7 @@ struct s_pb_graph_node
 	int *num_input_pins;  /* [0..num_input_ports - 1] */
 	int *num_output_pins; /* [0..num_output_ports - 1] */
 	int *num_clock_pins; /* [0..num_clock_ports - 1] */
-		
+
 	struct s_pb_graph_node ***child_pb_graph_nodes; /* [0..num_modes-1][0..num_pb_type_in_mode-1][0..num_pb-1] */
 	struct s_pb_graph_node *parent_pb_graph_node; 
 
@@ -259,6 +305,10 @@ struct s_pb_type
 	float **timing; /* [0..num_inputs-1][0..num_outputs-1] */
 	t_mode *parent_mode;
 	int depth; /* depth of pb_type */
+
+	float area;
+	t_pin_to_pin_annotation *annotations;	/* [0..num_annotations-1] */
+	int num_annotations;
 
 	struct s_linked_vptr *models_contained;
 };

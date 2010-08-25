@@ -39,6 +39,7 @@ extern "C"
 #define EZXML_NAMEM   0x80	/* name is malloced */
 #define EZXML_TXTM    0x40	/* txt is malloced */
 #define EZXML_DUP     0x20	/* attribute name and value are strduped */
+#define EZXML_ERRL 128		/* maximum error string length */
 
     typedef struct ezxml *ezxml_t;
     struct ezxml
@@ -53,7 +54,28 @@ extern "C"
 	ezxml_t child;		/* head of sub tag list, NULL if none */
 	ezxml_t parent;		/* parent tag, NULL if current tag is root tag */
 	short flags;		/* additional information */
+	/* Jason Luu June 22, 2010, Added line number support */
+	int line;
     };
+
+	/* Jason Luu June 22, 2010, Moved root definition to header */
+	typedef struct ezxml_root *ezxml_root_t;
+	struct ezxml_root
+	{				/* additional data for the root tag */
+		struct ezxml xml;		/* is a super-struct built on top of ezxml struct */
+		ezxml_t cur;		/* current xml tree insertion point */
+		char *m;			/* original xml string */
+		size_t len;			/* length of allocated memory for mmap, -1 for malloc */
+		char *u;			/* UTF-8 conversion of string if original was UTF-16 */
+		char *s;			/* start of work area */
+		char *e;			/* end of work area */
+		char **ent;			/* general entities (ampersand sequences) */
+		char ***attr;		/* default attributes */
+		char ***pi;			/* processing instructions */
+		short standalone;		/* non-zero if <?xml standalone="yes"?> */
+		char err[EZXML_ERRL];	/* error string */
+	};
+
 
 /* Given a string of xml data and its length, parses it and creates an ezxml */
 /* structure. For efficiency, modifies the data by adding null terminators */

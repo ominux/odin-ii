@@ -66,23 +66,6 @@
 #define EZXML_WS   "\t\r\n "	/* whitespace */
 #define EZXML_ERRL 128		/* maximum error string length */
 
-typedef struct ezxml_root *ezxml_root_t;
-struct ezxml_root
-{				/* additional data for the root tag */
-    struct ezxml xml;		/* is a super-struct built on top of ezxml struct */
-    ezxml_t cur;		/* current xml tree insertion point */
-    char *m;			/* original xml string */
-    size_t len;			/* length of allocated memory for mmap, -1 for malloc */
-    char *u;			/* UTF-8 conversion of string if original was UTF-16 */
-    char *s;			/* start of work area */
-    char *e;			/* end of work area */
-    char **ent;			/* general entities (ampersand sequences) */
-    char ***attr;		/* default attributes */
-    char ***pi;			/* processing instructions */
-    short standalone;		/* non-zero if <?xml standalone="yes"?> */
-    char err[EZXML_ERRL];	/* error string */
-};
-
 char *EZXML_NIL[] = { NULL };	/* empty, null terminated array of strings */
 
 /* returns the first child tag with the given name or NULL if not found */
@@ -215,8 +198,10 @@ ezxml_err(ezxml_root_t root,
 /* for cdata sections, ' ' for attribute normalization, or '*' for non-cdata */
 /* attribute normalization. Returns s, or if the decoded string is longer than */
 /* s, returns a malloced string that must be freed. */
+/* Jason Luu June 22, 2010, Added line number support */
 char *
-ezxml_decode(char *s,
+ezxml_decode(int *cur_line,
+	     char *s,
 	     char **ent,
 	     char t)
 {
@@ -228,8 +213,10 @@ ezxml_decode(char *s,
 	    while(*s == '\r')
 		{
 		    *(s++) = '\n';
-		    if(*s == '\n')
+		    if(*s == '\n'){
 			memmove(s, (s + 1), strlen(s));
+			(*cur_line)++;
+		    }
 		}
 	}
 
@@ -237,6 +224,8 @@ ezxml_decode(char *s,
 	{
 	    while(*s && *s != '&' && (*s != '%' || t != '%') && !isspace(*s))
 		s++;
+	    if (*s == '\n')
+		(*cur_line)++;
 
 	    if(!*s)
 		break;
@@ -313,8 +302,10 @@ ezxml_decode(char *s,
 }
 
 /* called when parser finds start of new tag */
+/* Jason Luu June 22, 2010, Added line number support */
 void
 ezxml_open_tag(ezxml_root_t root,
+		int line,
 	       char *name,
 	       char **attr)
 {
@@ -324,14 +315,17 @@ ezxml_open_tag(ezxml_root_t root,
 	xml = ezxml_add_child(xml, name, strlen(xml->txt));
     else
 	xml->name = name;	/* first open tag */
+    xml->line = line;
 
     xml->attr = attr;
     root->cur = xml;		/* update tag insertion point */
 }
 
 /* called when parser finds character content between open and closing tag */
+/* Jason Luu June 22, 2010, Added line number support */
 void
 ezxml_char_content(ezxml_root_t root,
+		   int *cur_line,
 		   char *s,
 		   size_t len,
 		   char t)
@@ -344,7 +338,7 @@ ezxml_char_content(ezxml_root_t root,
 	return;			/* sanity check */
 
     s[len] = '\0';		/* null terminate text (calling functions anticipate this) */
-    len = strlen(s = ezxml_decode(s, root->ent, t)) + 1;
+    len = strlen(s = ezxml_decode(cur_line, s, root->ent, t)) + 1;
 
     if(!*(xml->txt))
 	xml->txt = s;		/* initial character content */
@@ -450,8 +444,10 @@ ezxml_proc_inst(ezxml_root_t root,
 }
 
 /* called when the parser finds an internal doctype subset */
+/* Jason Luu June 22, 2010, Added line number support */
 short
 ezxml_internal_dtd(ezxml_root_t root,
+			int *cur_line,
 		   char *s,
 		   size_t len)
 {
@@ -493,7 +489,7 @@ ezxml_internal_dtd(ezxml_root_t root,
 		    s = strchr(v, q);
 		    if(s)
 			*(s++) = '\0';	/* null terminate value */
-		    ent[i + 1] = ezxml_decode(v, pe, '%');	/* set value */
+		    ent[i + 1] = ezxml_decode(cur_line, v, pe, '%');	/* set value */
 		    ent[i + 2] = NULL;	/* null terminate entity list */
 		    if(!ezxml_ent_ok(n, ent[i + 1], ent))
 			{	/* circular reference */
@@ -589,7 +585,7 @@ ezxml_internal_dtd(ezxml_root_t root,
 			    root->attr[i][j + 3] = NULL;	/* null terminate list */
 			    root->attr[i][j + 2] = c;	/* is it cdata? */
 			    root->attr[i][j + 1] =
-				(v) ? ezxml_decode(v, root->ent, *c) : NULL;
+				(v) ? ezxml_decode(cur_line, v, root->ent, *c) : NULL;
 			    root->attr[i][j] = n;	/* attribute name  */
 			}
 		}
@@ -680,6 +676,7 @@ ezxml_free_attr(char **attr)
 }
 
 /* parse the given xml string and return an ezxml structure */
+/* Jason Luu June 22, 2010, Added line number support */
 ezxml_t
 ezxml_parse_str(char *s,
 		size_t len)
@@ -687,6 +684,7 @@ ezxml_parse_str(char *s,
     ezxml_root_t root = (ezxml_root_t) ezxml_new(NULL);
     char q, e, *d, **attr, **a = NULL;	/* initialize a to avoid compile warning */
     int l, i, j;
+    int line = 1;
 
     root->m = s;
     if(!len)
@@ -714,8 +712,11 @@ ezxml_parse_str(char *s,
 					 "markup outside of root element");
 
 		    s += strcspn(s, EZXML_WS "/>");
-		    while(isspace(*s))
+		    while(isspace(*s)) {
+			if (*s == '\n')
+			    line++;
 			*(s++) = '\0';	/* null terminate tag name */
+		    }
 
 		    if(*s && *s != '/' && *s != '>')
 			{	/* find tag in default attr list */
@@ -739,6 +740,8 @@ ezxml_parse_str(char *s,
 			    s += strcspn(s, EZXML_WS "=/>");
 			    if(*s == '=' || isspace(*s))
 				{
+				    if (*s == '\n')
+					line++;
 				    *(s++) = '\0';	/* null terminate tag attribute name */
 				    q = *(s += strspn(s, EZXML_WS "="));
 				    if(q == '"' || q == '\'')
@@ -760,7 +763,7 @@ ezxml_parse_str(char *s,
 						&& strcmp(a[j], attr[l]);
 						j += 3);
 					    attr[l + 1] =
-						ezxml_decode(attr[l + 1],
+						ezxml_decode(&line, attr[l + 1],
 							     root->ent, (a
 									 &&
 									 a[j])
@@ -771,8 +774,11 @@ ezxml_parse_str(char *s,
 						attr[l + 3][l / 2] = EZXML_TXTM;	/* value malloced */
 					}
 				}
-			    while(isspace(*s))
+			    while(isspace(*s)) {
+				if (*s == '\n')
+				    line++;
 				s++;
+			    }
 			}
 
 		    if(*s == '/')
@@ -784,13 +790,13 @@ ezxml_parse_str(char *s,
 					ezxml_free_attr(attr);
 				    return ezxml_err(root, d, "missing >");
 				}
-			    ezxml_open_tag(root, d, attr);
+			    ezxml_open_tag(root, line, d, attr);
 			    ezxml_close_tag(root, d, s);
 			}
 		    else if((q = *s) == '>' || (!*s && e == '>'))
 			{	/* open tag */
 			    *s = '\0';	/* temporarily null terminate tag name */
-			    ezxml_open_tag(root, d, attr);
+			    ezxml_open_tag(root, line, d, attr);
 			    *s = q;
 			}
 		    else
@@ -810,8 +816,11 @@ ezxml_parse_str(char *s,
 		    *s = '\0';	/* temporarily null terminate tag name */
 		    if(ezxml_close_tag(root, d, s))
 			return &root->xml;
-		    if(isspace(*s = q))
+		    if(isspace(*s = q)){
+			if (*s == '\n')
+			    line++;
 			s += strspn(s, EZXML_WS);
+		    }
 		}
 	    else if(!strncmp(s, "!--", 3))
 		{		/* xml comment */
@@ -824,7 +833,7 @@ ezxml_parse_str(char *s,
 		    /* Jason Luu, Aug 29, 2007. Removed assignment in conditional statement */
 		    s = strstr(s, "]]>");
 		    if(s)
-			ezxml_char_content(root, d + 8, (s += 2) - d - 10,
+			ezxml_char_content(root, &line, d + 8, (s += 2) - d - 10,
 					   'c');
 		    else
 			return ezxml_err(root, d, "unclosed <![CDATA[");
@@ -843,7 +852,7 @@ ezxml_parse_str(char *s,
 		    if(!*s && e != '>')
 			return ezxml_err(root, d, "unclosed <!DOCTYPE");
 		    d = (l) ? strchr(d, '[') + 1 : d;
-		    if(l && !ezxml_internal_dtd(root, d, s++ - d))
+		    if(l && !ezxml_internal_dtd(root, &line, d, s++ - d))
 			return &root->xml;
 		}
 	    else if(*s == '?')
@@ -870,7 +879,7 @@ ezxml_parse_str(char *s,
 		    while(*s && *s != '<')
 			s++;
 		    if(*s)
-			ezxml_char_content(root, d, s - d, '&');
+			ezxml_char_content(root, &line, d, s - d, '&');
 		    else
 			break;
 		}
