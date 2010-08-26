@@ -302,7 +302,6 @@ struct s_pb_type
 	int num_input_pins; /* inputs not including clock pins */
 	int num_output_pins;
 	
-	float **timing; /* [0..num_inputs-1][0..num_outputs-1] */
 	t_mode *parent_mode;
 	int depth; /* depth of pb_type */
 

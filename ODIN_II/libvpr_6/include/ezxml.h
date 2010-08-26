@@ -153,7 +153,8 @@ extern "C"
 
 /* Adds a child tag. off is the offset of the child tag relative to the start */
 /* of the parent tag's character content. Returns the child tag. */
-    ezxml_t ezxml_add_child(ezxml_t xml,
+	ezxml_t ezxml_add_child(
+				ezxml_t xml,
 			    const char *name,
 			    size_t off);
 

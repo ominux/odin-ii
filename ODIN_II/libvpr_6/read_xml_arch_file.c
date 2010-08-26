@@ -10,15 +10,16 @@
 /* special type indexes, necessary for initialization initialization, everything afterwards
    should use the pointers to these type indices*/ 
 
-static char IO_STRING[] = "<pb_type name=\"io\">\n"
+static char IO_STRING[] = "<pb_type>\n"
 "  <input name=\"outpad\" num_pins=\"1\"/>\n"
 "  <output name=\"inpad\" num_pins=\"1\"/>\n"
+"  <clock name=\"clock\" num_pins=\"1\"/>\n"
 "  <mode name=\"inpad\">\n"
 "    <pb_type name=\"inpad\" blif_model=\".input\" num_pb=\"1\">\n"
 "      <output name=\"inpad\" num_pins=\"1\"/>\n"
 "    </pb_type>\n"
 "    <interconnect>\n"
-"      <direct input=\"inpad.inpad\" output=\"io.inpad\"/>\n"
+"      <direct name=\"inpad\" input=\"inpad.inpad\" output=\"io.inpad\"/>\n"
 "    </interconnect>\n"
 "\n"
 "  </mode>\n"
@@ -27,7 +28,7 @@ static char IO_STRING[] = "<pb_type name=\"io\">\n"
 "      <input name=\"outpad\" num_pins=\"1\"/>\n"
 "    </pb_type>\n"
 "    <interconnect>\n"
-"      <direct input=\"io.outpad\" output=\"outpad.outpad\"/>\n"
+"      <direct name=\"outpad\" input=\"io.outpad\" output=\"outpad.outpad\"/>\n"
 "    </interconnect>\n"
 "  </mode>\n"
 "</pb_type>\n";
@@ -76,6 +77,8 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 						   t_mode * mode);
 static void ProcessPb_TypePort(INOUTP ezxml_t Parent, 
 						   t_port * port);
+static void ProcessPinToPinAnnotations(ezxml_t parent, 
+						   t_pin_to_pin_annotation *annotation);
 static void ProcessInterconnect(INOUTP ezxml_t Parent,
 						   t_mode * mode);
 static void ProcessMode(INOUTP ezxml_t Parent,
@@ -128,7 +131,6 @@ static void SyncModelsPbTypes_rec(INOUTP struct s_arch *arch, INP t_pb_type *pb_
 static void PrintPb_types_rec(INP FILE * Echo, INP const t_pb_type * pb_type, int level);
 
 
-
 /* Figures out the Fc type and value for the given node. Unlinks the 
  * type and value. */ 
 static void
@@ -154,8 +156,8 @@ ParseFc(ezxml_t Node, enum Fc_type *Fc, float *Val)
     
     else
 	{
-	    printf(ERRTAG "Invalid type '%s' for Fc. Only abs, frac " 
-		    "and full are allowed.\n", Prop);
+	    printf(ERRTAG "[LINE %d] Invalid type '%s' for Fc. Only abs, frac " 
+			"and full are allowed.\n", Node->line, Prop);
 	    exit(1);
 	}
     switch (*Fc)
@@ -244,7 +246,7 @@ SetupClassInf(ezxml_t Classes, t_type_descriptor * Type)
 		    
 		    else
 			{
-			    printf(ERRTAG "Invalid pin class type '%s'.\n",
+				printf(ERRTAG "[LINE %d] Invalid pin class type '%s'.\n", Cur->line,
 				    Prop);
 			    exit(1);
 			}
@@ -315,7 +317,7 @@ SetupPinClasses(ezxml_t Classes, t_type_descriptor * Type)
 			if(pin_used[CurPin])
 			{
 			    printf(ERRTAG
-				    "Pin %d is defined in two different classes in type '%s'.\n",
+					"[LINE %d] Pin %d is defined in two different classes in type '%s'.\n", Cur->line,
 				    CurPin, Type->name);
 			    exit(1);
 			}
@@ -385,7 +387,7 @@ SetupPinLocations(ezxml_t Locations, t_type_descriptor * Type)
 		if((i < 0) || (i >= Type->height))
 		{
 			printf(ERRTAG
-				"%d is an invalid offset for type '%s'.\n",
+				"[LINE %d] %d is an invalid offset for type '%s'.\n", Cur->line,
 				i, Type->name);
 			exit(1);
 		}
@@ -414,7 +416,7 @@ SetupPinLocations(ezxml_t Locations, t_type_descriptor * Type)
 	    
 	    else
 		{
-		    printf(ERRTAG "'%s' is not a valid side.\n", Prop);
+			printf(ERRTAG "[LINE %d] '%s' is not a valid side.\n", Cur->line, Prop);
 		    exit(1);
 		}
 	    ezxml_set_attr(Cur, "side", NULL);
@@ -423,16 +425,16 @@ SetupPinLocations(ezxml_t Locations, t_type_descriptor * Type)
 		if((TOP == j) && (i != (Type->height - 1)))
 		{
 		    printf(ERRTAG
-			    "Locations are only allowed on large block " 
-			    "perimeter. 'top' side should be at offset %d only.\n",
+			    "[LINE %d] Locations are only allowed on large block " 
+				"perimeter. 'top' side should be at offset %d only.\n", Cur->line,
 			    (Type->height - 1));
 		    exit(1);
 		}
 	    if((BOTTOM == j) && (i != 0))
 		{
 		    printf(ERRTAG
-			    "Locations are only allowed on large block " 
-			    "perimeter. 'bottom' side should be at offset 0 only.\n");
+			    "[LINE %d] Locations are only allowed on large block "
+				"perimeter. 'bottom' side should be at offset 0 only.\n", Cur->line);
 		    exit(1);
 		}
 	    
@@ -450,7 +452,7 @@ SetupPinLocations(ezxml_t Locations, t_type_descriptor * Type)
 				if(k >= Type->num_pins)
 				{
 					printf(ERRTAG
-						"Pin %d of type '%s' is not a valid pin.\n",
+						"[LINE %d] Pin %d of type '%s' is not a valid pin.\n", Cur->line,
 						k, Type->name);
 					exit(1);
 				}
@@ -503,7 +505,7 @@ SetupGridLocations(ezxml_t Locations, t_type_descriptor * Type)
 			    if(Type->num_grid_loc_def != 1)
 				{
 				    printf(ERRTAG
-					    "Another loc specified for fill.\n");
+						"[LINE %d] Another loc specified for fill.\n", Cur->line);
 				    exit(1);
 				}
 			    Type->grid_loc_def[i].grid_loc_type = FILL;
@@ -520,7 +522,7 @@ SetupGridLocations(ezxml_t Locations, t_type_descriptor * Type)
 		    else
 			{
 			    printf(ERRTAG
-				    "Unknown grid location type '%s' for type '%s'.\n",
+					"[LINE %d] Unknown grid location type '%s' for type '%s'.\n", Cur->line,
 				    Prop, Type->name);
 			    exit(1);
 			}
@@ -532,7 +534,8 @@ SetupGridLocations(ezxml_t Locations, t_type_descriptor * Type)
 		    if(Prop == NULL)
 			{
 			    printf(ERRTAG
-				    "grid location property 'start' must be specified for grid location type 'col'.\n");
+				    "[LINE %d] grid location property 'start' must be specified for grid location type 'col'.\n",
+					Cur->line);
 			    exit(1);
 			}
 		    Type->grid_loc_def[i].start_col = my_atoi(Prop);
@@ -541,7 +544,8 @@ SetupGridLocations(ezxml_t Locations, t_type_descriptor * Type)
 	    else if(Prop != NULL)
 		{
 		    printf(ERRTAG
-			    "grid location property 'start' valid for grid location type 'col' only.\n");
+			    "[LINE %d] grid location property 'start' valid for grid location type 'col' only.\n",
+				Cur->line);
 		    exit(1);
 		}
 	    Prop = FindProperty(Cur, "repeat", FALSE);
@@ -556,7 +560,8 @@ SetupGridLocations(ezxml_t Locations, t_type_descriptor * Type)
 	    else if(Prop != NULL)
 		{
 		    printf(ERRTAG
-			    "grid location property 'repeat' valid for grid location type 'col' only.\n");
+			    "[LINE %d] grid location property 'repeat' valid for grid location type 'col' only.\n",
+				Cur->line);
 		    exit(1);
 		}
 	    Prop = FindProperty(Cur, "pos", FALSE);
@@ -565,7 +570,8 @@ SetupGridLocations(ezxml_t Locations, t_type_descriptor * Type)
 		    if(Prop == NULL)
 			{
 			    printf(ERRTAG
-				    "grid location property 'pos' must be specified for grid location type 'rel'.\n");
+				    "[LINE %d] grid location property 'pos' must be specified for grid location type 'rel'.\n",
+					Cur->line);
 			    exit(1);
 			}
 		    Type->grid_loc_def[i].col_rel = atof(Prop);
@@ -574,7 +580,8 @@ SetupGridLocations(ezxml_t Locations, t_type_descriptor * Type)
 	    else if(Prop != NULL)
 		{
 		    printf(ERRTAG
-			    "grid location property 'pos' valid for grid location type 'rel' only.\n");
+			    "[LINE %d] grid location property 'pos' valid for grid location type 'rel' only.\n",
+				Cur->line);
 		    exit(1);
 		}
 
@@ -587,91 +594,165 @@ SetupGridLocations(ezxml_t Locations, t_type_descriptor * Type)
 	}
 }
 
-#if 0
 static void
-SetupPbTypeTimingMatrix(ezxml_t timing, t_pb_type *pb_type)
+ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 {
-    ezxml_t Cur, prev;
-    float **t_comb;
-    int i, j;
-    char **Tokens;
+	int i = 0;
 	const char *Prop;
 	
-    t_comb =
-		(float **)alloc_matrix(
-					0, primitive_type->num_inputs - 1, 
-					0, primitive_type->num_outputs - 1, 
-					sizeof(float));
-
-	for(i = 0; i < primitive_type->num_inputs; i++)
-	{
-		for(j = 0; j < primitive_type->num_outputs; j++)
-		{
-			t_comb[i][j] = 0;
-		}
+	if(FindProperty(Parent, "max", FALSE)) {
+		i++;
+	}
+	if(FindProperty(Parent, "min", FALSE)) {
+		i++;
+	}
+	if(FindProperty(Parent, "type", FALSE)) {
+		i++;
+	}
+	if(FindProperty(Parent, "value", FALSE)) {
+		i++;
+	}
+	if(0 == strcmp(Parent->name, "C_constant") || 0 == strcmp(Parent->name, "C_matrix")) {
+		i = 1;
 	}
 
-	/* Load the timing info */ 
-	Prop = FindProperty(timing, "delay_type", FALSE);
-	if(Prop != NULL) {
-		if (0 == strcmp(Prop, "constant")) {
-			Prop = FindProperty(timing, "delay", TRUE);
-			ezxml_set_attr(timing, "delay_type", NULL);
-			ezxml_set_attr(timing, "delay", NULL);
-			for(i = 0; i < primitive_type->num_inputs; i++)
-			{
-				for(j = 0; j < primitive_type->num_outputs; j++)
-				{
-					t_comb[i][j] = atof(Prop);
-				}
-			}
-		} else {
-			printf(ERRTAG "Unknown delay_type %s\n", Prop);
-			exit(1);
-		}
-	} else {
+	annotation->num_value_prop_pairs = i;
+	annotation->prop = my_calloc(i, sizeof(int));
+	annotation->value = my_calloc(i, sizeof(char *));
 
-		Cur = timing->child;
-		i = 0;
-		while(Cur)
-		{
-			CheckElement(Cur, "trow");
-			Tokens = GetNodeTokens(Cur);
-			if(CountTokens(Tokens) != primitive_type->num_outputs)
-			{
-				printf(ERRTAG
-					"Number of tokens %d not equal number of subblock outputs %d.",
-					CountTokens(Tokens),
-					primitive_type->num_outputs);
-				exit(1);
-			}
-			for(j = 0; j < primitive_type->num_outputs; j++)
-			{
-				t_comb[i][j] = atof(Tokens[j]);
-			}
+	i = 0;
+	if(0 == strcmp(Parent->name, "delay_constant")) {
+		annotation->type = (int) E_ANNOT_PIN_TO_PIN_DELAY;
+		Prop = FindProperty(Parent, "max", FALSE);
+		if(Prop) {
+			annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_MAX;
+			annotation->value[i] = my_strdup(Prop);
+			ezxml_set_attr(Parent, "max", NULL);
 			i++;
-			prev = Cur;
-			Cur = Cur->next;
-			FreeNode(prev);
-			FreeTokens(&Tokens);
 		}
-		if(i != primitive_type->num_inputs)
-		{
-			printf(ERRTAG
-				"Number of trow %d not equal number of primitive inputs %d.",
-				i, primitive_type->num_inputs);
-			exit(1);
+		Prop = FindProperty(Parent, "min", FALSE);
+		if(Prop) {
+			annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_MIN;
+			annotation->value[i] = my_strdup(Prop);
+			ezxml_set_attr(Parent, "min", NULL);
+			i++;
 		}
+		Prop = FindProperty(Parent, "in_port", TRUE);
+		annotation->input_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "in_port", NULL);
+		Prop = FindProperty(Parent, "out_port", TRUE);
+		annotation->output_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "out_port", NULL);
+	} else if (0 == strcmp(Parent->name, "delay_matrix")) {
+		annotation->type = (int) E_ANNOT_PIN_TO_PIN_DELAY;
+		Prop = FindProperty(Parent, "type", TRUE);
+		annotation->value[i] = my_strdup(Parent->txt);
+		ezxml_set_txt(Parent, "");
+		if(0 == strcmp(Prop, "max")) {
+			annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_MAX;
+		} else {
+			assert(0 == strcmp(Prop, "min"));
+			annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_MIN;
+		}
+		ezxml_set_attr(Parent, "type", NULL);
+		i++;
+		Prop = FindProperty(Parent, "in_port", TRUE);
+		annotation->input_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "in_port", NULL);
+		Prop = FindProperty(Parent, "out_port", TRUE);
+		annotation->output_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "out_port", NULL);
+	} else if (0 == strcmp(Parent->name, "C_constant")) {
+		annotation->type = (int) E_ANNOT_PIN_TO_PIN_CAPACITANCE;
+		Prop = FindProperty(Parent, "C", TRUE);
+		annotation->value[i] = my_strdup(Prop);
+		ezxml_set_attr(Parent, "C", NULL);
+		annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_CAPACITANCE_C;
+		i++;
+
+		Prop = FindProperty(Parent, "in_port", FALSE);
+		annotation->input_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "in_port", NULL);
+		Prop = FindProperty(Parent, "out_port", FALSE);
+		annotation->output_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "out_port", NULL);
+		assert(annotation->output_pins != NULL || annotation->input_pins != NULL);
+	} else if (0 == strcmp(Parent->name, "C_matrix")) {
+		annotation->type = (int) E_ANNOT_PIN_TO_PIN_CAPACITANCE;
+		annotation->value[i] = my_strdup(Parent->txt);
+		ezxml_set_txt(Parent, "");
+		annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_CAPACITANCE_C;
+		i++;
+		Prop = FindProperty(Parent, "in_port", FALSE);
+		annotation->input_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "in_port", NULL);
+		Prop = FindProperty(Parent, "out_port", FALSE);
+		annotation->output_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "out_port", NULL);
+		assert(annotation->output_pins != NULL || annotation->input_pins != NULL);
+	} else if (0 == strcmp(Parent->name, "T_setup")) {
+		annotation->type = (int) E_ANNOT_PIN_TO_PIN_DELAY;
+		Prop = FindProperty(Parent, "value", TRUE);
+		annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_TSETUP;
+		annotation->value[i] = my_strdup(Prop);
+		ezxml_set_attr(Parent, "value", NULL);
+		i++;
+		Prop = FindProperty(Parent, "port", TRUE);
+		annotation->input_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "port", NULL);
+		Prop = FindProperty(Parent, "clock", TRUE);
+		annotation->clock = my_strdup(Prop);
+		ezxml_set_attr(Parent, "clock", NULL);
+	} else if (0 == strcmp(Parent->name, "T_clock_to_Q")) {
+		annotation->type = (int) E_ANNOT_PIN_TO_PIN_DELAY;
+		Prop = FindProperty(Parent, "max", FALSE);
+		if(Prop) {
+			annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_MAX;
+			annotation->value[i] = my_strdup(Prop);
+			ezxml_set_attr(Parent, "max", NULL);
+			i++;
+		}
+		Prop = FindProperty(Parent, "min", FALSE);
+		if(Prop) {
+			annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_MAX;
+			annotation->value[i] = my_strdup(Prop);
+			ezxml_set_attr(Parent, "min", NULL);
+			i++;
+		}
+		
+		Prop = FindProperty(Parent, "port", TRUE);
+		annotation->output_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "port", NULL);
+		Prop = FindProperty(Parent, "clock", TRUE);
+		annotation->clock = my_strdup(Prop);
+		ezxml_set_attr(Parent, "clock", NULL);
+	} else if (0 == strcmp(Parent->name, "T_hold")) {
+		annotation->type = (int) E_ANNOT_PIN_TO_PIN_DELAY;
+		Prop = FindProperty(Parent, "value", TRUE);
+		annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_THOLD;
+		annotation->value[i] = my_strdup(Prop);
+		ezxml_set_attr(Parent, "value", NULL);
+		i++;
+				
+		Prop = FindProperty(Parent, "port", TRUE);
+		annotation->input_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "port", NULL);
+		Prop = FindProperty(Parent, "clock", TRUE);
+		annotation->clock = my_strdup(Prop);
+		ezxml_set_attr(Parent, "clock", NULL);
+	} else {
+		printf(ERRTAG "[LINE %d] Unknown port type %s in %s in %s", Parent->line,
+			Parent->name, Parent->parent->name, Parent->parent->parent->name);
+		exit(1);
 	}
-	primitive_type->timing_matrix = t_comb;
+	assert (i == annotation->num_value_prop_pairs);
 }
-#endif
 
 /* Takes in a pb_type, allocates and loads data for it and recurses downwards */
 static void ProcessPb_Type(INOUTP ezxml_t Parent, 
 						   t_pb_type * pb_type, 
 						   t_mode * mode) {
-	int num_ports, i, j;
+	int num_ports, i, j, num_annotations;
 	const char *Prop;
 	ezxml_t Cur, Prev;
 	char* class_name;
@@ -679,13 +760,13 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 	pb_type->parent_mode = mode;
 	if(mode != NULL && mode->parent_pb_type != NULL) {
 		pb_type->depth = mode->parent_pb_type->depth + 1;
+		Prop = FindProperty(Parent, "name", TRUE);
+		pb_type->name = my_strdup(Prop);
+		ezxml_set_attr(Parent, "name", NULL);
 	} else {
 		pb_type->depth = 0;
+		/* same name as type */
 	}
-
-	Prop = FindProperty(Parent, "name", TRUE);
-	pb_type->name = my_strdup(Prop);
-	ezxml_set_attr(Parent, "name", NULL);
 
 	Prop = FindProperty(Parent, "blif_model", FALSE);
 	pb_type->blif_model = my_strdup(Prop);
@@ -704,7 +785,7 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 		} else if(0 == strcmp(class_name, "memory")) {
 			pb_type->class_type = MEMORY_CLASS;
 		} else {
-			printf("Unknown class %s in pb_type %s\n", class_name, pb_type->name);
+			printf("[LINE %d] Unknown class %s in pb_type %s\n", Parent->line, class_name, pb_type->name);
 			exit(1);
 		}
 	}
@@ -761,6 +842,9 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 		}
 	}
 
+	pb_type->annotations = NULL;
+	pb_type->num_annotations = 0;
+	pb_type->area = 0;
 	i = 0;
 	/* Determine if this is a leaf or container pb_type */
 	if(pb_type->blif_model != NULL) {
@@ -774,6 +858,52 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 			pb_type->num_modes = 0;
 			assert(CountChildren(Parent, "mode", 0) == 0);
 		}
+
+		pb_type->area = GetFloatProperty(Parent, "area", FALSE, 0);
+
+		/* Process delay and capacitance annotations */
+		num_annotations = 0;
+		num_annotations += CountChildren(Parent, "delay_constant", 0);
+		num_annotations += CountChildren(Parent, "delay_matrix", 0);
+		num_annotations += CountChildren(Parent, "C_constant", 0);
+		num_annotations += CountChildren(Parent, "C_matrix", 0);
+		num_annotations += CountChildren(Parent, "T_setup", 0);
+		num_annotations += CountChildren(Parent, "T_clock_to_Q", 0);
+		num_annotations += CountChildren(Parent, "T_hold", 0);
+
+		pb_type->annotations = my_calloc(num_annotations, sizeof(t_pin_to_pin_annotation));
+		pb_type->num_annotations = num_annotations;
+
+		j = 0;
+		Cur = NULL;
+		for(i = 0; i < 7; i++) {
+			if(i == 0) {
+				Cur = FindFirstElement(Parent, "delay_constant", FALSE);
+			} else if (i == 1) {
+				Cur = FindFirstElement(Parent, "delay_matrix", FALSE);
+			} else if (i == 2) {
+				Cur = FindFirstElement(Parent, "C_constant", FALSE);
+			} else if (i == 3) {
+				Cur = FindFirstElement(Parent, "C_matrix", FALSE);
+			} else if (i == 4) {
+				Cur = FindFirstElement(Parent, "T_setup", FALSE);
+			} else if (i == 5) {
+				Cur = FindFirstElement(Parent, "T_clock_to_Q", FALSE);
+			} else if (i == 6) {
+				Cur = FindFirstElement(Parent, "T_hold", FALSE);
+			}
+			while (Cur != NULL)
+			{
+				ProcessPinToPinAnnotations(Cur, &pb_type->annotations[j]);
+
+				/* get next iteration */
+				Prev = Cur;
+				Cur = Cur->next;
+				j++;
+				FreeNode(Prev);
+			}
+		}
+		assert(j == num_annotations);
 	} else {
 		/* container pb_type, process modes */
 		assert(pb_type->class_type == UNKNOWN_CLASS);
@@ -784,6 +914,7 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 			pb_type->num_modes = 1;
 			pb_type->modes = my_calloc(pb_type->num_modes, sizeof(t_mode));
 			pb_type->modes[i].parent_pb_type = pb_type;			
+			pb_type->modes[i].index = i;
 			ProcessMode(Parent, &pb_type->modes[i]);
 			i++;
 		} else {
@@ -831,7 +962,7 @@ static void ProcessPb_TypePort(INOUTP ezxml_t Parent,
 		port->type = IN_PORT;
 		port->is_clock = TRUE;
 	} else {
-		printf(ERRTAG "Unknown port type %s", Parent->name);
+		printf(ERRTAG "[LINE %d] Unknown port type %s", Parent->line, Parent->name);
 		exit(1);
 	}
 }
@@ -839,9 +970,10 @@ static void ProcessPb_TypePort(INOUTP ezxml_t Parent,
 static void ProcessInterconnect(INOUTP ezxml_t Parent,
 								t_mode * mode) {
 	int num_interconnect = 0;
-	int i, index;
+	int i, j, k, index, num_annotations;
 	const char *Prop;
 	ezxml_t Cur, Prev;
+	ezxml_t Cur2, Prev2;
 
 	num_interconnect += CountChildren(Parent, "complete", 0);
 	num_interconnect += CountChildren(Parent, "direct", 0);
@@ -870,6 +1002,7 @@ static void ProcessInterconnect(INOUTP ezxml_t Parent,
 				mode->interconnect[i].type = MUX_INTERC;
 			} 
 
+			mode->interconnect[i].parent_mode_index = mode->index;
 			Prop = FindProperty(Cur, "input", TRUE);
 			mode->interconnect[i].input_string = my_strdup(Prop);
 			ezxml_set_attr(Cur, "input", NULL);
@@ -877,6 +1010,47 @@ static void ProcessInterconnect(INOUTP ezxml_t Parent,
 			Prop = FindProperty(Cur, "output", TRUE);
 			mode->interconnect[i].output_string = my_strdup(Prop);
 			ezxml_set_attr(Cur, "output", NULL);
+
+			Prop = FindProperty(Cur, "name", TRUE);
+			mode->interconnect[i].name = my_strdup(Prop);
+			ezxml_set_attr(Cur, "name", NULL);
+
+			mode->interconnect[i].area = GetFloatProperty(Cur, "area", FALSE, 0);
+
+			/* Process delay and capacitance annotations */
+			num_annotations = 0;
+			num_annotations += CountChildren(Cur, "delay_constant", 0);
+			num_annotations += CountChildren(Cur, "delay_matrix", 0);
+			num_annotations += CountChildren(Cur, "C_constant", 0);
+			num_annotations += CountChildren(Cur, "C_matrix", 0);
+
+			mode->interconnect->annotations = my_calloc(num_annotations, sizeof(t_pin_to_pin_annotation));
+			mode->interconnect->num_annotations = num_annotations;
+
+			k = 0;
+			Cur2 = NULL;
+			for(j = 0; j < 4; j++) {
+				if(j == 0) {
+					Cur2 = FindFirstElement(Cur, "delay_constant", FALSE);
+				} else if (j == 1) {
+					Cur2 = FindFirstElement(Cur, "delay_matrix", FALSE);
+				} else if (j == 2) {
+					Cur2 = FindFirstElement(Cur, "C_constant", FALSE);
+				} else if (j == 3) {
+					Cur2 = FindFirstElement(Cur, "C_matrix", FALSE);
+				}
+				while (Cur2 != NULL)
+				{
+					ProcessPinToPinAnnotations(Cur2, &mode->interconnect->annotations[k]);
+
+					/* get next iteration */
+					Prev2 = Cur2;
+					Cur2 = Cur2->next;
+					k++;
+					FreeNode(Prev2);
+				}
+			}
+			assert(k == num_annotations);
 					
 			/* get next iteration */
 			Prev = Cur;
@@ -939,7 +1113,7 @@ Process_Fc(ezxml_t Fc_in_node, ezxml_t Fc_out_node, t_type_descriptor * Type)
     ParseFc(Fc_out_node, &Type_out, &Type->Fc_out);
     if(FC_FULL == Type_in)
 	{
-	    printf(ERRTAG "'full' Fc type isn't allowed for Fc_in.\n");
+		printf(ERRTAG "[LINE %d] 'full' Fc type isn't allowed for Fc_in.\n", Fc_in_node->line);
 	    exit(1);
 	}
     Type->is_Fc_out_full_flex = FALSE;
@@ -952,7 +1126,7 @@ Process_Fc(ezxml_t Fc_in_node, ezxml_t Fc_out_node, t_type_descriptor * Type)
     else if(Type_in != Type_out)
 	{
 	    printf(ERRTAG
-		    "Fc_in and Fc_out must have same type unless Fc_out has type 'full'.\n");
+			"[LINE %d] Fc_in and Fc_out must have same type unless Fc_out has type 'full'.\n", Fc_in_node->line);
 	    exit(1);
 	}
     if(FC_FRAC == Type_in)
@@ -978,7 +1152,7 @@ ProcessTypeProps(ezxml_t Node, t_type_descriptor * Type)
 	Type->area = GetFloatProperty(Node, "area", FALSE, 0);
 
 	if(atof(Prop) < 0) {
-		printf("Area for type %s must be non-negative\n", Type->name);
+		printf("[LINE %d] Area for type %s must be non-negative\n", Node->line, Type->name);
 		exit(1);
 	}
 }
@@ -1184,7 +1358,7 @@ ProcessDevice(INOUTP ezxml_t Node, OUTP struct s_arch *arch,
 	}
     else
 	{
-	    printf(ERRTAG "Unknown property %s for switch block type x\n",
+		printf(ERRTAG "[LINE %d] Unknown property %s for switch block type x\n", Cur->line,
 		    Prop);
 	    exit(1);
 	}
@@ -1245,7 +1419,7 @@ ProcessChanWidthDistrDir(INOUTP ezxml_t Node, OUTP t_chan * chan)
 	}
     else
 	{
-	    printf(ERRTAG "Unknown property %s for chan_width_distr x\n",
+		printf(ERRTAG "[LINE %d] Unknown property %s for chan_width_distr x\n", Node->line,
 		    Prop);
 	    exit(1);
 	}
@@ -1295,7 +1469,8 @@ ProcessIO(INOUTP ezxml_t Node, INP boolean timing_enabled)
     int i, j;
 
     t_type_descriptor * type;
-    int num_inputs, num_outputs, num_clocks, num_pins, capacity, t_in, t_out;
+    int num_inputs, num_outputs, num_clocks, num_pins, capacity;
+	float t_in, t_out;
     enum
     { INCLASS = 0, OUTCLASS = 1, CLKCLASS = 2 };
 
@@ -1304,7 +1479,7 @@ ProcessIO(INOUTP ezxml_t Node, INP boolean timing_enabled)
     num_outputs = 1;
     num_clocks = 1;
     CheckElement(Node, "io");
-    type->name = ".io";
+    type->name = "io";
     type->height = 1;
 	type->area = UNDEFINED;
     
@@ -1328,6 +1503,7 @@ ProcessIO(INOUTP ezxml_t Node, INP boolean timing_enabled)
 	    printf(ERRTAG "Unable to load architecture file std_pb_type_lib/io.xml.\n");
 		exit(1);
 	}
+	type->pb_type->name = my_strdup(type->name);
 	ProcessPb_Type(Cur, type->pb_type, NULL);
 	FreeNode(Cur);
 
@@ -1416,7 +1592,7 @@ ProcessIO(INOUTP ezxml_t Node, INP boolean timing_enabled)
 }
 
 static void alloc_and_load_default_child_for_pb_type(INOUTP t_pb_type *pb_type, char *new_name, t_pb_type *copy) {
-	int i;
+	int i, j;
 	
 	assert(pb_type->blif_model != NULL);
 
@@ -1439,13 +1615,26 @@ static void alloc_and_load_default_child_for_pb_type(INOUTP t_pb_type *pb_type, 
 		copy->ports[i].model_port = pb_type->ports[i].model_port;
 		copy->ports[i].type = pb_type->ports[i].type;
 		copy->ports[i].num_pins = pb_type->ports[i].num_pins;
-		copy->ports[i].num_pins = pb_type->ports[i].num_pins;
 		copy->ports[i].parent_pb_type = copy;
 		copy->ports[i].name = my_strdup(pb_type->ports[i].name);
 		copy->ports[i].port_class = my_strdup(pb_type->ports[i].port_class);
 	}
 
-	copy->timing = NULL;	
+	copy->annotations = my_calloc(pb_type->num_annotations, sizeof(t_pin_to_pin_annotation));
+	copy->num_annotations = pb_type->num_annotations;
+	for(i = 0; i < copy->num_annotations; i++) {
+		copy->annotations[i].clock = my_strdup(pb_type->annotations[i].clock);
+		copy->annotations[i].input_pins = my_strdup(pb_type->annotations[i].input_pins);
+		copy->annotations[i].output_pins = my_strdup(pb_type->annotations[i].output_pins);
+		copy->annotations[i].type = pb_type->annotations[i].type;
+		copy->annotations[i].num_value_prop_pairs = pb_type->annotations[i].num_value_prop_pairs;
+		copy->annotations[i].prop = my_malloc(sizeof(int) * pb_type->annotations[i].num_value_prop_pairs);
+		copy->annotations[i].value = my_malloc(sizeof(char *) * pb_type->annotations[i].num_value_prop_pairs);
+		for(j = 0; j < pb_type->annotations[i].num_value_prop_pairs; j++) {
+			copy->annotations[i].prop[j] = pb_type->annotations[i].prop[j];
+			copy->annotations[i].value[j] = my_strdup(pb_type->annotations[i].value[j]);
+		}
+	}
 }
 
 /* populate special lut class */
@@ -1461,20 +1650,14 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 		default_name = my_strdup("lut_child");
 	}
 	
-	lut_pb_type->num_modes = 1;
-	lut_pb_type->modes = my_calloc(1, sizeof(t_mode));
+	lut_pb_type->num_modes = 2;
+	lut_pb_type->modes = my_calloc(lut_pb_type->num_modes, sizeof(t_mode));
+	
+	/* First mode, route_through */
 	lut_pb_type->modes[0].name = my_strdup(lut_pb_type->name);
 	lut_pb_type->modes[0].parent_pb_type = lut_pb_type;
-	lut_pb_type->modes[0].num_pb_type_children = 1;
-	lut_pb_type->modes[0].pb_type_children = my_calloc(1, sizeof(t_pb_type));
-	alloc_and_load_default_child_for_pb_type(lut_pb_type, default_name, lut_pb_type->modes[0].pb_type_children);
-	lut_pb_type->modes[0].pb_type_children[0].depth = lut_pb_type->depth + 1;
-	lut_pb_type->modes[0].pb_type_children[0].parent_mode = &lut_pb_type->modes[0];
-
-	free(lut_pb_type->blif_model);
-	lut_pb_type->blif_model = NULL;
-	lut_pb_type->model = NULL;
-
+	lut_pb_type->modes[0].num_pb_type_children = 0;
+	
 	/* Process interconnect */
 	assert(lut_pb_type->num_ports == 2);
 	if(strcmp(lut_pb_type->ports[0].port_class, "lut_in") == 0) {
@@ -1487,8 +1670,12 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 		out_port = &lut_pb_type->ports[0];
 		in_port = &lut_pb_type->ports[1];
 	}
-	lut_pb_type->modes[0].num_interconnect = 2;
-	lut_pb_type->modes[0].interconnect = my_calloc(2, sizeof(t_interconnect));
+	lut_pb_type->modes[0].num_interconnect = 1;
+	lut_pb_type->modes[0].interconnect = my_calloc(1, sizeof(t_interconnect));
+	lut_pb_type->modes[0].interconnect[0].name = my_calloc(
+														strlen(lut_pb_type->name) + 10,
+														sizeof(char));
+	sprintf(lut_pb_type->modes[0].interconnect[0].name, "complete:%s", lut_pb_type->name);
 	lut_pb_type->modes[0].interconnect[0].type = COMPLETE_INTERC;
 	lut_pb_type->modes[0].interconnect[0].input_string = my_calloc(
 														strlen(lut_pb_type->name) + 
@@ -1497,30 +1684,70 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 	sprintf(lut_pb_type->modes[0].interconnect[0].input_string, "%s.%s", 
 			lut_pb_type->name, in_port->name);
 	lut_pb_type->modes[0].interconnect[0].output_string = my_calloc(
+														strlen(lut_pb_type->name) + 
+														strlen(out_port->name) + 2,
+														sizeof(char));
+	sprintf(lut_pb_type->modes[0].interconnect[0].output_string, "%s.%s", 
+			lut_pb_type->name, out_port->name);
+
+	/* Second mode, LUT */
+	
+	lut_pb_type->modes[1].name = my_strdup(lut_pb_type->name);
+	lut_pb_type->modes[1].parent_pb_type = lut_pb_type;
+	lut_pb_type->modes[1].num_pb_type_children = 1;
+	lut_pb_type->modes[1].pb_type_children = my_calloc(1, sizeof(t_pb_type));
+	alloc_and_load_default_child_for_pb_type(lut_pb_type, default_name, lut_pb_type->modes[1].pb_type_children);
+	lut_pb_type->modes[1].pb_type_children[0].depth = lut_pb_type->depth + 1;
+	lut_pb_type->modes[1].pb_type_children[0].parent_mode = &lut_pb_type->modes[1];
+
+	/* Process interconnect */
+	lut_pb_type->modes[1].num_interconnect = 2;
+	lut_pb_type->modes[1].interconnect = my_calloc(2, sizeof(t_interconnect));
+	lut_pb_type->modes[1].interconnect[0].name = my_calloc(
+														strlen(lut_pb_type->name) + 10,
+														sizeof(char));
+	sprintf(lut_pb_type->modes[1].interconnect[0].name, "complete:%s", lut_pb_type->name);
+	lut_pb_type->modes[1].interconnect[0].type = COMPLETE_INTERC;
+	lut_pb_type->modes[1].interconnect[0].input_string = my_calloc(
+														strlen(lut_pb_type->name) + 
+														strlen(in_port->name) + 2,
+														sizeof(char));
+	sprintf(lut_pb_type->modes[1].interconnect[0].input_string, "%s.%s", 
+			lut_pb_type->name, in_port->name);
+	lut_pb_type->modes[1].interconnect[0].output_string = my_calloc(
 														strlen(default_name) + 
 														strlen(in_port->name) + 2,
 														sizeof(char));
-	sprintf(lut_pb_type->modes[0].interconnect[0].output_string, "%s.%s", 
+	sprintf(lut_pb_type->modes[1].interconnect[0].output_string, "%s.%s", 
 			default_name, in_port->name);
 
-	lut_pb_type->modes[0].interconnect[1].type = COMPLETE_INTERC;
-	lut_pb_type->modes[0].interconnect[1].input_string = my_calloc(
+	lut_pb_type->modes[1].interconnect[1].name = my_calloc(
+														strlen(lut_pb_type->name) + 11,
+														sizeof(char));
+	sprintf(lut_pb_type->modes[1].interconnect[1].name, "complete2:%s", lut_pb_type->name);
+	
+	lut_pb_type->modes[1].interconnect[1].type = COMPLETE_INTERC;
+	lut_pb_type->modes[1].interconnect[1].input_string = my_calloc(
 														strlen(default_name) + 
 														strlen(lut_pb_type->name) +
 														strlen(in_port->name) +
 														strlen(out_port->name) + 4,
 														sizeof(char));
-	sprintf(lut_pb_type->modes[0].interconnect[1].input_string, "%s.%s %s.%s", default_name, out_port->name,
+	sprintf(lut_pb_type->modes[1].interconnect[1].input_string, "%s.%s %s.%s", default_name, out_port->name,
 		lut_pb_type->name, in_port->name);
-	lut_pb_type->modes[0].interconnect[1].output_string = my_calloc(
+	lut_pb_type->modes[1].interconnect[1].output_string = my_calloc(
 														strlen(lut_pb_type->name) + 
 														strlen(out_port->name) + 
 														strlen(in_port->name) + 2,
 														sizeof(char));
-	sprintf(lut_pb_type->modes[0].interconnect[1].output_string, "%s.%s", 
+	sprintf(lut_pb_type->modes[1].interconnect[1].output_string, "%s.%s", 
 			lut_pb_type->name, out_port->name);
 
 	free(default_name);
+
+	free(lut_pb_type->blif_model);
+	lut_pb_type->blif_model = NULL;
+	lut_pb_type->model = NULL;
 }
 
 /* populate special memory class */ 
@@ -1576,7 +1803,7 @@ static void ProcessMemoryClass(INOUTP t_pb_type *mem_pb_type) {
 		mem_pb_type->modes[0].interconnect[i_inter].type = DIRECT_INTERC;
 		input_port_name = mem_pb_type->ports[i].name;
 		output_port_name = mem_pb_type->ports[i].name;
-				
+	
 		if(mem_pb_type->ports[i].type == IN_PORT) {
 			input_name = mem_pb_type->name;
 			output_name = default_name;
@@ -1587,6 +1814,10 @@ static void ProcessMemoryClass(INOUTP t_pb_type *mem_pb_type) {
 
 		if(mem_pb_type->ports[i].port_class != NULL && 
 		   strstr(mem_pb_type->ports[i].port_class, "data") == mem_pb_type->ports[i].port_class) {
+
+   			mem_pb_type->modes[0].interconnect[i_inter].name = my_calloc(i_inter/10 + 8, sizeof(char));
+			sprintf(mem_pb_type->modes[0].interconnect[i_inter].name, "direct%d", i_inter);
+
 	   
 		   if(mem_pb_type->ports[i].type == IN_PORT) {
 				/* force data pins to be one bit wide and update stats */
@@ -1623,13 +1854,15 @@ static void ProcessMemoryClass(INOUTP t_pb_type *mem_pb_type) {
 																	sizeof(char));
 				sprintf(mem_pb_type->modes[0].interconnect[i_inter].output_string, "%s.%s", 
 						output_name, output_port_name);
-
 		   }
 
 		   i_inter++;
 		} else {
 			for(j = 0; j < num_pb; j++) {			
 				/* Anything that is not data must be an input */
+				mem_pb_type->modes[0].interconnect[i_inter].name = my_calloc(i_inter/10 + j/10 + 10, sizeof(char));
+				sprintf(mem_pb_type->modes[0].interconnect[i_inter].name, "direct%d_%d", i_inter, j);
+
 				assert(mem_pb_type->ports[i].type == IN_PORT);
 				mem_pb_type->modes[0].interconnect[i_inter].type = DIRECT_INTERC;
 				mem_pb_type->modes[0].interconnect[i_inter].input_string = my_calloc(
@@ -1701,8 +1934,9 @@ ProcessTypes(INOUTP ezxml_t Node, OUTP t_type_descriptor ** Types,
 		/* Load pb_type info */
 		Type->pb_type = my_malloc(sizeof(t_pb_type));
 		Cur = FindElement(CurType, "pb_type", TRUE);
+	    Type->pb_type->name = my_strdup(Type->name);
 	    ProcessPb_Type(Cur, Type->pb_type, NULL);
-	    FreeNode(Cur);
+		FreeNode(Cur);
 		
 		/* Load Fc */ 
 		Cur = FindElement(CurType, "fc_in", TRUE);
@@ -1893,7 +2127,7 @@ ProcessSegments(INOUTP ezxml_t Parent, OUTP struct s_segment_inf **Segs,
 	    
 	    else
 		{
-		    printf(ERRTAG "Invalid switch type '%s'.\n", tmp);
+			printf(ERRTAG "[LINE %d] Invalid switch type '%s'.\n", Node->line, tmp);
 		    exit(1);
 		}
 	    ezxml_set_attr(Node, "type", NULL);
@@ -1914,7 +2148,7 @@ ProcessSegments(INOUTP ezxml_t Parent, OUTP struct s_segment_inf **Segs,
 			}
 		    if(j >= NumSwitches)
 			{
-			    printf(ERRTAG "'%s' is not a valid mux name.\n",
+				printf(ERRTAG "[LINE %d] '%s' is not a valid mux name.\n", SubElem->line,
 				    tmp);
 			    exit(1);
 			}
@@ -1945,7 +2179,7 @@ ProcessSegments(INOUTP ezxml_t Parent, OUTP struct s_segment_inf **Segs,
 		    if(j >= NumSwitches)
 			{
 			    printf(ERRTAG
-				    "'%s' is not a valid wire_switch name.\n",
+					"[LINE %d] '%s' is not a valid wire_switch name.\n", SubElem->line,
 				    tmp);
 			    exit(1);
 			}
@@ -1966,7 +2200,7 @@ ProcessSegments(INOUTP ezxml_t Parent, OUTP struct s_segment_inf **Segs,
 		    if(j >= NumSwitches)
 			{
 			    printf(ERRTAG
-				    "'%s' is not a valid opin_switch name.\n",
+					"[LINE %d] '%s' is not a valid opin_switch name.\n", SubElem->line, 
 				    tmp);
 			    exit(1);
 			}
@@ -2033,10 +2267,10 @@ ProcessCB_SB(INOUTP ezxml_t Node, INOUTP boolean * list, INP int len)
 			    if(i >= len)
 				{
 				    printf(ERRTAG
-					    "CB or SB depopulation is too long. It "
+					    "[LINE %d] CB or SB depopulation is too long. It "
 					    
 					    "should be (length) symbols for CBs and (length+1) "
-					     "symbols for SBs.\n");
+					     "symbols for SBs.\n", Node->line);
 				    exit(1);
 				}
 			    list[i] = TRUE;
@@ -2047,27 +2281,28 @@ ProcessCB_SB(INOUTP ezxml_t Node, INOUTP boolean * list, INP int len)
 			    if(i >= len)
 				{
 				    printf(ERRTAG
-					    "CB or SB depopulation is too long. It "
+					    "[LINE %d] CB or SB depopulation is too long. It "
 					    
 					    "should be (length) symbols for CBs and (length+1) "
-					     "symbols for SBs.\n");
+						"symbols for SBs.\n", Node->line);
 				    exit(1);
 				}
 			    list[i] = FALSE;
 			    ++i;
 			    break;
 			default:
-			    printf(ERRTAG "Invalid character %c in CB or " 
-				    "SB depopulation list.\n", *tmp);
+			    printf(ERRTAG "[LINE %d] Invalid character %c in CB or " 
+				    "SB depopulation list.\n", Node->line,
+					*tmp);
 			    exit(1);
 			}
 		    ++tmp;
 		}
 	    if(i < len)
 		{
-		    printf(ERRTAG "CB or SB depopulation is too short. It " 
+		    printf(ERRTAG "[LINE %d] CB or SB depopulation is too short. It " 
 			    "should be (length) symbols for CBs and (length+1) "
-			     "symbols for SBs.\n");
+			     "symbols for SBs.\n", Node->line);
 		    exit(1);
 		}
 	    
@@ -2077,8 +2312,8 @@ ProcessCB_SB(INOUTP ezxml_t Node, INOUTP boolean * list, INP int len)
     
     else
 	{
-	    printf(ERRTAG "'%s' is not a valid type for specifying " 
-		    "cb and sb depopulation.\n", tmp);
+	    printf(ERRTAG "[LINE %d] '%s' is not a valid type for specifying " 
+			"cb and sb depopulation.\n", Node->line, tmp);
 	    exit(1);
 	}
     ezxml_set_attr(Node, "type", NULL);
@@ -2124,8 +2359,8 @@ ProcessSwitches(INOUTP ezxml_t Parent, OUTP struct s_switch_inf **Switches,
 		    if(0 == strcmp((*Switches)[j].name, switch_name))
 			{
 			    printf(ERRTAG
-				    "Two switches with the same name '%s' were "
-				     "found.\n", switch_name);
+				    "[LINE %d] Two switches with the same name '%s' were "
+					"found.\n", Node->line, switch_name);
 			    exit(1);
 			}
 		}
@@ -2151,7 +2386,7 @@ ProcessSwitches(INOUTP ezxml_t Parent, OUTP struct s_switch_inf **Switches,
 	    
 	    else
 		{
-		    printf(ERRTAG "Invalid switch type '%s'.\n", type_name);
+			printf(ERRTAG "[LINE %d] Invalid switch type '%s'.\n", Node->line, type_name);
 		    exit(1);
 		}
 	    ezxml_set_attr(Node, "type", NULL);

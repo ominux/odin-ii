@@ -22,8 +22,6 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-//#define WIN32
-
 /* Ted Campbell, Aug 14 2007 */
 #if defined(WIN32) || defined(_WIN32)
 #include <io.h>
@@ -64,9 +62,8 @@
 #endif /* WIN32 */
 
 #define EZXML_WS   "\t\r\n "	/* whitespace */
-#define EZXML_ERRL 128		/* maximum error string length */
-
 char *EZXML_NIL[] = { NULL };	/* empty, null terminated array of strings */
+
 
 /* returns the first child tag with the given name or NULL if not found */
 ezxml_t
@@ -201,7 +198,7 @@ ezxml_err(ezxml_root_t root,
 /* Jason Luu June 22, 2010, Added line number support */
 char *
 ezxml_decode(int *cur_line,
-	     char *s,
+		 char *s,
 	     char **ent,
 	     char t)
 {
@@ -213,10 +210,10 @@ ezxml_decode(int *cur_line,
 	    while(*s == '\r')
 		{
 		    *(s++) = '\n';
-		    if(*s == '\n'){
-			memmove(s, (s + 1), strlen(s));
-			(*cur_line)++;
-		    }
+			if(*s == '\n') {
+				memmove(s, (s + 1), strlen(s));
+				(*cur_line)++;
+			}
 		}
 	}
 
@@ -224,9 +221,8 @@ ezxml_decode(int *cur_line,
 	{
 	    while(*s && *s != '&' && (*s != '%' || t != '%') && !isspace(*s))
 		s++;
-	    if (*s == '\n')
-		(*cur_line)++;
-
+		if(*s == '\n')
+			(*cur_line)++;
 	    if(!*s)
 		break;
 	    else if(t != 'c' && !strncmp(s, "&#", 2))
@@ -305,7 +301,7 @@ ezxml_decode(int *cur_line,
 /* Jason Luu June 22, 2010, Added line number support */
 void
 ezxml_open_tag(ezxml_root_t root,
-		int line,
+			   int line,
 	       char *name,
 	       char **attr)
 {
@@ -315,9 +311,9 @@ ezxml_open_tag(ezxml_root_t root,
 	xml = ezxml_add_child(xml, name, strlen(xml->txt));
     else
 	xml->name = name;	/* first open tag */
-    xml->line = line;
-
+	xml->line = line;
     xml->attr = attr;
+
     root->cur = xml;		/* update tag insertion point */
 }
 
@@ -678,13 +674,14 @@ ezxml_free_attr(char **attr)
 /* parse the given xml string and return an ezxml structure */
 /* Jason Luu June 22, 2010, Added line number support */
 ezxml_t
-ezxml_parse_str(char *s,
+ezxml_parse_str(
+		char *s,
 		size_t len)
 {
     ezxml_root_t root = (ezxml_root_t) ezxml_new(NULL);
     char q, e, *d, **attr, **a = NULL;	/* initialize a to avoid compile warning */
     int l, i, j;
-    int line = 1;
+	int line = 1;
 
     root->m = s;
     if(!len)
@@ -704,7 +701,7 @@ ezxml_parse_str(char *s,
 	{
 	    attr = (char **)EZXML_NIL;
 	    d = ++s;
-
+		
 	    if(isalpha(*s) || *s == '_' || *s == ':' || *s < '\0')
 		{		/* new tag */
 		    if(!root->cur)
@@ -712,11 +709,11 @@ ezxml_parse_str(char *s,
 					 "markup outside of root element");
 
 		    s += strcspn(s, EZXML_WS "/>");
-		    while(isspace(*s)) {
-			if (*s == '\n')
-			    line++;
-			*(s++) = '\0';	/* null terminate tag name */
-		    }
+			while(isspace(*s)) {
+				if(*s == '\n')
+					line++;
+				*(s++) = '\0';	/* null terminate tag name */
+			}
 
 		    if(*s && *s != '/' && *s != '>')
 			{	/* find tag in default attr list */
@@ -740,8 +737,8 @@ ezxml_parse_str(char *s,
 			    s += strcspn(s, EZXML_WS "=/>");
 			    if(*s == '=' || isspace(*s))
 				{
-				    if (*s == '\n')
-					line++;
+					if(*s == '\n')
+						line++;
 				    *(s++) = '\0';	/* null terminate tag attribute name */
 				    q = *(s += strspn(s, EZXML_WS "="));
 				    if(q == '"' || q == '\'')
@@ -774,11 +771,11 @@ ezxml_parse_str(char *s,
 						attr[l + 3][l / 2] = EZXML_TXTM;	/* value malloced */
 					}
 				}
-			    while(isspace(*s)) {
-				if (*s == '\n')
-				    line++;
-				s++;
-			    }
+				while(isspace(*s)) {
+					if(*s == '\n')
+						line++;
+					s++;
+				}
 			}
 
 		    if(*s == '/')
@@ -816,11 +813,11 @@ ezxml_parse_str(char *s,
 		    *s = '\0';	/* temporarily null terminate tag name */
 		    if(ezxml_close_tag(root, d, s))
 			return &root->xml;
-		    if(isspace(*s = q)){
-			if (*s == '\n')
-			    line++;
-			s += strspn(s, EZXML_WS);
-		    }
+			if(isspace(*s = q)){
+				if(*s == '\n')
+					line++;
+				s += strspn(s, EZXML_WS);
+			}
 		}
 	    else if(!strncmp(s, "!--", 3))
 		{		/* xml comment */
@@ -1473,3 +1470,4 @@ main(int argc,
     return (i) ? 1 : 0;
 }
 #endif /* EZXML_TEST */
+
