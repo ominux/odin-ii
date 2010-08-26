@@ -21,6 +21,7 @@ reg my_out;
 
 single_port_ram inst1(
   .we(clock),
+  .clk(clock),
   .data(value_in),
   .out(my_out),
   .addr(address_counter));

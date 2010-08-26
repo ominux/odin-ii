@@ -59,6 +59,68 @@ init_memory_distribution()
 void 
 report_memory_distribution()
 {
+	nnode_t *node;
+	struct s_linked_vptr *temp;
+	int i, idx, width, depth;
+
+	if ((sp_memory_list == NULL) && (dp_memory_list == NULL))
+		return;
+	printf("\nHard Logical Memory Distribution\n");
+	printf("============================\n");
+
+	temp = sp_memory_list;
+	while (temp != NULL)
+	{
+		node = (nnode_t *)temp->data_vptr;
+		oassert(node != NULL);
+		oassert(node->type == MEMORY);
+
+		/* Need to find the addr and data1 ports */
+		idx = 0;
+		for (i = 0; i < node->num_input_port_sizes; i++)
+		{
+			if (strcmp("addr", node->input_pins[idx]->mapping) == 0)
+			{
+				depth = node->input_port_sizes[i];
+			}
+			else if (strcmp("data", node->input_pins[idx]->mapping) == 0)
+			{
+				width = node->input_port_sizes[i];
+			}
+			idx += node->input_port_sizes[i];
+		}
+
+		printf("SPRAM: %d width %d depth\n", width, depth);
+		temp = temp->next;
+	}
+
+	temp = dp_memory_list;
+	while (temp != NULL)
+	{
+		node = (nnode_t *)temp->data_vptr;
+		oassert(node != NULL);
+		oassert(node->type == MEMORY);
+
+		/* Need to find the addr and data1 ports */
+		idx = 0;
+		for (i = 0; i < node->num_input_port_sizes; i++)
+		{
+			if (strcmp("addr", node->input_pins[idx]->mapping) == 0)
+			{
+				depth = node->input_port_sizes[i];
+			}
+			else if (strcmp("data1", node->input_pins[idx]->mapping) == 0)
+			{
+				width = node->input_port_sizes[i];
+			}
+			idx += node->input_port_sizes[i];
+		}
+
+		printf("DPRAM: %d width %d depth\n", width, depth);
+		temp = temp->next;
+	}
+	
+	printf("\n");
 	return;
 }
 

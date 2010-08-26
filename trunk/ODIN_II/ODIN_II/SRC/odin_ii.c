@@ -44,6 +44,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "activity_estimation.h"
 #include "high_level_data.h"
 #include "hard_blocks.h"
+#include "memories.h"
 #include "simulate_blif.h"
 
 global_args_t global_args;
@@ -242,6 +243,10 @@ void do_high_level_synthesis()
 	create_netlist();
 
 	check_netlist(verilog_netlist); // can't levelize yet since the large muxes can look like combinational loops when they're not
+
+
+	/* Report on Logical Memory usage */
+	report_memory_distribution();
 
 	/* point for all netlist optimizations. */
 	printf("Performing Optimizations of the Netlist\n");
