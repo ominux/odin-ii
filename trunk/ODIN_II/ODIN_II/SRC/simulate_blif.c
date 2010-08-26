@@ -820,12 +820,6 @@ void compute_and_store_value(nnode_t *node, int cycle)
 						SINGLE_PORT_MEMORY_NAME) == 0 ||
 					strcmp(node->related_ast_node->children[0]->types.identifier, 
 						DUAL_PORT_MEMORY_NAME) == 0);
-
-			for (i = 0; i < node->num_output_pins; i++)
-			{
-				update_pin_value(node->output_pins[i], 0, cycle);
-			}
-			return;
 			
 			if (strcmp(node->related_ast_node->children[0]->types.identifier, 
 						SINGLE_PORT_MEMORY_NAME) == 0)
