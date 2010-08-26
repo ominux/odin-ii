@@ -121,6 +121,12 @@ void output_blif(char *file_name, netlist_t *netlist)
 		}
 		else
 		{	
+			if (first_time_outputs == FALSE)
+			{
+				count = fprintf(out, ".outputs");
+				first_time_outputs = TRUE;
+			}
+
 			if (global_args.high_level_block != NULL)
 			{
 				if ((strlen(netlist->top_output_nodes[i]->name) + count) < 79)
@@ -130,12 +136,6 @@ void output_blif(char *file_name, netlist_t *netlist)
 					/* wrapping line */
 					count = fprintf(out, "\\\n %s^^%i-%i", netlist->top_output_nodes[i]->name,netlist->top_output_nodes[i]->related_ast_node->far_tag, netlist->top_output_nodes[i]->related_ast_node->high_number);
 					count = count - 3;
-				}
-	
-				if (first_time_outputs == FALSE)
-				{
-					count = fprintf(out, ".outputs");
-					first_time_outputs = TRUE;
 				}
 			}
 			else
@@ -478,6 +478,7 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 		case LOGICAL_EQUAL:
 		case LOGICAL_XOR:
 		{
+			oassert(node->num_input_pins <= 3);
 			/* generates: a 1 when odd number of 1s */
 			for (i = 0; i < my_power(2, node->num_input_pins); i++)
 			{
@@ -494,6 +495,7 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 		case NOT_EQUAL:
 		case LOGICAL_XNOR:
 		{
+			oassert(node->num_input_pins <= 3);
 			for (i = 0; i < my_power(2, node->num_input_pins); i++)
 			{
 				if ((i % 8 == 0) || (i % 8 == 3) || (i % 8 == 5) || (i % 8 == 6))
