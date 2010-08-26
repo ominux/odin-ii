@@ -21,8 +21,8 @@ FindElement(INP ezxml_t Parent, INP const char *Name, INP boolean Required)
             if(NULL == Cur)
                 {
                     printf(ERRTAG
-                            "Element '%s' not found within element '%s'.\n",
-                            Name, Parent->name);
+                            "[LINE %d] Element '%s' not found within element '%s'.\n", Parent->line,
+							Name, Parent->name);
                     exit(1);
                 }
         }
@@ -30,7 +30,7 @@ FindElement(INP ezxml_t Parent, INP const char *Name, INP boolean Required)
         /* Look at next tag with same name and error out if exists */
         if(Cur != NULL && Cur->next)
         {
-            printf(ERRTAG "Element '%s' found twice within element '%s'.\n",
+            printf(ERRTAG "[LINE %d] Element '%s' found twice within element '%s'.\n", Parent->line,
                     Name, Parent->name);
             exit(1);
         }
@@ -51,7 +51,7 @@ FindFirstElement(INP ezxml_t Parent, INP const char *Name, INP boolean Required)
             if(NULL == Cur)
                 {
                     printf(ERRTAG
-                            "Element '%s' not found within element '%s'.\n",
+						"[LINE %d] Element '%s' not found within element '%s'.\n", Parent->line,
                             Name, Parent->name);
                     exit(1);
                 }
@@ -68,8 +68,8 @@ CheckElement(INP ezxml_t Node, INP const char *Name)
     if(0 != strcmp(Node->name, Name))
         {
             printf(ERRTAG
-                    "Element '%s' within element '%s' does match expected "
-                    "element type of '%s'\n", Node->name, Node->parent->name,
+				"[LINE %d] Element '%s' within element '%s' does match expected "
+				"element type of '%s'\n", Node->line, Node->name, Node->parent->name,
                     Name);
             exit(1);
         }
@@ -88,7 +88,7 @@ FreeNode(INOUTP ezxml_t Node)
         /* Shouldn't have unprocessed properties */
         if(Node->attr[0])
         {
-            printf(ERRTAG "Node '%s' has invalid property %s=\"%s\".\n",
+			printf(ERRTAG "[LINE %d] Node '%s' has invalid property %s=\"%s\".\n", Node->line,
                     Node->name, Node->attr[0], Node->attr[1]);
             exit(1);
         }
@@ -100,7 +100,7 @@ FreeNode(INOUTP ezxml_t Node)
             if(!IsWhitespace(*Txt))
                 {
                     printf(ERRTAG
-                            "Node '%s' has unexpected text '%s' within it.\n",
+						"[LINE %d] Node '%s' has unexpected text '%s' within it.\n", Node->line,
                             Node->name, Node->txt);
                     exit(1);
                 }
@@ -111,7 +111,7 @@ FreeNode(INOUTP ezxml_t Node)
         Cur = Node->child;
     if(Cur)
         {
-            printf(ERRTAG "Node '%s' has invalid child node '%s'.\n",
+			printf(ERRTAG "[LINE %d] Node '%s' has invalid child node '%s'.\n", Node->line,
                     Node->name, Cur->name);
             exit(1);
         }
@@ -147,7 +147,7 @@ FindProperty(INP ezxml_t Parent, INP const char *Name, INP boolean Required)
             if(NULL == Res)
                 {
                     printf(ERRTAG
-                            "Required property '%s' not found for element '%s'.\n",
+						"[Line %d] Required property '%s' not found for element '%s'.\n", Parent->line,
                             Name, Parent->name);
                     exit(1);
                 }
@@ -254,6 +254,74 @@ GetNodeTokens(INP ezxml_t Node)
 	return Tokens;
 }
 
+
+/* Returns a token list of the text nodes of a given node. This
+ * does not unlink the text nodes from the document */ 
+extern char **
+LookaheadNodeTokens(INP ezxml_t Node)
+{
+	int Count, Len;
+	char *Cur, *Dst;
+	boolean InToken;
+	char **Tokens;
+
+    
+	/* Count the tokens and find length of token data */ 
+	CountTokensInString(Node->txt, &Count, &Len);
+    
+	/* Error out if no tokens found */ 
+	if(Count < 1)
+	{
+	    return NULL;
+	}
+    Len = (sizeof(char) * Len) + /* Length of actual data */ 
+	(sizeof(char) * Count);	/* Null terminators */
+    
+	/* Alloc the pointer list and data list. Count the final 
+	 * empty string we will use as list terminator */ 
+	Tokens = (char **)my_malloc(sizeof(char *) * (Count + 1));
+    Dst = (char *)my_malloc(sizeof(char) * Len);
+    Count = 0;
+    
+	/* Copy data to tokens */ 
+	Cur = Node->txt;
+    InToken = FALSE;
+    while(*Cur)
+	{
+	    if(IsWhitespace(*Cur))
+		{
+		    if(InToken)
+			{
+			    *Dst = '\0';
+			    ++Dst;
+			}
+		    InToken = FALSE;
+		}
+	    
+	    else
+		{
+		    if(!InToken)
+			{
+			    Tokens[Count] = Dst;
+			    ++Count;
+			}
+		    *Dst = *Cur;
+		    ++Dst;
+		    InToken = TRUE;
+		}
+	    ++Cur;
+	}
+    if(InToken)
+	{			/* Null term final token */
+	    *Dst = '\0';
+	    ++Dst;
+	}
+    Tokens[Count] = NULL;	/* End of tokens marker is a NULL */
+    
+	/* Return the list */ 
+	return Tokens;
+}
+
 /* Find integer attribute matching Name in XML tag Parent and return it if exists.  
 Removes attribute from Parent */
 extern int GetIntProperty(INP ezxml_t Parent,
@@ -319,7 +387,7 @@ extern boolean GetBooleanProperty(INP ezxml_t Parent,
 			(strcmp(Prop, "True") == 0)) {
 			property_value = TRUE;
 		} else {
-			printf(ERRTAG "Unknown value %s for boolean attribute %s in %s",
+			printf(ERRTAG "[LINE %d] Unknown value %s for boolean attribute %s in %s", Parent->line,
 				Prop, Name, Parent->name);
 			exit(1);
 		}
@@ -366,10 +434,11 @@ CountChildren(INP ezxml_t Node, INP const char *Name, INP int min_count)
 	/* Error if no occurances found */ 
 	if(Count < min_count)
 	{
-	    printf(ERRTAG "Expected node '%s' to have %d " 
-		    "child elements, but none found.\n", Node->name, min_count);
+		printf(ERRTAG "[Line %d] Expected node '%s' to have %d "
+		    "child elements, but none found.\n", Node->line, Node->name, min_count);
 	    exit(1);
 	}
     return Count;
 }
+
 
