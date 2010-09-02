@@ -1,17 +1,35 @@
-.model test2
-.inputs top^x top^y
- top^z
+.model my_mod_bug2
+.inputs top^clk top^a~0 top^a~1 top^a~2 top^b top^c
+.outputs top^d
 
 .names gnd
 .names hbpad
 .names vcc
 1
 
-.names top^x top^y top^BITWISE_OR~0^LOGICAL_OR~2
-1- 1
--1 1
+.names top^a~0 gnd top^LOGICAL_EQUAL~1^LOGICAL_XNOR~5^LOGICAL_XNOR~7
+00 1
+11 1
 
-.names top^BITWISE_OR~0^LOGICAL_OR~2 top^z
+.names top^LOGICAL_EQUAL~1^LOGICAL_XNOR~5^LOGICAL_XNOR~7 top^LOGICAL_EQUAL~1^LOGICAL_XNOR~5^LOGICAL_XNOR~8 top^LOGICAL_EQUAL~1^LOGICAL_XNOR~5^LOGICAL_XNOR~9 top^LOGICAL_EQUAL~1^LOGICAL_AND~6
+111 1
+
+.names top^LOGICAL_EQUAL~1^LOGICAL_AND~6 top^MULTI_PORT_MUX~0^LOGICAL_NOT~2 top^MULTI_PORT_MUX~0^MUX_2~4 top^c top^MULTI_PORT_MUX~0^MUX_2~4
+1-1- 1
+-1-1 1
+
+.names top^LOGICAL_EQUAL~1^LOGICAL_AND~6 top^MULTI_PORT_MUX~0^LOGICAL_NOT~2
+0 1
+
+.names top^a~1 gnd top^LOGICAL_EQUAL~1^LOGICAL_XNOR~5^LOGICAL_XNOR~8
+00 1
+11 1
+
+.names top^a~2 gnd top^LOGICAL_EQUAL~1^LOGICAL_XNOR~5^LOGICAL_XNOR~9
+00 1
+11 1
+
+.names top^MULTI_PORT_MUX~0^MUX_2~4 top^d
 1 1
 .end
 

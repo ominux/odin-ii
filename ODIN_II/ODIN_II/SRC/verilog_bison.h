@@ -144,7 +144,7 @@ typedef union YYSTYPE
 	char *num_value;
 	ast_node_t *node;
 }
-/* Line 1529 of yacc.c.  */
+/* Line 1489 of yacc.c.  */
 #line 149 "SRC/verilog_bison.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

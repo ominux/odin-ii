@@ -42,7 +42,7 @@ void output_top(netlist_t *netlist)
 {
 	output_blif(global_args.output_file, netlist);
 
-#ifndef VPR5
+#ifdef VPR5
 	/* outputs in form that's readbale by graphcrunch */
 	graphcrunch_output(".", "gc.txt", GRAPH_CRUNCH, netlist);
 #endif

@@ -2691,7 +2691,7 @@ signal_list_t *create_mux_expressions(signal_list_t **expression_lists, nnode_t 
 int find_smallest_non_numerical(ast_node_t *node, signal_list_t **input_list, int num_input_lists)
 {
 	int i;
-	int smallest = input_list[0]->signal_list_size;
+	int smallest;
 	int smallest_idx;
 	short *tested = (short*)calloc(sizeof(short), num_input_lists);
 	short found_non_numerical = FALSE;
@@ -2699,6 +2699,7 @@ int find_smallest_non_numerical(ast_node_t *node, signal_list_t **input_list, in
 	while(found_non_numerical == FALSE)
 	{
 		smallest_idx = -1;
+		smallest = -1;
 
 		/* find the smallest width, now verify that it's not a number */
 		for (i = 0; i < num_input_lists; i++)
@@ -2708,9 +2709,9 @@ int find_smallest_non_numerical(ast_node_t *node, signal_list_t **input_list, in
 				/* skip the ones we've already tried */
 				continue;
 			}
-			if (smallest >= input_list[i]->signal_list_size)
+			if ((smallest == -1) || (smallest >= input_list[i]->signal_list_size))
 			{
-				smallest = input_list[0]->signal_list_size;
+				smallest = input_list[i]->signal_list_size;
 				smallest_idx = i;
 			}
 		}	
