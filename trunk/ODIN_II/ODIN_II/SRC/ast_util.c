@@ -261,7 +261,7 @@ ast_node_t *create_tree_node_number(char* number, int line_number, int file_numb
 		/* size is for a constant that needs */
 		if (strcmp(new_node->types.number.number, "0") != 0)
 		{
-			new_node->types.number.binary_size = ceil(log(convert_dec_string_of_size_to_long(new_node->types.number.number, new_node->types.number.size))/log(2));
+			new_node->types.number.binary_size = ceil((log(convert_dec_string_of_size_to_long(new_node->types.number.number, new_node->types.number.size)+1))/log(2));
 		}
 		else
 		{

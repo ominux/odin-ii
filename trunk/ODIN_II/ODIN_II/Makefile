@@ -1,6 +1,7 @@
 CC = gcc
 
 BUILD = VPR6
+#BUILD = VPR5
 
 PARSER1 = flex 
 PARSER2 = bison
