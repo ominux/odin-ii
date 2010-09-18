@@ -92,7 +92,8 @@ read_blif (
 	netlist->one_net->name = blif_one_string;
 
 	/* PAD */
-	netlist->pad_net = allocate_nnet();
+	/* PETER - Don't think is needed... checking with Ash */
+/*	netlist->pad_net = allocate_nnet();
 	netlist->pad_node = allocate_nnode();
 	netlist->pad_node->type = PAD_NODE;
 	allocate_more_node_output_pins(netlist->pad_node, 1);
@@ -101,7 +102,7 @@ read_blif (
 	add_a_output_pin_to_node_spot_idx(netlist->pad_node, new_pin, 0);
 	add_a_driver_pin_to_net(netlist->pad_net, new_pin);
 	netlist->gnd_node->name = blif_pad_string;
-	netlist->zero_net->name = blif_pad_string;
+	netlist->zero_net->name = blif_pad_string;*/
 
 	/* Two passes.  First we create the nodes and drivers.  Second, we hook them up */
 	for (pass = 1; pass <= 2; pass++)

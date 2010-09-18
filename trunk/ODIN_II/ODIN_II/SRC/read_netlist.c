@@ -164,7 +164,7 @@ read_netlist (
 				{		/* 'pinlist:' and name */
 					error_message(NETLIST_FILE_ERROR, prev_line, -1,"'%s':%d - pinlist for .input and .output should " "only have one item.\n", net_filename, linenum);
 				}
-				if (pass == DRIVER)
+				if (pass == DRIVERS)
 				{
 					switch (overide)
 					{
