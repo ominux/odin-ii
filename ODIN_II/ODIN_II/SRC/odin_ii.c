@@ -60,6 +60,7 @@ void do_activation_estimation( int num_types, t_type_descriptor * type_descripto
 int main(int argc, char **argv)
 {
 	int num_types;
+	int return_val = 0;
 
 	printf("--------------------------------------------------------------------\n");
 	printf("Welcome to ODIN II version 0.1 - the better High level synthesis tools++ targetting FPGAs (mainly VPR)\n");
@@ -89,16 +90,23 @@ int main(int argc, char **argv)
 #endif
 	}
 
-	/* High level synthesis tool */
-	do_high_level_synthesis();
+	if (global_args.activation_blif_file != NULL && global_args.activation_netlist_file != NULL)
+	{
+#ifdef VPR5
+		do_activation_estimation(num_types, type_descriptors);
+#endif
+		return_val = 1;
+	}
+	else
+	{
+		/* High level synthesis tool */
+		do_high_level_synthesis();
 
-	/* Simulate blif netlist */
-	do_simulation_of_netlist();
+		/* Simulate blif netlist */
+		do_simulation_of_netlist();
+	}
 
 	/* activation estimation tool */
-#ifdef VPR5
-	do_activation_estimation(num_types, type_descriptors);
-#endif
 
 #ifdef VPR6
 	report_mult_distribution();
@@ -175,7 +183,7 @@ void get_options(int argc, char **argv)
 			break;
 		case 'h':
 		case 'H':
-			printf("Usage: odin_II.exe\n\tOne of:\n\t\t-c <config_file_name.xml>\n\t\t-V <verilog_file_name.v>\n\tAlso options of:\n\t\t-o <output_path and file name>\n\t\t-a <architecture_file_in_VPR6.0_form>\n\t\t-A <blif_file_for_activation_estimation>\n\t\t \n");
+			printf("Usage: odin_II.exe\n\tOne of:\n\t\t-c <config_file_name.xml>\n\t\t-V <verilog_file_name.v>\n\tAlso options of:\n\t\t-o <output_path and file name>\n\t\t-a <architecture_file_in_VPR6.0_form>\n\t\t-B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n\t\t \n");
 			exit(-1);
 			break;
 		case 'g':

@@ -216,7 +216,7 @@ split_sp_memory_depth(nnode_t *node)
 	new_mem_node->num_input_port_sizes = node->num_input_port_sizes;
 	new_mem_node->input_port_sizes = (int *)malloc(node->num_input_port_sizes * sizeof(int));
 	new_mem_node->input_pins = (struct npin_t_t **)malloc(node->num_input_pins * sizeof(struct npin_t_t **));
-	new_mem_node->num_input_pins = node->num_input_pins - 1;
+	new_mem_node->num_input_pins = node->num_input_pins;// - 1;
 
 	/* Copy over the pin sizes for the new memory */
 	for (j = 0; j < new_mem_node->num_input_port_sizes; j++)
