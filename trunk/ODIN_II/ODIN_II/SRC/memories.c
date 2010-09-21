@@ -108,6 +108,11 @@ report_memory_distribution()
 			if (strcmp("addr", node->input_pins[idx]->mapping) == 0)
 			{
 				depth = node->input_port_sizes[i];
+			} else if (strcmp("addr1", node->input_pins[idx]->mapping) == 0)
+			{
+				/* Jason Luu: BUG DETECTED!  addr1_port is double actual addr1 port!!! TODO MUST FIX!! HACK right now is to divide by 2 */
+				depth = node->input_port_sizes[i];
+				depth /= 2;
 			}
 			else if (strcmp("data1", node->input_pins[idx]->mapping) == 0)
 			{
@@ -353,10 +358,12 @@ split_dp_memory_depth(nnode_t *node)
 	}
 	
 	/* Check that the memory needs to be split */
-	if (node->input_port_sizes[addr1_port] <= split_size) {
+	/* Jason Luu: BUG DETECTED!  addr1_port is double actual addr1 port!!! TODO MUST FIX!! HACK right now is to divide by 2 */
+	if (node->input_port_sizes[addr1_port] / 2 <= split_size) {
 		dp_memory_list = insert_in_vptr_list(dp_memory_list, node);
 		return;
-	}
+	} 
+
 
 	/* Let's remove the address1 line from the memory */
 	for (i = addr1_pin_idx; i < node->num_input_pins - 1; i++)
@@ -481,7 +488,7 @@ split_dp_memory_depth(nnode_t *node)
 		add_a_input_pin_to_node_spot_idx(ff1_node, copy_input_npin(clk_pin), 1);
 	
 		/* Copy over the output pins for the new memory */
-		for (j = 0; j < node->num_output_pins; j++)
+		for (j = 0; j < node->output_port_sizes[0]; j++)
 		{
 			mux1_node = make_2port_gate(MULTI_PORT_MUX, 2, 2, 1, node, node->traverse_visited);
 			connect_nodes(ff1_node, 0, mux1_node, 0);
@@ -490,22 +497,22 @@ split_dp_memory_depth(nnode_t *node)
 			connect_nodes(not1_node, 0, mux1_node, 1);
 			tdout_pin = node->output_pins[j];
 			remap_pin_to_new_node(tdout_pin, mux1_node, 0);
-			connect_nodes(node, 0, mux1_node, 3);
+			connect_nodes(node, j, mux1_node, 3);
 			node->output_pins[j]->mapping = tdout_pin->mapping;
-			connect_nodes(new_mem_node, 0, mux1_node, 2);
+			connect_nodes(new_mem_node, j, mux1_node, 2);
 			new_mem_node->output_pins[j]->mapping = tdout_pin->mapping;
 			tdout_pin->mapping = NULL;
 		}
 	}
 
-	if (node->num_output_pins > 1) /* There is an "out2" output */
+	if (node->num_output_pins > node->output_port_sizes[0]) /* There is an "out2" output */
 	{
 		ff2_node = make_2port_gate(FF_NODE, 1, 1, 1, node, node->traverse_visited);
 		add_a_input_pin_to_node_spot_idx(ff2_node, addr2_pin, 0);
 		add_a_input_pin_to_node_spot_idx(ff2_node, copy_input_npin(clk_pin), 1);
 	
 		/* Copy over the output pins for the new memory */
-		for (j = 0; j < node->num_output_pins; j++)
+		for (j = 0; j < node->output_port_sizes[0]; j++)
 		{
 			mux2_node = make_2port_gate(MULTI_PORT_MUX, 2, 2, 1, node, node->traverse_visited);
 			connect_nodes(ff2_node, 0, mux2_node, 0);
@@ -514,16 +521,17 @@ split_dp_memory_depth(nnode_t *node)
 			connect_nodes(not2_node, 0, mux2_node, 1);
 			tdout_pin = node->output_pins[node->output_port_sizes[0] + j];
 			remap_pin_to_new_node(tdout_pin, mux2_node, 0);
-			connect_nodes(node, 1, mux2_node, 3);
+			connect_nodes(node, node->output_port_sizes[0] + j, mux2_node, 3);
 			node->output_pins[node->output_port_sizes[0] + j]->mapping = tdout_pin->mapping;
-			connect_nodes(new_mem_node, 1, mux2_node, 2);
+			connect_nodes(new_mem_node, node->output_port_sizes[0] + j, mux2_node, 2);
 			new_mem_node->output_pins[node->output_port_sizes[0] + j]->mapping = tdout_pin->mapping;
 			tdout_pin->mapping = NULL;
 		}
 	}
 
 	/* must recurse on new memory if it's too small */
-	if (node->input_port_sizes[addr1_port] <= split_size) {
+	/* Jason Luu: BUG DETECTED!  addr1_port is double actual addr1 port!!! TODO MUST FIX!! HACK right now is to divide by 2 */
+	if (node->input_port_sizes[addr1_port] / 2 <= split_size) {
 		dp_memory_list = insert_in_vptr_list(dp_memory_list, new_mem_node);
 		dp_memory_list = insert_in_vptr_list(dp_memory_list, node);
 	} else {
