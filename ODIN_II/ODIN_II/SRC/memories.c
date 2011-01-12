@@ -110,9 +110,7 @@ report_memory_distribution()
 				depth = node->input_port_sizes[i];
 			} else if (strcmp("addr1", node->input_pins[idx]->mapping) == 0)
 			{
-				/* Jason Luu: BUG DETECTED!  addr1_port is double actual addr1 port!!! TODO MUST FIX!! HACK right now is to divide by 2 */
 				depth = node->input_port_sizes[i];
-				depth /= 2;
 			}
 			else if (strcmp("data1", node->input_pins[idx]->mapping) == 0)
 			{
@@ -142,6 +140,7 @@ split_sp_memory_depth(nnode_t *node)
 	int addr_port = -1;
 	int we_port = -1;
 	int clk_port = -1;
+	int logical_size;
 	int i, j, idx, addr_pin_idx, we_pin_idx;
 	nnode_t *new_mem_node;
 	nnode_t *and_node, *not_node, *ff_node, *mux_node;
@@ -188,7 +187,14 @@ split_sp_memory_depth(nnode_t *node)
 	}
 	
 	/* Check that the memory needs to be split */
-	if (node->input_port_sizes[addr_port] <= split_size) {
+	/* Jason Luu HACK: Logical memory depth determination messed up, forced to use this method */
+	for(i = 0; i < node->input_port_sizes[addr_port]; i++)
+	{
+		if(strcmp(node->input_pins[addr_pin_idx + i]->name, "top^ZERO_PAD_ZERO") == 0)
+			break;
+	}
+	logical_size = i;
+	if (logical_size <= split_size) {
 		sp_memory_list = insert_in_vptr_list(sp_memory_list, node);
 		return;
 	}
@@ -209,6 +215,8 @@ split_sp_memory_depth(nnode_t *node)
 	new_mem_node->name = (char *)malloc(strlen(node->name) + 10);
 	strcpy(new_mem_node->name, node->name);
 	strcat(new_mem_node->name, "__H");
+	node->name = realloc(node->name, (char *)malloc(strlen(node->name) + 10));
+	strcat(node->name,"__S");
 
 	/* Copy properties from the original memory node */
 	new_mem_node->type = node->type;
@@ -278,7 +286,7 @@ split_sp_memory_depth(nnode_t *node)
 	}
 
 	/* must recurse on new memory if it's too small */
-	if (node->input_port_sizes[addr_port] <= split_size) {
+	if (logical_size <= split_size) {
 		sp_memory_list = insert_in_vptr_list(sp_memory_list, new_mem_node);
 		sp_memory_list = insert_in_vptr_list(sp_memory_list, node);
 	} else {
@@ -304,6 +312,7 @@ split_dp_memory_depth(nnode_t *node)
 	int we1_port = -1;
 	int we2_port = -1;
 	int clk_port = -1;
+	int logical_size;
 	int i, j, idx, addr1_pin_idx, we1_pin_idx, addr2_pin_idx, we2_pin_idx;
 	nnode_t *new_mem_node;
 	nnode_t *and1_node, *not1_node, *ff1_node, *mux1_node;
@@ -356,14 +365,21 @@ split_dp_memory_depth(nnode_t *node)
 	{
 		error_message(1, 0, -1, "No \"addr1\" port on dual port RAM");
 	}
+
 	
+	/* Jason Luu HACK: Logical memory depth determination messed up, forced to use this method */
+	for(i = 0; i < node->input_port_sizes[addr1_port]; i++)
+	{
+		if(strcmp(node->input_pins[addr1_pin_idx + i]->name, "top^ZERO_PAD_ZERO") == 0)
+			break;
+	}
+	logical_size = i;
+ 	
 	/* Check that the memory needs to be split */
-	/* Jason Luu: BUG DETECTED!  addr1_port is double actual addr1 port!!! TODO MUST FIX!! HACK right now is to divide by 2 */
-	if (node->input_port_sizes[addr1_port] / 2 <= split_size) {
+	if (logical_size <= split_size) {
 		dp_memory_list = insert_in_vptr_list(dp_memory_list, node);
 		return;
 	} 
-
 
 	/* Let's remove the address1 line from the memory */
 	for (i = addr1_pin_idx; i < node->num_input_pins - 1; i++)
@@ -403,6 +419,8 @@ split_dp_memory_depth(nnode_t *node)
 	new_mem_node->name = (char *)malloc(strlen(node->name) + 10);
 	strcpy(new_mem_node->name, node->name);
 	strcat(new_mem_node->name, "__H");
+	node->name = realloc(node->name, (char *)malloc(strlen(node->name) + 10));
+	strcat(node->name,"__S");
 
 	/* Copy properties from the original memory node */
 	new_mem_node->type = node->type;
@@ -530,8 +548,7 @@ split_dp_memory_depth(nnode_t *node)
 	}
 
 	/* must recurse on new memory if it's too small */
-	/* Jason Luu: BUG DETECTED!  addr1_port is double actual addr1 port!!! TODO MUST FIX!! HACK right now is to divide by 2 */
-	if (node->input_port_sizes[addr1_port] / 2 <= split_size) {
+	if (logical_size <= split_size) {
 		dp_memory_list = insert_in_vptr_list(dp_memory_list, new_mem_node);
 		dp_memory_list = insert_in_vptr_list(dp_memory_list, node);
 	} else {
