@@ -120,7 +120,7 @@ void simulate_blif (char *test_vector_file_name, netlist_t *netlist)
 		{
 			if (NULL == lines[i]->pins[j])
 			{
-				warning_message(SIMULATION_ERROR, -1, -1, "A line has a null pin. This may cause a segfault.This can be caused when registers are declared as reg [X:Y], where Y is greater than zero.");
+				warning_message(SIMULATION_ERROR, -1, -1, "A line has a NULL pin. This may cause a segfault. This can be caused when registers are declared as reg [X:Y], where Y is greater than zero.");
 			}
 		}
 	}
@@ -213,7 +213,7 @@ void simulate_new_vectors (int num_test_vectors, netlist_t *netlist)
 		{
 			if (NULL == lines[i]->pins[j])
 			{
-				warning_message(SIMULATION_ERROR, -1, -1, "A line has a null pin. This may cause a segfault.This can be caused when registers are declared as reg [X:Y], where Y is greater than zero.");
+				warning_message(SIMULATION_ERROR, -1, -1, "A line has a NULL pin. This may cause a segfault.This can be caused when registers are declared as reg [X:Y], where Y is greater than zero.");
 			}
 		}
 	}
@@ -225,7 +225,7 @@ void simulate_new_vectors (int num_test_vectors, netlist_t *netlist)
 
 	//used to generate random test vectors
 	srand((unsigned)(time(0)));
-
+	
 	for (cycle = 0; cycle < num_test_vectors; cycle++)
 	{
 #ifdef DEBUG_SIMULATOR
@@ -346,7 +346,7 @@ void simulate_cycle(netlist_t *netlist, int cycle)
 
 		if (NULL == node)
 		{
-			warning_message(SIMULATION_ERROR, -1, -1, "Dequeued null node\n");
+			warning_message(SIMULATION_ERROR, -1, -1, "Dequeued NULL node\n");
 		}
 
 		//Check if we've already calculated it's new value
@@ -398,6 +398,13 @@ void simulate_cycle(netlist_t *netlist, int cycle)
 			//check and see if the clock value is updated
 			if (node->input_pins[1]->sim_state->cycle == cycle)
 				try_again_later = FALSE;
+		}
+
+		//On the first clock cycle, let memories be computed so that output values stabilize
+		if (try_again_later == TRUE &&
+						node->type == MEMORY && cycle == 0)
+		{
+			try_again_later = FALSE;
 		}
 
 		if (try_again_later == TRUE)
@@ -781,19 +788,18 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			oassert(node->num_output_pins == 1);
 			oassert(node->num_input_pins == 2);
 
-			//if (node->input_pins[1]->sim_state->value == 1)//rising edge of clock
-			if (node->input_pins[1]->sim_state->value % 2 == 1)
-				update_pin_value(node->output_pins[0], node->input_pins[0]->sim_state->prev_value, cycle);
+			if (node->input_pins[1]->sim_state->value % 2 == 1)	//rising edge of clock
+				update_pin_value(node->output_pins[0], node->input_pins[0]->sim_state->value, cycle);
 			else//falling edge of clock
 			{
 				/*
 				 * This is a work around to keep the previous value "in" the flipflop for the next
 				 * cycle. Not ideal; maybe do a rework later.
 				 **/
-				int prev;
+				//int prev;
 
-				prev = node->input_pins[0]->sim_state->prev_value;
-				update_pin_value(node->output_pins[0], prev < 0 ? 0 : prev, cycle);
+				//prev = node->input_pins[0]->sim_state->prev_value;
+				update_pin_value(node->output_pins[0], node->output_pins[0]->sim_state->value, cycle);
 			}
 			return;
 		}
@@ -854,13 +860,13 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				out = node->output_pins;
 
 				if (node->type == MEMORY &&
-						node->memory_data1 == NULL)
+						node->memory_data == NULL)
 				{
-					instantiate_memory(node, &(node->memory_data1), data_width, addr_width);
+					instantiate_memory(node, &(node->memory_data), data_width, addr_width);
 				}
 
 				compute_memory(data, out, data_width, addr, addr_width, 
-						we, clock, cycle, node->memory_data1);
+						we, clock, cycle, node->memory_data);
 			}
 			else
 			{
@@ -868,15 +874,15 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				int we1;
 				int data_width1 = 0;
 				int addr_width1 = 0;
-				npin_t **addr1;
-				npin_t **data1;
-				npin_t **out1;
+				npin_t **addr1 = NULL;
+				npin_t **data1 = NULL;
+				npin_t **out1 = NULL;
 				int we2;
 				int data_width2 = 0;
 				int addr_width2 = 0;
-				npin_t **addr2;
-				npin_t **data2;
-				npin_t **out2;
+				npin_t **addr2 = NULL;
+				npin_t **data2 = NULL;
+				npin_t **out2 = NULL;
 
 				for (i = 0; i < node->num_input_pins; i++)
 				{
@@ -925,19 +931,13 @@ void compute_and_store_value(nnode_t *node, int cycle)
 					}
 				}
 
-				if (node->type == MEMORY &&
-						node->memory_data1 == NULL)
+				if (node->memory_data == NULL)
 				{
-					instantiate_memory(node, &(node->memory_data1), data_width1, addr_width1);
-				}
-				if (node->type == MEMORY &&
-						node->memory_data1 == NULL)
-				{
-					instantiate_memory(node, &(node->memory_data2), data_width2, addr_width2);
+					instantiate_memory(node, &(node->memory_data), data_width2, addr_width2);
 				}
 
-				compute_memory(data1, out1, data_width1, addr1, addr_width1, we1, clock, cycle, node->memory_data1);
-				compute_memory(data2, out2, data_width2, addr2, addr_width2, we2, clock, cycle, node->memory_data2);
+				compute_memory(data1, out1, data_width1, addr1, addr_width1, we1, clock, cycle, node->memory_data);
+				compute_memory(data2, out2, data_width2, addr2, addr_width2, we2, clock, cycle, node->memory_data);
 			}
 
 			return;
@@ -1005,6 +1005,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		case OUTPUT_NODE:
 			return;
 		case PAD_NODE:
+		case CLOCK_NODE:
 		case GND_NODE:
 		case VCC_NODE:
 			return;
@@ -1945,7 +1946,7 @@ void update_pin_value(npin_t *pin, int value, int cycle)
 	{
 		npin_t *fanout_pin;
 
-		//sometimes, fanout pins of nets are null
+		//sometimes, fanout pins of nets are NULL
 		if (NULL == pin->net->fanout_pins[i])
 			continue;
 
@@ -2082,11 +2083,66 @@ void compute_memory(npin_t **inputs,
  */
 void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width)
 {
-	long long int max_address;
+	long long int max_address;	
+	FILE *mif = NULL;
+	char *filename = node->name;
+	char *input = malloc(sizeof(char)*BUFFER_MAX_SIZE);
+	
 	oassert (*memory == NULL);
 
 	max_address = my_power(2, addr_width);
 
 	*memory = malloc (sizeof(int)*max_address*data_width);
 	memset(*memory, 0, sizeof(int)*max_address*data_width);
+	filename = strrchr(filename, '+') + 1;
+	strcat(filename, ".mif");
+	if (filename == NULL)
+	{
+		error_message(SIMULATION_ERROR, -1, -1, "Couldn't parse node name");
+	}
+	if (!(mif = fopen(filename, "r")))
+	{
+		char *msg = malloc(sizeof(char)*100);
+		strcat(msg, "Couldn't open MIF file ");
+		strcat(msg, filename);
+		warning_message(SIMULATION_ERROR, -1, -1, msg);
+		free(msg);
+		return;
+	}
+
+	//Advance to content begin
+	while (fgets(input, BUFFER_MAX_SIZE, mif))
+		if (strcmp(input, "Content\n") == 0) break;
+	while (fgets(input, BUFFER_MAX_SIZE, mif))
+	{
+		int i;
+		long long int addr_val, data_val;
+		char *colon;
+		char *semicolon;
+		char *addr = malloc(sizeof(char)*BUFFER_MAX_SIZE);
+		char *data = malloc(sizeof(char)*BUFFER_MAX_SIZE);
+		if (strcmp(input, "Begin\n") == 0) continue;
+		if (strcmp(input, "End;") == 0 ||
+			strcmp(input, "End;\n") == 0) continue;
+		colon = strchr(input, ':');
+		//copy into address string
+		strncpy(addr, input, (colon-input));
+		colon++; colon++;
+		semicolon = strchr(input, ';');
+		strncpy(data, colon, (semicolon-colon));
+		addr_val = strtol(addr, NULL, 10);
+		data_val = strtol(data, NULL, 16);
+		//printf("%d: %lld\n", addr_val, data_val);
+		for (i = 0; i < data_width; i++)
+		{
+			//extract binary value for position i out of data_val
+			int mask = (1 << ((data_width - 1) - i));
+			int val = (mask & data_val) > 0 ? 1 : 0;
+			int write_address = i + (addr_val * data_width);
+			data[write_address] = val;
+			//printf("Addr: %d; i: %d; val: %d; (mask: %d)\n", addr_val, i, val, mask);
+		}
+	}
+	
+	fclose(mif);
 }

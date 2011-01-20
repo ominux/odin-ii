@@ -5,11 +5,11 @@
 	</verilog_files>
 	<output>
 		<!-- These are the output flags for the project -->
-		<output_type>blif_all_hard</output_type>
+		<output_type>blif</output_type>
 		<output_path_and_name>./multiply_hard.blif</output_path_and_name>
 		<target>
 			<!-- This is the target device the output is being built for -->
-			<arch_file>fpga_arch_models.xml</arch_file>
+			<arch_file>sample_arch.xml</arch_file>
 		</target>
 	</output>
 	<optimizations>

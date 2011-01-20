@@ -359,8 +359,7 @@ nnode_t
 
 	netlist_t* internal_netlist; // this is a point of having a subgraph in a node
 
-	int *memory_data1;
-	int *memory_data2;
+	int *memory_data;
 
 	short *associated_function;
 };
