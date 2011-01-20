@@ -68,8 +68,7 @@ nnode_t* allocate_nnode()
 
 	new_node->associated_function = NULL;
 
-	new_node->memory_data1 = NULL;
-	new_node->memory_data2 = NULL;
+	new_node->memory_data = NULL;
 
 	return new_node;
 }
