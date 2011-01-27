@@ -183,7 +183,7 @@ void get_options(int argc, char **argv)
 			break;
 		case 'h':
 		case 'H':
-			printf("Usage: odin_II.exe\n\tOne of:\n\t\t-c <config_file_name.xml>\n\t\t-V <verilog_file_name.v>\n\tAlso options of:\n\t\t-o <output_path and file name>\n\t\t-a <architecture_file_in_VPR6.0_form>\n\t\t-B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n\t\t \n");
+			printf("Usage: odin_II.exe\n\tOne of:\n\t\t-c <config_file_name.xml>\n\t\t-V <verilog_file_name.v>\n\tAlso options of:\n\t\t-o <output_path and file name>\n\t\t-a <architecture_file_in_VPR6.0_form>\n\t\t-B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n\nSimulation options:\n\t\t -g <number_of_random_test_vectors\n\t\t -t test_vector_file\n");
 			exit(-1);
 			break;
 		case 'g':
