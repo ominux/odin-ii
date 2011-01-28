@@ -2861,7 +2861,8 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 
 			if ((strcmp(hb_ports->name, "addr1") == 0) ||
 			  (strcmp(hb_ports->name, "addr2") == 0))
-				min_size = hb_ports->size - port_size;
+				if (port_size < hb_ports->size)
+					min_size = hb_ports->size - port_size;
 
 			for (j = 0; j < port_size; j++)
 				in_list[i]->signal_list[j]->mapping = ip_name;
@@ -3068,7 +3069,8 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
 				out_port_size = port_size;
 
 			if (strcmp(hb_ports->name, "addr") == 0)
-				min_size = hb_ports->size - port_size;
+				if (port_size < hb_ports->size)
+					min_size = hb_ports->size - port_size;
 
 			for (j = 0; j < port_size; j++)
 				in_list[i]->signal_list[j]->mapping = ip_name;
