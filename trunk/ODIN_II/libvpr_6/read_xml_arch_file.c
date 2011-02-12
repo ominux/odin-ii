@@ -10,31 +10,6 @@
 /* special type indexes, necessary for initialization initialization, everything afterwards
    should use the pointers to these type indices*/ 
 
-static char IO_STRING[] = "<pb_type>\n"
-"  <input name=\"outpad\" num_pins=\"1\"/>\n"
-"  <output name=\"inpad\" num_pins=\"1\"/>\n"
-"  <clock name=\"clock\" num_pins=\"1\"/>\n"
-"  <mode name=\"inpad\">\n"
-"    <pb_type name=\"inpad\" blif_model=\".input\" num_pb=\"1\">\n"
-"      <output name=\"inpad\" num_pins=\"1\"/>\n"
-"    </pb_type>\n"
-"    <interconnect>\n"
-"      <direct name=\"inpad\" input=\"inpad.inpad\" output=\"io.inpad\"/>\n"
-"    </interconnect>\n"
-"\n"
-"  </mode>\n"
-"  <mode name=\"outpad\">\n"
-"    <pb_type name=\"outpad\" blif_model=\".output\" num_pb=\"1\">\n"
-"      <input name=\"outpad\" num_pins=\"1\"/>\n"
-"    </pb_type>\n"
-"    <interconnect>\n"
-"      <direct name=\"outpad\" input=\"io.outpad\" output=\"outpad.outpad\"/>\n"
-"    </interconnect>\n"
-"  </mode>\n"
-"</pb_type>\n";
-
-
-
 #define NUM_MODELS_IN_LIBRARY 4
 #define EMPTY_TYPE_INDEX 0
 #define IO_TYPE_INDEX 1
@@ -42,13 +17,13 @@ static char IO_STRING[] = "<pb_type>\n"
 { FC_ABS, FC_FRAC, FC_FULL };
 
 /* This identifies the t_type_ptr of an IO block */
-static t_type_ptr IO_TYPE;
+static t_type_ptr IO_TYPE = NULL;
 
 /* This identifies the t_type_ptr of an Empty block */
-static t_type_ptr EMPTY_TYPE;
+static t_type_ptr EMPTY_TYPE = NULL;
 
 /* This identifies the t_type_ptr of the default logic block */
-static t_type_ptr FILL_TYPE;
+static t_type_ptr FILL_TYPE = NULL;
 
 /* Describes the different types of CLBs available */
 static struct s_type_descriptor *type_descriptors;
@@ -59,11 +34,7 @@ static void ParseFc(ezxml_t Node,
 		     enum Fc_type *Fc,
 		     float *Val);
 static void SetupEmptyType();
-static void SetupClassInf(ezxml_t Classes,
-			   t_type_descriptor * Type);
-static void SetupPinClasses(ezxml_t Classes,
-			     t_type_descriptor * Type);
-static void SetupPinLocations(ezxml_t Locations,
+static void SetupPinLocationsAndPinClasses(ezxml_t Locations,
 			       t_type_descriptor * Type);
 static void SetupGridLocations(ezxml_t Locations,
 				t_type_descriptor * Type);
@@ -86,7 +57,7 @@ static void ProcessMode(INOUTP ezxml_t Parent,
 static void Process_Fc(ezxml_t Fc_in_node,
 			ezxml_t Fc_out_node,
 			t_type_descriptor * Type);
-static void ProcessTypeProps(ezxml_t Node,
+static void ProcessComplexBlockProps(ezxml_t Node,
 			      t_type_descriptor * Type);
 static void ProcessChanWidthDistr(INOUTP ezxml_t Node,
 				   OUTP struct s_arch *arch);
@@ -99,12 +70,10 @@ static void ProcessLayout(INOUTP ezxml_t Node,
 static void ProcessDevice(INOUTP ezxml_t Node,
 			   OUTP struct s_arch *arch,
 			   INP boolean timing_enabled);
-static void ProcessIO(INOUTP ezxml_t Node,
-		       INP boolean timing_enabled);
 static void alloc_and_load_default_child_for_pb_type(INOUTP t_pb_type *pb_type, char *new_name, t_pb_type *copy);
 static void ProcessLutClass(INOUTP t_pb_type *lut_pb_type);
 static void ProcessMemoryClass(INOUTP t_pb_type *mem_pb_type);
-static void ProcessTypes(INOUTP ezxml_t Node,
+static void ProcessComplexBlocks(INOUTP ezxml_t Node,
 			  OUTP t_type_descriptor ** Types,
 			  OUTP int *NumTypes,
 			  INP boolean timing_enabled);
@@ -179,186 +148,34 @@ ParseFc(ezxml_t Node, enum Fc_type *Fc, float *Val)
 	ezxml_set_attr(Node, "type", NULL);
 }
 
-/* Set's up the classinf data of a type and counts the number of 
- * pins the type has. If capacity > 1, we need multiple sets of classes.
- * This correctly sets num_pins to include all the replicated but
- * unique pins that give the capacity. */ 
-static void
-SetupClassInf(ezxml_t Classes, t_type_descriptor * Type)
-{
-    int i, k, CurClass, CurPin, NumClassPins;
-
-    ezxml_t Cur;
-    const char *Prop;
-
-	/* Alloc class_inf structs */ 
-	Type->num_class = Type->capacity * CountChildren(Classes, "class", 2);
-    Type->class_inf =
-	(t_class *) my_malloc(Type->num_class * sizeof(t_class));
-    
-	/* Make multiple passes to handle capacity with index increased each pass */ 
-	CurPin = 0;
-    CurClass = 0;
-    Type->num_pins = 0;
-    Type->num_drivers = 0;
-    Type->num_receivers = 0;
-    for(i = 0; i < Type->capacity; ++i)
-	{
-	    
-		/* Restart the parse tree at each node */ 
-		Cur = Classes->child;
-	    while(Cur)
-		{
-		    CheckElement(Cur, "class");
-		    
-			/* Count the number of pins in this class */ 
-			CountTokensInString(Cur->txt, &NumClassPins, &k);
-		    Type->num_pins += NumClassPins;
-		    
-			/* Alloc class structures */ 
-			Type->class_inf[CurClass].num_pins = NumClassPins;
-		    Type->class_inf[CurClass].pinlist =
-			(int *)my_malloc(NumClassPins * sizeof(int));
-		    for(k = 0; k < NumClassPins; ++k)
-			{
-			    Type->class_inf[CurClass].pinlist[k] = CurPin;
-			    ++CurPin;
-			}
-		    
-			/* Figure out class type */ 
-			Prop = FindProperty(Cur, "type", TRUE);
-		    if(0 == strcmp(Prop, "in"))
-			{
-			    Type->num_receivers += NumClassPins;
-			    Type->class_inf[CurClass].type = RECEIVER;
-			}
-		    
-		    else if(0 == strcmp(Prop, "out"))
-			{
-			    Type->num_drivers += NumClassPins;
-			    Type->class_inf[CurClass].type = DRIVER;
-			}
-		    
-		    else if(0 == strcmp(Prop, "global"))
-			{
-			    Type->class_inf[CurClass].type = RECEIVER;
-			}
-		    
-		    else
-			{
-				printf(ERRTAG "[LINE %d] Invalid pin class type '%s'.\n", Cur->line,
-				    Prop);
-			    exit(1);
-			}
-		    ++CurClass;
-		    Cur = Cur->next;
-		}
-	}
-}
-
-/* Allocs structures that describe pins and reads pin names. Sets
- * pin/class mappings. Unlinks the class descriptor nodes from XML.
- * For capacity > 1 pins and pinclasses are replicated because while
- * they share the same properties and setup, they are treated as 
- * being unique. */ 
-static void
-SetupPinClasses(ezxml_t Classes, t_type_descriptor * Type)
-{
-    int CurClass, i, j, CurPin, PinsPerSubtile, ClassesPerSubtile;
-
-    ezxml_t Cur, Prev;
-    const char *Prop;
-
-    boolean IsGlobal;
-    char **Tokens;
-    int *pin_used = NULL;
-
-    
-	/* Allocs and sets up the classinf data and counts pins */ 
-	SetupClassInf(Classes, Type);
-    PinsPerSubtile = Type->num_pins / Type->capacity;
-    ClassesPerSubtile = Type->num_class / Type->capacity;
-    
-	/* Alloc num_pin sized lists. Replicated pins don't have new names. */ 
-	Type->is_global_pin =
-	(boolean *) my_malloc(Type->num_pins * sizeof(boolean));
-    Type->pin_class = (int *)my_malloc(Type->num_pins * sizeof(int));
-    pin_used = (int *)my_malloc(Type->num_pins * sizeof(int));
-    for(i = 0; i < Type->num_pins; ++i)
-	{
-	    pin_used[i] = FALSE;
-	}
-    
-	/* Iterate over all pins */ 
-	CurClass = 0;
-    Cur = Classes->child;
-    while(Cur)
-	{
-	    CheckElement(Cur, "class");
-	    
-		/* Figure out if global class */ 
-		IsGlobal = FALSE;
-	    Prop = FindProperty(Cur, "type", TRUE);
-	    if(0 == strcmp(Prop, "global"))
-		{
-		    IsGlobal = TRUE;
-		}
-	    ezxml_set_attr(Cur, "type", NULL);
-	    
-		/* Itterate over pins in the class */ 
-		Tokens = GetNodeTokens(Cur);
-	    assert(CountTokens(Tokens) ==
-		    Type->class_inf[CurClass].num_pins);
-	    for(j = 0; j < Type->class_inf[CurClass].num_pins; ++j)
-		{
-		    CurPin = my_atoi(Tokens[j]);
-		    
-			/* Check for duplicate pin names */ 
-			if(pin_used[CurPin])
-			{
-			    printf(ERRTAG
-					"[LINE %d] Pin %d is defined in two different classes in type '%s'.\n", Cur->line,
-				    CurPin, Type->name);
-			    exit(1);
-			}
-		    pin_used[CurPin] = TRUE;
-		    
-			/* Set the pin class and is_global status */ 
-			for(i = 0; i < Type->capacity; ++i)
-			{
-			    Type->pin_class[CurPin + (i * PinsPerSubtile)] =
-				CurClass + (i * ClassesPerSubtile);
-			    Type->is_global_pin[CurPin +
-						 (i * PinsPerSubtile)] =
-				IsGlobal;
-			}
-		}
-	    FreeTokens(&Tokens);
-	    ++CurClass;
-	    Prev = Cur;
-	    Cur = Cur->next;
-	    FreeNode(Prev);
-	}
-    if(pin_used)
-	{
-	    free(pin_used);
-	    pin_used = NULL;
-	}
-}
-
-/* Sets up the pinloc map for the type. Unlinks the loc nodes
+/* Sets up the pinloc map and pin classes for the type. Unlinks the loc nodes
  * from the XML tree.
  * Pins and pin classses must already be setup by SetupPinClasses */ 
 static void
-SetupPinLocations(ezxml_t Locations, t_type_descriptor * Type)
+SetupPinLocationsAndPinClasses(ezxml_t Locations, t_type_descriptor * Type)
 {
-    int i, j, k, l, PinsPerSubtile, Count, Len;
+    int i, j, k, PinsPerSubtile, Count, Len;
+	int capacity, pin_count;
+	int num_class;
+	const char * Prop;
 
     ezxml_t Cur, Prev;
-    const char *Prop;
     char **Tokens, **CurTokens;
 
+	capacity = Type->capacity;
+
     PinsPerSubtile = Type->num_pins / Type->capacity;
+
+	Prop = FindProperty(Locations, "pattern", TRUE);
+	if(strcmp(Prop, "spread") == 0) {
+		Type->pin_location_distribution = E_SPREAD_PIN_DISTR;
+	} else if (strcmp(Prop,"custom") == 0) {
+		Type->pin_location_distribution = E_CUSTOM_PIN_DISTR;
+	} else {
+		printf(ERRTAG "[LINE %d] %s is an invalid pin location pattern.\n", Locations->line, Prop);
+		exit(1);
+	}
+	ezxml_set_attr(Locations, "pattern", NULL);
     
 	/* Alloc and clear pin locations */ 
 	Type->pinloc = (int ***)my_malloc(Type->height * sizeof(int **));
@@ -375,103 +192,163 @@ SetupPinLocations(ezxml_t Locations, t_type_descriptor * Type)
 			}
 		}
 	}
+
+	Type->pin_loc_assignments = (char****) my_malloc(Type->height * sizeof(char***));
+	Type->num_pin_loc_assignments = (int**) my_malloc(Type->height * sizeof(int*));
+	for(i = 0; i < Type->height; i++) {
+		Type->pin_loc_assignments[i] = (char***) my_calloc(4, sizeof(char**));
+		Type->num_pin_loc_assignments[i] = (int*) my_calloc(4, sizeof(int));	
+	}
     
 	/* Load the pin locations */ 
-	Cur = Locations->child;
-    while(Cur)
-	{
-	    CheckElement(Cur, "loc");
-	    
-		/* Get offset */ 
-		i = GetIntProperty(Cur, "offset", FALSE, 0);
-		if((i < 0) || (i >= Type->height))
+	if(Type->pin_location_distribution == E_CUSTOM_PIN_DISTR) {
+		Cur = Locations->child;
+		while(Cur)
 		{
-			printf(ERRTAG
-				"[LINE %d] %d is an invalid offset for type '%s'.\n", Cur->line,
-				i, Type->name);
-			exit(1);
-		}
-
-		/* Get side */ 
-		Prop = FindProperty(Cur, "side", TRUE);
-	    if(0 == strcmp(Prop, "left"))
-		{
-		    j = LEFT;
-		}
-	    
-	    else if(0 == strcmp(Prop, "top"))
-		{
-		    j = TOP;
-		}
-	    
-	    else if(0 == strcmp(Prop, "right"))
-		{
-		    j = RIGHT;
-		}
-	    
-	    else if(0 == strcmp(Prop, "bottom"))
-		{
-		    j = BOTTOM;
-		}
-	    
-	    else
-		{
-			printf(ERRTAG "[LINE %d] '%s' is not a valid side.\n", Cur->line, Prop);
-		    exit(1);
-		}
-	    ezxml_set_attr(Cur, "side", NULL);
-	    
-		/* Check location is on perimeter */ 
-		if((TOP == j) && (i != (Type->height - 1)))
-		{
-		    printf(ERRTAG
-			    "[LINE %d] Locations are only allowed on large block " 
-				"perimeter. 'top' side should be at offset %d only.\n", Cur->line,
-			    (Type->height - 1));
-		    exit(1);
-		}
-	    if((BOTTOM == j) && (i != 0))
-		{
-		    printf(ERRTAG
-			    "[LINE %d] Locations are only allowed on large block "
-				"perimeter. 'bottom' side should be at offset 0 only.\n", Cur->line);
-		    exit(1);
-		}
-	    
-		/* Go through lists of pins */ 
-		CountTokensInString(Cur->txt, &Count, &Len);
-		if(Count > 0) 
-		{
-			Tokens = GetNodeTokens(Cur);
-			CurTokens = Tokens;
-			while(*CurTokens)
+			CheckElement(Cur, "loc");
+		    
+			/* Get offset */ 
+			i = GetIntProperty(Cur, "offset", FALSE, 0);
+			if((i < 0) || (i >= Type->height))
 			{
-			    
-				/* Get pin */ 
-				k = my_atoi(*CurTokens);
-				if(k >= Type->num_pins)
-				{
-					printf(ERRTAG
-						"[LINE %d] Pin %d of type '%s' is not a valid pin.\n", Cur->line,
-						k, Type->name);
-					exit(1);
-				}
-			    
-				/* Set pin location */ 
-				for(l = 0; l < Type->capacity; ++l)
-				{
-					Type->pinloc[i][j][k + (l * PinsPerSubtile)] = 1;
-				}
-			    
-				/* Advance through list of pins in this location */ 
-				++CurTokens;
+				printf(ERRTAG
+					"[LINE %d] %d is an invalid offset for type '%s'.\n", Cur->line,
+					i, Type->name);
+				exit(1);
 			}
-			FreeTokens(&Tokens);
+
+			/* Get side */ 
+			Prop = FindProperty(Cur, "side", TRUE);
+			if(0 == strcmp(Prop, "left"))
+			{
+				j = LEFT;
+			}
+		    
+			else if(0 == strcmp(Prop, "top"))
+			{
+				j = TOP;
+			}
+		    
+			else if(0 == strcmp(Prop, "right"))
+			{
+				j = RIGHT;
+			}
+		    
+			else if(0 == strcmp(Prop, "bottom"))
+			{
+				j = BOTTOM;
+			}
+		    
+			else
+			{
+				printf(ERRTAG "[LINE %d] '%s' is not a valid side.\n", Cur->line, Prop);
+				exit(1);
+			}
+			ezxml_set_attr(Cur, "side", NULL);
+		    
+			/* Check location is on perimeter */ 
+			if((TOP == j) && (i != (Type->height - 1)))
+			{
+				printf(ERRTAG
+					"[LINE %d] Locations are only allowed on large block " 
+					"perimeter. 'top' side should be at offset %d only.\n", Cur->line,
+					(Type->height - 1));
+				exit(1);
+			}
+			if((BOTTOM == j) && (i != 0))
+			{
+				printf(ERRTAG
+					"[LINE %d] Locations are only allowed on large block "
+					"perimeter. 'bottom' side should be at offset 0 only.\n", Cur->line);
+				exit(1);
+			}
+		    
+			/* Go through lists of pins */ 
+			CountTokensInString(Cur->txt, &Count, &Len);
+			Type->num_pin_loc_assignments[i][j] = Count;
+			if(Count > 0) 
+			{
+				Tokens = GetNodeTokens(Cur);
+				CurTokens = Tokens;
+				Type->pin_loc_assignments[i][j] = (char**) my_calloc(Count, sizeof(char*));
+				for(k = 0; k < Count; k++) {
+					/* Store location assignment */
+					Type->pin_loc_assignments[i][j][k] = my_strdup(*CurTokens);
+										    
+					/* Advance through list of pins in this location */ 
+					++CurTokens;
+				}
+				FreeTokens(&Tokens);
+			}
+			Prev = Cur;
+			Cur = Cur->next;
+			FreeNode(Prev);
 		}
-	    Prev = Cur;
-	    Cur = Cur->next;
-	    FreeNode(Prev);
 	}
+
+	/* Setup pin classes */
+	num_class = 0;
+	for(i = 0; i < Type->pb_type->num_ports; i++) {
+		if(Type->pb_type->ports[i].equivalent) {
+			num_class += capacity;
+		} else {
+			num_class += capacity * Type->pb_type->ports[i].num_pins;
+		}
+	}
+	Type->class_inf = my_calloc(num_class, sizeof(struct s_class));
+	Type->num_class = num_class;
+	Type->pin_class = my_malloc(Type->num_pins * sizeof(int) * capacity);
+	Type->is_global_pin = my_malloc(Type->num_pins * sizeof(boolean) * capacity);
+	for(i = 0; i < Type->num_pins * capacity; i++) {
+		Type->pin_class[i] = OPEN;
+		Type->is_global_pin[i] = OPEN;
+	}
+
+	pin_count = 0;
+
+	/* Equivalent pins share the same class, non-equivalent pins belong to different pin classes */
+	num_class = 0;
+	for(i = 0; i < capacity; ++i)
+	{
+		for(j = 0; j < Type->pb_type->num_ports; ++j)
+		{
+			if(Type->pb_type->ports[j].equivalent) {
+				Type->class_inf[num_class].num_pins = Type->pb_type->ports[j].num_pins;
+				Type->class_inf[num_class].pinlist = 
+					(int *)my_malloc(sizeof(int) * Type->pb_type->ports[j].num_pins);
+			}
+	
+			for(k = 0; k < Type->pb_type->ports[j].num_pins; ++k)
+			{
+				if(!Type->pb_type->ports[j].equivalent) {
+					Type->class_inf[num_class].num_pins = 1;
+					Type->class_inf[num_class].pinlist = (int *)my_malloc(sizeof(int) * 1);
+					Type->class_inf[num_class].pinlist[0] =	pin_count;
+				} else {
+					Type->class_inf[num_class].pinlist[k] =	pin_count;
+				}
+
+				if(Type->pb_type->ports[j].type == IN_PORT) {
+					Type->class_inf[num_class].type = RECEIVER;
+				} else {
+					assert(Type->pb_type->ports[j].type == OUT_PORT);
+					Type->class_inf[num_class].type = DRIVER;
+				}
+				Type->pin_class[pin_count] = num_class;
+				Type->is_global_pin[pin_count] = Type->pb_type->ports[j].is_clock;
+				pin_count++;
+
+				if(!Type->pb_type->ports[j].equivalent) {
+					num_class++;
+				}
+			}
+			if(Type->pb_type->ports[j].equivalent) {
+				num_class++;
+			}
+		}
+	}
+	assert(num_class == Type->num_class);
+	assert(pin_count == Type->num_pins);
 }
 
 /* Sets up the grid_loc_def for the type. Unlinks the loc nodes
@@ -500,9 +377,19 @@ SetupGridLocations(ezxml_t Locations, t_type_descriptor * Type)
 		Prop = FindProperty(Cur, "type", TRUE);
 	    if(Prop)
 		{
-		    if(strcmp(Prop, "fill") == 0)
+			if(strcmp(Prop, "perimeter") == 0)
 			{
 			    if(Type->num_grid_loc_def != 1)
+				{
+				    printf(ERRTAG
+						"[LINE %d] Another loc specified for perimeter.\n", Cur->line);
+				    exit(1);
+				}
+			    Type->grid_loc_def[i].grid_loc_type = BOUNDARY;
+			    assert(IO_TYPE == Type); /* IO goes to boundary */
+			} else if(strcmp(Prop, "fill") == 0)
+			{
+			    if(Type->num_grid_loc_def != 1 || FILL_TYPE != NULL)
 				{
 				    printf(ERRTAG
 						"[LINE %d] Another loc specified for fill.\n", Cur->line);
@@ -950,6 +837,7 @@ static void ProcessPb_TypePort(INOUTP ezxml_t Parent,
 	port->port_class = my_strdup(Prop);
 	ezxml_set_attr(Parent, "port_class", NULL);
 
+	port->equivalent = GetBooleanProperty(Parent, "equivalent", FALSE, FALSE);
 	port->num_pins = GetIntProperty(Parent, "num_pins", TRUE, 0);
 	
 	if(0 == strcmp(Parent->name, "input")) {
@@ -1137,7 +1025,7 @@ Process_Fc(ezxml_t Fc_in_node, ezxml_t Fc_out_node, t_type_descriptor * Type)
 
 /* Thie processes attributes of the 'type' tag and then unlinks them */ 
 static void
-ProcessTypeProps(ezxml_t Node, t_type_descriptor * Type)
+ProcessComplexBlockProps(ezxml_t Node, t_type_descriptor * Type)
 {
     const char *Prop;
     
@@ -1147,9 +1035,10 @@ ProcessTypeProps(ezxml_t Node, t_type_descriptor * Type)
     ezxml_set_attr(Node, "name", NULL);
     
 	/* Load properties */
-	Type->capacity = 1;	/* DEFAULT */
+	Type->capacity = GetIntProperty(Node, "capacity", FALSE, 1);   /* TODO: Any block with capacity > 1 that is not I/O has not been tested, must test */
 	Type->height = GetIntProperty(Node, "height", FALSE, 1);    
 	Type->area = GetFloatProperty(Node, "area", FALSE, 0);
+	
 
 	if(atof(Prop) < 0) {
 		printf("[LINE %d] Area for type %s must be non-negative\n", Node->line, Type->name);
@@ -1459,138 +1348,6 @@ SetupEmptyType()
 }
 
 
-/* Takes in node pointing to <io> and loads all the
- * child type objects. Unlinks the entire <io> node
- * when complete. */ 
-static void
-ProcessIO(INOUTP ezxml_t Node, INP boolean timing_enabled)
-{
-    ezxml_t Cur, Cur2;
-    int i, j;
-
-    t_type_descriptor * type;
-    int num_inputs, num_outputs, num_clocks, num_pins, capacity;
-	float t_in, t_out;
-    enum
-    { INCLASS = 0, OUTCLASS = 1, CLKCLASS = 2 };
-
-    type = &type_descriptors[IO_TYPE->index];
-    num_inputs = 1;
-    num_outputs = 1;
-    num_clocks = 1;
-    CheckElement(Node, "io");
-    type->name = "io";
-    type->height = 1;
-	type->area = UNDEFINED;
-    
-	/* Load capacity */ 
-	capacity = GetIntProperty(Node, "capacity", TRUE, 1);
-	type->capacity = capacity;
-    
-	/* Load Fc */ 
-	Cur = FindElement(Node, "fc_in", TRUE);
-    Cur2 = FindElement(Node, "fc_out", TRUE);
-    Process_Fc(Cur, Cur2, type);
-    FreeNode(Cur);
-    FreeNode(Cur2);
-    
-	/* Initialize and setup type */ 
-	/*  Initialize I/O cluster */
-	type->pb_type = my_malloc(sizeof(t_pb_type));
-	Cur = ezxml_parse_str(IO_STRING, strlen(IO_STRING));
-	if(NULL == Cur)
-	{
-	    printf(ERRTAG "Unable to load architecture file std_pb_type_lib/io.xml.\n");
-		exit(1);
-	}
-	type->pb_type->name = my_strdup(type->name);
-	ProcessPb_Type(Cur, type->pb_type, NULL);
-	FreeNode(Cur);
-
-	num_pins = 3 * capacity;
-    type->num_pins = num_pins;
-    type->num_drivers = num_outputs * capacity;
-    type->num_receivers = num_inputs * capacity;
-    type->pinloc =
-	(int ***)alloc_matrix3(0, 0, 0, 3, 0, num_pins - 1, sizeof(int));
-    
-	/* Jason Luu - September 5, 2007
-	 * To treat IOs as any other block in routing, need to blackbox
-	 * as having physical pins on all sides.  This is a hack. */ 
-	for(i = 0; i < num_pins; ++i)
-	{
-	    for(j = 0; j < 4; ++j)
-		{
-		    type->pinloc[0][j][i] = 1;
-		}
-	}
-    
-	/* Three fixed classes.  In, Out, Clock */ 
-	type->num_class = 3 * capacity;
-    type->class_inf = 
-	(struct s_class *)my_malloc(sizeof(struct s_class) * 3 * capacity);
-    type->pin_class = (int *)my_malloc(sizeof(int) * num_pins);
-    type->is_global_pin = (boolean *) my_malloc(sizeof(boolean) * num_pins);
-    for(j = 0; j < capacity; ++j)
-	{
-	    
-		/* Three fixed classes. In, Out, Clock */ 
-		type->class_inf[3 * j + INCLASS].num_pins = num_inputs;
-	    type->class_inf[3 * j + INCLASS].type = RECEIVER;
-	    type->class_inf[3 * j + INCLASS].pinlist = 
-		(int *)my_malloc(sizeof(int) * num_inputs);
-	    for(i = 0; i < num_inputs; ++i)
-		{
-		    type->class_inf[3 * j + INCLASS].pinlist[i] =
-			num_pins * j / capacity + i;
-		    type->pin_class[num_pins * j / capacity + i] =
-			3 * j + INCLASS;
-		    type->is_global_pin[num_pins * j / capacity + i] = FALSE;
-		}
-	    type->class_inf[3 * j + OUTCLASS].num_pins = num_outputs;
-	    type->class_inf[3 * j + OUTCLASS].type = DRIVER;
-	    type->class_inf[3 * j + OUTCLASS].pinlist = 
-		(int *)my_malloc(sizeof(int) * num_outputs);
-	    for(i = 0; i < num_outputs; ++i)
-		{
-		    type->class_inf[3 * j + OUTCLASS].pinlist[i] =
-			num_pins * j / capacity + i + num_inputs;
-		    type->pin_class[num_pins * j / capacity + i +
-				     num_inputs] = 3 * j + OUTCLASS;
-		    type->is_global_pin[num_pins * j / capacity + i +
-					 num_inputs] = FALSE;
-		}
-	    type->class_inf[3 * j + CLKCLASS].num_pins = num_clocks;
-	    type->class_inf[3 * j + CLKCLASS].type = RECEIVER;
-	    type->class_inf[3 * j + CLKCLASS].pinlist = 
-		(int *)my_malloc(sizeof(int) * num_clocks);
-	    for(i = 0; i < num_clocks; ++i)
-		{
-		    type->class_inf[3 * j + CLKCLASS].pinlist[i] =
-			num_pins * j / capacity + i + num_inputs +
-			num_outputs;
-		    type->pin_class[num_pins * j / capacity + i +
-				     num_inputs + num_outputs] =
-			3 * j + CLKCLASS;
-		    type->is_global_pin[num_pins * j / capacity + i +
-					 num_inputs + num_outputs] = TRUE;
-		}
-	}
-	
-	/* Always at boundary */ 
-	type->num_grid_loc_def = 1;
-    type->grid_loc_def = 
-	(struct s_grid_loc_def *)my_calloc(1, sizeof(struct s_grid_loc_def));
-    type->grid_loc_def[0].grid_loc_type = BOUNDARY;
-    type->grid_loc_def[0].priority = 0;
-    t_in = GetFloatProperty(Node, "t_inpad", timing_enabled, UNDEFINED);
-    t_out = GetFloatProperty(Node, "t_outpad", timing_enabled, UNDEFINED);
-
-	if(timing_enabled)
-	{
-	}
-}
-
 static void alloc_and_load_default_child_for_pb_type(INOUTP t_pb_type *pb_type, char *new_name, t_pb_type *copy) {
 	int i, j;
 	
@@ -1890,7 +1647,7 @@ static void ProcessMemoryClass(INOUTP t_pb_type *mem_pb_type) {
  * child type objects. Unlinks the entire <typelist> node
  * when complete. */ 
 static void
-ProcessTypes(INOUTP ezxml_t Node, OUTP t_type_descriptor ** Types,
+ProcessComplexBlocks(INOUTP ezxml_t Node, OUTP t_type_descriptor ** Types,
 	OUTP int *NumTypes, boolean timing_enabled)
 {
     ezxml_t CurType, Prev;
@@ -1899,11 +1656,10 @@ ProcessTypes(INOUTP ezxml_t Node, OUTP t_type_descriptor ** Types,
 	int i;
 
     
-	/* Alloc the type list. Need two additional t_type_desctiptors:
+	/* Alloc the type list. Need one additional t_type_desctiptors:
 	 * 1: empty psuedo-type 
-	 * 2: IO type
 	 */ 
-	*NumTypes = CountChildren(Node, "type", 1) + 2;
+	*NumTypes = CountChildren(Node, "pb_type", 1) + 1;
     *Types = (t_type_descriptor *) 
 	my_malloc(sizeof(t_type_descriptor) * (*NumTypes));
 
@@ -1914,29 +1670,36 @@ ProcessTypes(INOUTP ezxml_t Node, OUTP t_type_descriptor ** Types,
     type_descriptors[EMPTY_TYPE_INDEX].index = EMPTY_TYPE_INDEX;
     type_descriptors[IO_TYPE_INDEX].index = IO_TYPE_INDEX;
     SetupEmptyType();
-    Cur = FindElement(Node, "io", TRUE);
-    ProcessIO(Cur, timing_enabled);
-    FreeNode(Cur);
     
 	/* Process the types */ 
-	i = 2;			/* Skip over 'empty' and 'io' type */
+	/* TODO: I should make this more flexible but release is soon and I don't have time so assert values for empty and io types*/
+	assert(EMPTY_TYPE_INDEX == 0);
+	assert(IO_TYPE_INDEX == 1);
+	i = 1;			/* Skip over 'empty' type */
     CurType = Node->child;
     while(CurType)
 	{
-	    CheckElement(CurType, "type");
+	    CheckElement(CurType, "pb_type");
 	    
 		/* Alias to current type */ 
 		Type = &(*Types)[i];
 	    
 		/* Parses the properties fields of the type */ 
-		ProcessTypeProps(CurType, Type);
+		ProcessComplexBlockProps(CurType, Type);
 		
 		/* Load pb_type info */
 		Type->pb_type = my_malloc(sizeof(t_pb_type));
-		Cur = FindElement(CurType, "pb_type", TRUE);
 	    Type->pb_type->name = my_strdup(Type->name);
-	    ProcessPb_Type(Cur, Type->pb_type, NULL);
-		FreeNode(Cur);
+		if(i == IO_TYPE_INDEX) {
+			if(strcmp(Type->name, "io") != 0) {
+				printf("First complex block must be named \"io\" and define the inputs and outputs for the FPGA");
+				exit(1);
+			}
+		}
+		ProcessPb_Type(CurType, Type->pb_type, NULL);
+		Type->num_pins = Type->capacity * (Type->pb_type->num_input_pins + Type->pb_type->num_output_pins + Type->pb_type->num_clock_pins);
+		Type->num_receivers = Type->capacity * Type->pb_type->num_input_pins;
+		Type->num_drivers = Type->capacity * Type->pb_type->num_output_pins;
 		
 		/* Load Fc */ 
 		Cur = FindElement(CurType, "fc_in", TRUE);
@@ -1946,11 +1709,8 @@ ProcessTypes(INOUTP ezxml_t Node, OUTP t_type_descriptor ** Types,
 	    FreeNode(Cur2);
 	    
 		/* Load pin names and classes and locations */ 
-		Cur = FindElement(CurType, "pinclasses", TRUE);
-	    SetupPinClasses(Cur, Type);
-	    FreeNode(Cur);
 	    Cur = FindElement(CurType, "pinlocations", TRUE);
-	    SetupPinLocations(Cur, Type);
+	    SetupPinLocationsAndPinClasses(Cur, Type);
 	    FreeNode(Cur);
 	    Cur = FindElement(CurType, "gridlocations", TRUE);
 	    SetupGridLocations(Cur, Type);
@@ -1972,6 +1732,7 @@ ProcessTypes(INOUTP ezxml_t Node, OUTP t_type_descriptor ** Types,
 		Prev = CurType;
 	    CurType = CurType->next;
 	    FreeNode(Prev);
+
 	}
     if(FILL_TYPE == NULL)
 	{
@@ -2029,8 +1790,8 @@ XmlReadArch(INP const char *ArchFile, INP boolean timing_enabled,
     FreeNode(Next);
     
 	/* Process types */ 
-	Next = FindElement(Cur, "typelist", TRUE);
-    ProcessTypes(Next, Types, NumTypes, timing_enabled);
+	Next = FindElement(Cur, "complexblocklist", TRUE);
+    ProcessComplexBlocks(Next, Types, NumTypes, timing_enabled);
     FreeNode(Next);
     
 	/* Process switches */ 
@@ -2731,67 +2492,7 @@ EchoArch(INP const char *EchoFile, INP const t_type_descriptor * Types,
 	    fprintf(Echo, "Type: \"%s\"\n", Types[i].name);
 	    fprintf(Echo, "\tcapacity: %d\n", Types[i].capacity);
 	    fprintf(Echo, "\theight: %d\n", Types[i].height);
-	    if(Types[i].num_pins > 0)
-		{
-		    for(j = 0; j < Types[i].height; ++j)
-			{
-			    fprintf(Echo,
-				     "\tpinloc[%d] TOP LEFT BOTTOM RIGHT:\n",
-				     j);
-			    for(k = 0; k < Types[i].num_pins; ++k)
-				{
-				    fprintf(Echo, "\t\t%d %d %d %d\n",
-					     Types[i].pinloc[j][TOP][k],
-					     Types[i].pinloc[j][LEFT][k],
-					     Types[i].pinloc[j][BOTTOM][k],
-					     Types[i].pinloc[j][RIGHT][k]);
-				}
-			}
-		}
-	    fprintf(Echo, "\tnum_pins (scaled for capacity): %d\n",
-		      Types[i].num_pins);
-	    if(Types[i].num_pins > 0)
-		{
-		    fprintf(Echo, "\tPins: NAME CLASS IS_GLOBAL\n");
-		    for(j = 0; j < Types[i].num_pins; ++j)
-			{
-			    fprintf(Echo, "\t\t%d %d %s\n", j,
-				     Types[i].pin_class[j],
-				     (Types[i].
-				       is_global_pin[j] ? "TRUE" : "FALSE"));
-			}
-		}
-	    fprintf(Echo, "\tnum_class: %d\n", Types[i].num_class);
-	    if(Types[i].num_class > 0)
-		{
-		    for(j = 0; j < Types[i].num_class; ++j)
-			{
-			    switch (Types[i].class_inf[j].type)
-				{
-				case RECEIVER:
-				    fprintf(Echo, "\t\tType: RECEIVER\n");
-				    break;
-				case DRIVER:
-				    fprintf(Echo, "\t\tType: DRIVER\n");
-				    break;
-				case OPEN:
-				    fprintf(Echo, "\t\tType: OPEN\n");
-				    break;
-				default:
-				    fprintf(Echo, "\t\tType: UNKNOWN\n");
-				    break;
-				}
-			    fprintf(Echo, "\t\t\tnum_pins: %d\n",
-				     Types[i].class_inf[j].num_pins);
-			    fprintf(Echo, "\t\t\tpins: ");	/* No \n */
-			    for(k = 0; k < Types[i].class_inf[j].num_pins;
-				 ++k)
-				{
-				    fprintf(Echo, "%d ", Types[i].class_inf[j].pinlist[k]);	/* No \n */
-				}
-			    fprintf(Echo, "\n");	/* End current line */
-			}
-		}
+	    
 	    fprintf(Echo, "\tis_Fc_frac: %s\n",
 		      (Types[i].is_Fc_frac ? "TRUE" : "FALSE"));
 	    fprintf(Echo, "\tis_Fc_out_full_flex: %s\n",

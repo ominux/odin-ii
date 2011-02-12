@@ -28,6 +28,10 @@ enum e_interconnect
 enum e_side
 { TOP = 0, RIGHT = 1, BOTTOM = 2, LEFT = 3 };
 
+/* pin location distributions */
+enum e_pin_location_distr
+{ E_SPREAD_PIN_DISTR = 1, E_CUSTOM_PIN_DISTR = 2 };
+
 
 /* pb_type class */
 enum e_pb_type_class
@@ -119,6 +123,7 @@ struct s_pb_type; /* declare before definition because pb_type contains modes an
  * num_pins: the number of pins this port has
  * parent_pb_type: pointer to the parent pb_type
  * port_class: port belongs to recognized set of ports in class library
+ * equivalence: 
  */
 struct s_port
 {
@@ -127,6 +132,7 @@ struct s_port
 	enum PORTS type;
 	boolean is_clock;
 	int num_pins;
+	boolean equivalent;
 	struct s_pb_type *parent_pb_type;
 	char * port_class;
 };
@@ -290,7 +296,7 @@ struct s_pb_type
     char* name;
 	int num_pb;
 	char *blif_model;
-	t_model *model; /* jedit redudant with models_contained, can remove */
+	t_model *model; /* TODO redudant with models_contained, can remove */
 	enum e_pb_type_class class_type;
 
 	t_mode *modes; /* [0..num_modes-1] */
@@ -336,14 +342,18 @@ typedef struct s_pb_type t_pb_type;
    num_receivers: Total number of input receivers supplied
    index: Keep track of type in array for easy access
 */
-struct s_type_descriptor  /* jedit rename this.  maybe physical type descriptor or complex logic block or physical logic block*/
+struct s_type_descriptor  /* TODO rename this.  maybe physical type descriptor or complex logic block or physical logic block*/
 {
     const char *name;
     int num_pins;
     int capacity;
 
     int height;
+
     int ***pinloc;		/* [0..height-1][0..3][0..num_pins-1] */
+	int **num_pin_loc_assignments; /* [0..height-1][0..3] */
+	char ****pin_loc_assignments; /* [0..height-1][0..3][0..num_tokens-1][0..string_name] */
+	enum e_pin_location_distr pin_location_distribution;
 
     int num_class;
     struct s_class *class_inf;	/* [0..num_class-1] */
