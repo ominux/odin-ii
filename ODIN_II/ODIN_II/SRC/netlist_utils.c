@@ -68,6 +68,7 @@ nnode_t* allocate_nnode()
 
 	new_node->associated_function = NULL;
 
+	new_node->simulate_block_cycle = NULL;
 	new_node->memory_data = NULL;
 
 	return new_node;

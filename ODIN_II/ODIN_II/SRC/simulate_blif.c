@@ -26,6 +26,8 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include <stdlib.h>
 #include <stdarg.h>
 #include <time.h>
+#include <dlfcn.h>
+#include "sim_block.h"
 #include "types.h"
 #include "globals.h"
 #include "errors.h"
@@ -76,9 +78,13 @@ void compute_memory(npin_t **inputs, npin_t **outputs,
 
 void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width);
 
+void free_blocks();
+
 simulation_type sim_type;
 int sim_result;
 FILE *modelsim_out;
+
+queue_t *blocks;
 
 /* preprocessing
  * Simulates the netlist with the test_vector_file_name as input.
@@ -95,6 +101,7 @@ void simulate_blif (char *test_vector_file_name, netlist_t *netlist)
 	sim_type = TEST_EXISTING_VECTORS;
 	sim_result = TRUE;		//we're going to assume that everything goes OK for now
 	modelsim_out = NULL;
+	blocks = create_queue();
 
 	//open our file
 	in = fopen(test_vector_file_name, "r");
@@ -167,6 +174,7 @@ void simulate_blif (char *test_vector_file_name, netlist_t *netlist)
 
 	fclose(in);
 	free_lines(lines, lines_size);
+	free_blocks();
 }
 
 /*
@@ -183,6 +191,8 @@ void simulate_new_vectors (int num_test_vectors, netlist_t *netlist)
 	int i;
 
 	sim_type = GENERATE_VECTORS;
+
+	blocks = create_queue();
 
 	//open the input and output vector files
 	iv = fopen(INPUT_VECTOR_FILE_NAME, "w");
@@ -264,6 +274,7 @@ void simulate_new_vectors (int num_test_vectors, netlist_t *netlist)
 	fclose(outv);
 	fclose(modelsim_out);
 	free_lines(lines, lines_size);
+	free_blocks();
 }
 
 int has_node_been_computed_for_cycle(nnode_t *node, int cycle)
@@ -947,10 +958,40 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			oassert(node->input_port_sizes[0] > 0);
 			oassert(node->output_port_sizes[0] > 0);
 
-			//todo: hard blocks
-
-			printf("A wild Hard Block appeared!\n");
 			oassert(FALSE);
+
+			if (node->simulate_block_cycle == NULL)
+			{
+				void *handle;
+				char *error;
+				void (*func_pointer)(int, int, npin_t **, int, npin_t **);
+				char *filename = "hello.c";
+
+				handle = dlopen(filename, RTLD_LAZY);
+				if (!handle)
+				{
+					error_message(SIMULATION_ERROR, -1, -1, "Couldn't open a shared library for hard-block simulation: %s", dlerror());
+				}
+				dlerror();//clear any existing errors
+				func_pointer = (void(*)(int, int, npin_t **, int, npin_t **))dlsym(handle, "simulate_block_cycle");
+				if ((error = dlerror()) == NULL)
+				{
+					error_message(SIMULATION_ERROR, -1, -1, "Couldn't load a shared library method for hard-block simulation: %s", error);
+				}
+
+				node->simulate_block_cycle = func_pointer;
+				//TODO: Complete
+				/*
+				Figure out the name of the shared library file from the node stuct. Have to
+				get help from Jason first on how to handle that.
+				Then load the library. Retrieve the function pointer and store it in the
+				node->simulate_block_cycle field. Also enqueue a reference to the void*handle
+				in the blocks queue* so we can release them later.
+				*/
+
+			}
+			
+			(node->simulate_block_cycle)(cycle, node->num_input_pins, node->input_pins, node->num_output_pins, node->output_pins);
 
 			return;
 		}
@@ -2145,4 +2186,16 @@ void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_wi
 	}
 	
 	fclose(mif);
+}
+
+void free_blocks()
+{
+	while (!is_empty(blocks))
+	{
+		void *handle;
+
+		handle= dequeue_item(blocks);
+
+		dlclose(handle);
+	}
 }
