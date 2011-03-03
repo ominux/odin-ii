@@ -965,7 +965,12 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				void *handle;
 				char *error;
 				void (*func_pointer)(int, int, npin_t **, int, npin_t **);
-				char *filename = "hello.c";
+				char *filename = "hello.so";
+				//TODO: Complete
+				/*
+				Figure out the name of the shared library file from the node stuct. Have to
+				get help from Jason first on how to handle that.
+				*/
 
 				handle = dlopen(filename, RTLD_LAZY);
 				if (!handle)
@@ -981,14 +986,6 @@ void compute_and_store_value(nnode_t *node, int cycle)
 
 				node->simulate_block_cycle = func_pointer;
 				enqueue_item(blocks, handle);
-				//TODO: Complete
-				/*
-				Figure out the name of the shared library file from the node stuct. Have to
-				get help from Jason first on how to handle that.
-				Then load the library. Retrieve the function pointer and store it in the
-				node->simulate_block_cycle field. Also enqueue a reference to the void*handle
-				in the blocks queue* so we can release them later.
-				*/
 
 			}
 			
