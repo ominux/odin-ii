@@ -980,6 +980,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				}
 
 				node->simulate_block_cycle = func_pointer;
+				enqueue_item(blocks, handle);
 				//TODO: Complete
 				/*
 				Figure out the name of the shared library file from the node stuct. Have to
