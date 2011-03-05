@@ -955,23 +955,25 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		}
 		case HARD_IP:
 		{
+			int k;
+			int *input_pins = malloc(sizeof(int)*node->num_input_pins);
+			int *output_pins = malloc(sizeof(int)*node->num_output_pins);
 			oassert(node->input_port_sizes[0] > 0);
 			oassert(node->output_port_sizes[0] > 0);
-
-			oassert(FALSE);
 
 			if (node->simulate_block_cycle == NULL)
 			{
 				void *handle;
 				char *error;
 				void (*func_pointer)(int, int, npin_t **, int, npin_t **);
-				char *filename = "hello.so";
-				//TODO: Complete
-				/*
-				Figure out the name of the shared library file from the node stuct. Have to
-				get help from Jason first on how to handle that.
-				*/
-
+				char *filename = malloc(sizeof(char)*strlen(node->name));
+				
+				if (index(node->name, '.') == NULL)
+					error_message(SIMULATION_ERROR, -1, -1, "Couldn't extract the name of a shared library for hard-block simulation");
+				
+				//we're extracting "hardblocktype+instancename.so" from "module.hardblocktype+instancename"
+				snprintf(filename, sizeof(char)*strlen(node->name), "%s.so", index(node->name, '.')+1);
+				
 				handle = dlopen(filename, RTLD_LAZY);
 				if (!handle)
 				{
@@ -979,17 +981,30 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				}
 				dlerror();//clear any existing errors
 				func_pointer = (void(*)(int, int, npin_t **, int, npin_t **))dlsym(handle, "simulate_block_cycle");
-				if ((error = dlerror()) == NULL)
+				if ((error = dlerror()) != NULL)
 				{
 					error_message(SIMULATION_ERROR, -1, -1, "Couldn't load a shared library method for hard-block simulation: %s", error);
 				}
 
 				node->simulate_block_cycle = func_pointer;
 				enqueue_item(blocks, handle);
-
+				free(filename);
 			}
 			
-			(node->simulate_block_cycle)(cycle, node->num_input_pins, node->input_pins, node->num_output_pins, node->output_pins);
+			for (k = 0; k < node->num_input_pins; k++)
+			{
+				input_pins[k] = node->input_pins[k]->sim_state->value;
+			}
+			
+			(node->simulate_block_cycle)(cycle, node->num_input_pins, input_pins, node->num_output_pins, output_pins);
+			
+			for (k = 0; k < node->num_output_pins; k++)
+			{
+				update_pin_value(node->output_pins[k], output_pins[k], cycle);
+			}
+			
+			free(input_pins);
+			free(output_pins);
 
 			return;
 		}
