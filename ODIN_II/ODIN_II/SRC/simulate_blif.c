@@ -958,6 +958,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			int k;
 			int *input_pins = malloc(sizeof(int)*node->num_input_pins);
 			int *output_pins = malloc(sizeof(int)*node->num_output_pins);
+			
 			oassert(node->input_port_sizes[0] > 0);
 			oassert(node->output_port_sizes[0] > 0);
 
@@ -991,13 +992,16 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				free(filename);
 			}
 			
+			//extract values of input pins into int array
 			for (k = 0; k < node->num_input_pins; k++)
 			{
 				input_pins[k] = node->input_pins[k]->sim_state->value;
 			}
 			
+			//invoke hardblock simulation call
 			(node->simulate_block_cycle)(cycle, node->num_input_pins, input_pins, node->num_output_pins, output_pins);
 			
+			//extra values of output array into output pins.
 			for (k = 0; k < node->num_output_pins; k++)
 			{
 				update_pin_value(node->output_pins[k], output_pins[k], cycle);
