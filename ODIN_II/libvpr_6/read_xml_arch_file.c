@@ -1037,7 +1037,7 @@ ProcessComplexBlockProps(ezxml_t Node, t_type_descriptor * Type)
 	/* Load properties */
 	Type->capacity = GetIntProperty(Node, "capacity", FALSE, 1);   /* TODO: Any block with capacity > 1 that is not I/O has not been tested, must test */
 	Type->height = GetIntProperty(Node, "height", FALSE, 1);    
-	Type->area = GetFloatProperty(Node, "area", FALSE, 0);
+	Type->area = GetFloatProperty(Node, "area", FALSE, UNDEFINED);
 	
 
 	if(atof(Prop) < 0) {
