@@ -12,7 +12,7 @@ Authors: Jason Luu and Kenneth Kent
 #include "physical_types.h"
 
 /* Constant describing architecture library version number */
-#define VPR_VERSION "5.1"
+#define VPR_VERSION "6.0 BETA"
 
 /* Input file parsing. */
 #define TOKENS " \t\n"
