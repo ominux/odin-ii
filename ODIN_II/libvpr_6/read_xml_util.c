@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,6 +66,7 @@ FindFirstElement(INP ezxml_t Parent, INP const char *Name, INP boolean Required)
 void
 CheckElement(INP ezxml_t Node, INP const char *Name)
 {
+	assert(Node != NULL && Name != NULL);
     if(0 != strcmp(Node->name, Name))
         {
             printf(ERRTAG
