@@ -807,10 +807,12 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				 * This is a work around to keep the previous value "in" the flipflop for the next
 				 * cycle. Not ideal; maybe do a rework later.
 				 **/
-				//int prev;
+				int prev;
 
-				//prev = node->input_pins[0]->sim_state->prev_value;
+				prev = node->output_pins[0]->sim_state->prev_value;
+				
 				update_pin_value(node->output_pins[0], node->output_pins[0]->sim_state->value, cycle);
+				node->output_pins[0]->sim_state->prev_value = prev;
 			}
 			return;
 		}
@@ -1983,6 +1985,12 @@ void update_pin_value(npin_t *pin, int value, int cycle)
 
 	oassert(pin != NULL);
 
+	if (pin->sim_state->cycle == cycle)
+	{
+		oassert(pin->sim_state->value == value);
+	}
+
+
 	//update the sim state of THIS pin
 	pin->sim_state->prev_value = pin->sim_state->value;
 	pin->sim_state->value = value;
@@ -1994,12 +2002,6 @@ void update_pin_value(npin_t *pin, int value, int cycle)
 		//we're updating an output pin of an output node, most likely
 		return;
 	}
-
-	if (pin->sim_state->cycle == cycle)
-	{
-		oassert(pin->sim_state->value == value);
-	}
-
 	for (i = 0; i < pin->net->num_fanout_pins; i++)
 	{
 		npin_t *fanout_pin;
@@ -2010,7 +2012,7 @@ void update_pin_value(npin_t *pin, int value, int cycle)
 
 		fanout_pin = pin->net->fanout_pins[i];
 
-		fanout_pin->sim_state->prev_value = pin->sim_state->value;
+		fanout_pin->sim_state->prev_value = fanout_pin->sim_state->value;
 		fanout_pin->sim_state->value = value;
 		fanout_pin->sim_state->cycle = cycle;
 	}
