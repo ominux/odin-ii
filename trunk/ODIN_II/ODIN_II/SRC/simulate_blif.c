@@ -241,6 +241,7 @@ void simulate_new_vectors (int num_test_vectors, netlist_t *netlist)
 #ifdef DEBUG_SIMULATOR
 		int i;
 #endif
+		
 		assign_random_vector_to_input_lines(lines, lines_size, cycle);
 
 #ifdef DEBUG_SIMULATOR
@@ -344,6 +345,20 @@ void simulate_cycle(netlist_t *netlist, int cycle)
 			enqueue_item(q, (void *)netlist->vcc_node->output_pins[i]->net->fanout_pins[j]->node);
 		}
 	}
+	
+	
+	//We're going to go through all of our flip flops before the rest of our circuit in order to 
+	//update their values first
+	for (i = 0; i < netlist->num_ff_nodes; i++)
+	{
+		nnode_t *node;
+		
+		node = netlist->ff_nodes[i];
+		
+		oassert(node->num_output_pins == 1);
+		oassert(node->num_input_pins == 2);
+		update_pin_value(node->output_pins[0], node->input_pins[0]->sim_state->prev_value, cycle);
+	}
 
 	while (!is_empty(q))
 	{
@@ -403,6 +418,7 @@ void simulate_cycle(netlist_t *netlist, int cycle)
 			}
 		}
 
+		/*
 		if (try_again_later == TRUE &&
 						node->type == FF_NODE)
 		{
@@ -410,6 +426,7 @@ void simulate_cycle(netlist_t *netlist, int cycle)
 			if (node->input_pins[1]->sim_state->cycle == cycle)
 				try_again_later = FALSE;
 		}
+		*/
 
 		//On the first clock cycle, let memories be computed so that output values stabilize
 		if (try_again_later == TRUE &&
@@ -798,15 +815,12 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		{
 			oassert(node->num_output_pins == 1);
 			oassert(node->num_input_pins == 2);
-
+			
+			/*
 			if (node->input_pins[1]->sim_state->value % 2 == 1)	//rising edge of clock
 				update_pin_value(node->output_pins[0], node->input_pins[0]->sim_state->value, cycle);
 			else//falling edge of clock
 			{
-				/*
-				 * This is a work around to keep the previous value "in" the flipflop for the next
-				 * cycle. Not ideal; maybe do a rework later.
-				 **/
 				int prev;
 
 				prev = node->output_pins[0]->sim_state->prev_value;
@@ -814,6 +828,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				update_pin_value(node->output_pins[0], node->output_pins[0]->sim_state->value, cycle);
 				node->output_pins[0]->sim_state->prev_value = prev;
 			}
+			*/
 			return;
 		}
 		case MEMORY:
@@ -968,7 +983,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			{
 				void *handle;
 				char *error;
-				void (*func_pointer)(int, int, npin_t **, int, npin_t **);
+				void (*func_pointer)(int, int, int*, int, int*);
 				char *filename = malloc(sizeof(char)*strlen(node->name));
 				
 				if (index(node->name, '.') == NULL)
@@ -983,7 +998,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 					error_message(SIMULATION_ERROR, -1, -1, "Couldn't open a shared library for hard-block simulation: %s", dlerror());
 				}
 				dlerror();//clear any existing errors
-				func_pointer = (void(*)(int, int, npin_t **, int, npin_t **))dlsym(handle, "simulate_block_cycle");
+				func_pointer = (void(*)(int, int, int*, int, int*))dlsym(handle, "simulate_block_cycle");
 				if ((error = dlerror()) != NULL)
 				{
 					error_message(SIMULATION_ERROR, -1, -1, "Couldn't load a shared library method for hard-block simulation: %s", error);
