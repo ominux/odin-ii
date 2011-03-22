@@ -120,6 +120,9 @@ internal Odin II data structures. However, a cycle parameter is included to
 provide researchers with the ability to delay results of operations performed by
 the simulation code.
 
+IMPORTANT: The simulator computes each clock cycle (rising and falling edge) at
+once. There is only support for rising-edge latches.
+
 CONTACT
 -------------
 
