@@ -211,7 +211,7 @@ void simulate_new_vectors (int num_test_vectors, netlist_t *netlist)
 		error_message(SIMULATION_ERROR, -1, -1, "Could not write to modelsim output file\n");
 	}
 
-	fprintf(modelsim_out, "force clock 0 0, 1 100 -repeat 200\n");
+	fprintf(modelsim_out, "force clock 1 0, 0 50 -repeat 101\n");
 
 	//lines will be an array representing the I/O lines of our netlist
 	lines = create_test_vector_lines(&lines_size, netlist);
@@ -269,7 +269,7 @@ void simulate_new_vectors (int num_test_vectors, netlist_t *netlist)
 		write_vectors_to_file(lines, lines_size, outv, OUTPUT, cycle);
 	}
 
-	fprintf(modelsim_out, "run %d\n", cycle*100);
+	fprintf(modelsim_out, "run %d\n", cycle*101);
 
 	fclose(iv);
 	fclose(outv);
@@ -384,7 +384,8 @@ void simulate_cycle(netlist_t *netlist, int cycle)
 		}
 
 		if (already_calculated
-				&& !is_node_top_level(netlist, node))
+				&& !is_node_top_level(netlist, node)
+				&& node->type != FF_NODE)
 		{
 				continue;
 		}
@@ -815,6 +816,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		{
 			oassert(node->num_output_pins == 1);
 			oassert(node->num_input_pins == 2);
+			
 			
 			/*
 			if (node->input_pins[1]->sim_state->value % 2 == 1)	//rising edge of clock
@@ -1740,7 +1742,10 @@ void assign_random_vector_to_input_lines(line_t **lines, int lines_size, int cyc
 				lines[i]->type == GND_NODE ||
 				lines[i]->type == PAD_NODE)
 		{
-			update_pin_value(lines[i]->pins[0], 0, cycle);
+			if (cycle == 0)
+				update_pin_value(lines[i]->pins[0], 1, cycle);
+			else
+				update_pin_value(lines[i]->pins[0], 0, cycle);
 			continue;
 		}
 		if (lines[i]->type == VCC_NODE)
@@ -1796,7 +1801,7 @@ void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, int type,
 				fprintf(file, "%d", pin->sim_state->value);
 			if (type == INPUT && NULL != modelsim_out)
 			{
-				fprintf(modelsim_out, "force %s %d %d\n", lines[i]->name,pin->sim_state->value, cycle * 100);
+				fprintf(modelsim_out, "force %s %d %d\n", lines[i]->name,pin->sim_state->value, cycle * 100 + 100);
 			}
 		}
 		else //multi-bit
@@ -1887,7 +1892,7 @@ void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, int type,
 			}
 			if (type == INPUT && NULL != modelsim_out)
 			{
-				fprintf(modelsim_out, " %d\n", cycle * 100);
+				fprintf(modelsim_out, " %d\n", cycle * 100 + 100);
 			}
 		}
 	}
