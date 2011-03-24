@@ -211,7 +211,7 @@ void simulate_new_vectors (int num_test_vectors, netlist_t *netlist)
 		error_message(SIMULATION_ERROR, -1, -1, "Could not write to modelsim output file\n");
 	}
 
-	fprintf(modelsim_out, "force clock 1 0, 0 50 -repeat 101\n");
+	fprintf(modelsim_out, "force clock 1 0, 0 50 -repeat 100\n");
 
 	//lines will be an array representing the I/O lines of our netlist
 	lines = create_test_vector_lines(&lines_size, netlist);
@@ -358,6 +358,12 @@ void simulate_cycle(netlist_t *netlist, int cycle)
 		oassert(node->num_output_pins == 1);
 		oassert(node->num_input_pins == 2);
 		update_pin_value(node->output_pins[0], node->input_pins[0]->sim_state->prev_value, cycle);
+		/*
+		Here's the problem: we're updating the input pins and we need, on the subsequent cycle,
+		to output that value. Right now, we're outputing that input node's _previous_ value.
+		We're doing this because values that come directly from input pins need to be handled.
+		What we need to do is actually check if the node is directly under an input pin.
+		*/
 	}
 
 	while (!is_empty(q))
