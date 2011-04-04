@@ -357,7 +357,17 @@ void simulate_cycle(netlist_t *netlist, int cycle)
 		
 		oassert(node->num_output_pins == 1);
 		oassert(node->num_input_pins == 2);
-		update_pin_value(node->output_pins[0], node->input_pins[0]->sim_state->prev_value, cycle);
+		//If we get our inpt directly from input pins, then ouput that input's current (updated) value
+		if (is_node_top_level(netlist, node->input_pins[0]->net->driver_pin->node))
+		{
+			update_pin_value(node->output_pins[0], node->input_pins[0]->sim_state->	value, cycle);
+		}
+		//If we get our input from another node, then output that inpput's previous value
+		else
+		{
+			update_pin_value(node->output_pins[0], node->input_pins[0]->sim_state->prev_value, cycle);
+		}
+		
 		/*
 		Here's the problem: we're updating the input pins and we need, on the subsequent cycle,
 		to output that value. Right now, we're outputing that input node's _previous_ value.
@@ -1807,7 +1817,7 @@ void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, int type,
 				fprintf(file, "%d", pin->sim_state->value);
 			if (type == INPUT && NULL != modelsim_out)
 			{
-				fprintf(modelsim_out, "force %s %d %d\n", lines[i]->name,pin->sim_state->value, cycle * 100 + 100);
+				fprintf(modelsim_out, "force %s %d %d\n", lines[i]->name,pin->sim_state->value, cycle * 100 + 95);
 			}
 		}
 		else //multi-bit
@@ -1898,7 +1908,7 @@ void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, int type,
 			}
 			if (type == INPUT && NULL != modelsim_out)
 			{
-				fprintf(modelsim_out, " %d\n", cycle * 100 + 100);
+				fprintf(modelsim_out, " %d\n", cycle * 100 + 95);
 			}
 		}
 	}
