@@ -361,7 +361,7 @@ nnode_t
 
 	int *memory_data;
 	//(int cycle, int num_input_pins, npin_t *inputs, int num_output_pins, npin_t *outputs);
-	void (*simulate_block_cycle)(int, int, npin_t**, int, npin_t**);
+	void (*simulate_block_cycle)(int, int, int*, int, int*);
 
 	short *associated_function;
 };
