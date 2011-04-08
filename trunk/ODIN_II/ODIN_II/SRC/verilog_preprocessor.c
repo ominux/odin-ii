@@ -412,50 +412,73 @@ void veri_preproc_bootstraped(FILE *source, FILE *preproc_producer, veri_include
 					veri_defines.defined_constants[veri_defines.current_index--] = NULL;
 				}
 			}
-			else if (top(skip) < 1 && strcmp(token, "`ifdef") == 0)
+			else if (strcmp(token, "`ifdef") == 0)
 			{
-				int is_defined = 0;
-				
-				token = trim(strtok(NULL, " \t"));
-				is_defined = veri_is_defined(token);
-				if(is_defined < 0) //If we are unable to locate the symbol in the table
-				{
-					push(skip, 1);
-				}
-				else
-				{
-					push(skip, 0);
+				// if parent is not skipped
+				if ( top(skip) < 1 ) {
+					int is_defined = 0;
+					
+					token = trim(strtok(NULL, " \t"));
+					is_defined = veri_is_defined(token);
+					if(is_defined < 0) //If we are unable to locate the symbol in the table
+					{
+						push(skip, 1);
+					}
+					else
+					{
+						push(skip, 0);
+					}
+				} 
+				// otherwise inherit skip from parent (use 2)
+				else {
+					push( skip, 2 ) ;
 				}
 			}
-			else if (top(skip) < 1 && strcmp(token, "`ifndef") == 0)
+			else if (strcmp(token, "`ifndef") == 0)
 			{
-				int is_defined = 0;
-				
-				token = trim(strtok(NULL, " \t"));
-				is_defined = veri_is_defined(token);
-				if(is_defined >= 0) //If we are able to locate the symbol in the table
-				{
-					push(skip, 1);
+				// if parent is not skipped
+				if ( top(skip) < 1 ) {
+					int is_defined = 0;
+					
+					token = trim(strtok(NULL, " \t"));
+					is_defined = veri_is_defined(token);
+					if(is_defined >= 0) //If we are able to locate the symbol in the table
+					{
+						push(skip, 1);
+					}
+					else
+					{
+						push(skip, 0);
+					}
 				}
-				else
-				{
-					push(skip, 0);
+				// otherwise inherit skip from parent (use 2)
+				else {
+					push( skip, 2 ) ;
 				}
 			}
 			else if (strcmp(token, "`else") == 0)
 			{
-				if(top(skip)  == 0)
+				// if skip was 0 (prev. ifdef was 1) 
+				if(top(skip) < 1)
 				{
+					// then set to 0
+					pop(skip) ;
 					push(skip, 1);
 				} 
-				else
+				// only when prev skip was 1 do we set to 0 now
+				else if (top(skip) == 1)
 				{
-					pop(skip);
+					pop(skip) ;
+					push(skip, 0);
+				}
+				// but if it's 2 (parent ifdef is 1)
+				else {
+					// then do nothing 
 				}
 			}
 			else if (strcmp(token, "`endif") == 0)
 			{
-					pop(skip);
+				pop(skip);
 			}
 			/* Leave unhandled preprcessor directives in place. */
 			else if (top(skip) < 1)

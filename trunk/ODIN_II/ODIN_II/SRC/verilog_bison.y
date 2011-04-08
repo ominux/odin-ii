@@ -66,6 +66,7 @@ int yywrap()
 
 %token <id_name> vSYMBOL_ID 
 %token <num_value> vNUMBER_ID
+%token <num_value> vDELAY_ID
 %token vALWAYS vAND vASSIGN vBEGIN vCASE vDEFAULT vDEFINE vELSE vEND vENDCASE vENDMODULE vIF vINOUT vINPUT vMODULE vNAND vNEGEDGE vNOR vNOT vOR vOUTPUT vPARAMETER vPOSEDGE vREG vWIRE vXNOR vXOR vDEFPARAM
 %token voANDAND voOROR voLTE voGTE voSLEFT voSRIGHT voEQUAL voNOTEQUAL voCASEEQUAL voCASENOTEQUAL voXNOR voNAND voNOR
 %token vNOT_SUPPORT
@@ -211,9 +212,11 @@ statement: seq_block								{$$ = $1;}
 	;
 	 
 blocking_assignment: primary '=' expression 					{$$ = newBlocking($1, $3, yylineno);}
+	| primary '=' vDELAY_ID expression					{$$ = newBlocking($1, $3, yylineno);}
 	;
 
 non_blocking_assignment: primary voLTE expression 				{$$ = newNonBlocking($1, $3, yylineno);}
+	| primary voLTE vDELAY_ID expression					{$$ = newNonBlocking($1, $4, yylineno);}
 	;
 
 case_item_list: case_item_list case_items					{$$ = newList_entry($1, $2);}
@@ -280,6 +283,11 @@ expression: primary								{$$ = $1;}
 	| expression voANDAND expression					{$$ = newBinaryOperation(LOGICAL_AND, $1, $3, yylineno);}
 	| expression '?' expression ':' expression				{$$ = newIfQuestion($1, $3, $5, yylineno);}
 	| '(' expression ')'							{$$ = $2;}
+										/* rule below is strictly unnecessary, causes a bison conflict, 
+										but simplifies the AST so that expression_lists with one child 
+										(i.e. just an expression) does not create a CONCATENATE parent) */
+	| '{' expression '{' expression '}' '}'					{$$ = newListReplicate( $2, $4 ); }
+	| '{' expression '{' expression_list '}' '}'				{$$ = newListReplicate( $2, $4 ); }
 	;
 
 primary: vNUMBER_ID								{$$ = newNumberNode($1, yylineno);}
