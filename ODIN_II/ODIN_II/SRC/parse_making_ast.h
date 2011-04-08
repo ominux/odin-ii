@@ -14,6 +14,7 @@ ast_node_t *newSymbolNode(char *id, int line_number);
 ast_node_t *newNumberNode(char *num, int line_number);
 ast_node_t *newList(short type_id, ast_node_t *expression);
 ast_node_t *newList_entry(ast_node_t *concat_node, ast_node_t *expression);
+ast_node_t *newListReplicate(ast_node_t *exp, ast_node_t *child );
 ast_node_t *markAndProcessSymbolListWith(short id, ast_node_t *symbol_list);
 
 /* EXPRESSIONS */
