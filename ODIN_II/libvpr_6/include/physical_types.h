@@ -201,12 +201,18 @@ typedef struct s_mode t_mode;
 
 struct s_pb_graph_edge;
 
+
+enum e_pb_graph_pin_type
+{ PB_PIN_NORMAL = 0, PB_PIN_SEQUENTIAL, PB_PIN_INPAD, PB_PIN_OUTPAD, PB_PIN_TERMINAL };
+
 /** Describes a pb graph pin
  * port: pointer to the port that this pin is associated with 
  * pin_number: pin number of the port that this pin is associated with
  * edges: ptrs to edges attached to this pin
  * num_edges: number of edges attached to this pin
+ * parent_node: parent pb_graph_node
  * pin_count_in_cluster: Unique number for pin inside cluster
+ * tnode: corresponding timing node for this pin
  */
 struct s_pb_graph_pin
 {
@@ -216,8 +222,12 @@ struct s_pb_graph_pin
 	int num_input_edges;
 	struct s_pb_graph_edge** output_edges; /* [0..num_output_edges] */
 	int num_output_edges;
+
 	struct s_pb_graph_node *parent_node;
 	int pin_count_in_cluster;
+
+	enum e_pb_graph_pin_type type; /* Is a sequential logic element (TRUE), inpad/outpad (TRUE), or neither (FALSE) */
+	float tsu_tco; /* For sequential logic elements, this is the setup time (if input) or clock-to-q time (if output) */
 };
 typedef struct s_pb_graph_pin t_pb_graph_pin;
 
