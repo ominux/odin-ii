@@ -336,13 +336,61 @@ void veri_preproc_bootstraped(FILE *source, FILE *preproc_producer, veri_include
 	int line_number = 1;
 	veri_flag_stack *skip = calloc(1, sizeof(veri_flag_stack));;
 	char line[MaxLine];
-	char *token;
+	char *token, *p;
 	FILE *included_file = NULL;
 	veri_include *new_include = NULL;
 
 	while (NULL != fgets(line, MaxLine, source))
 	{
 		//fprintf(stderr, "%s:%d\t%s", current_include->path,line_number, line);
+
+		char proc_line[MaxLine] ;
+		char symbol[MaxLine] ;
+		char *value ;
+		char *p_proc_line = proc_line ;
+		char *last_pch, *pch, *pch_end ;
+		// advance past all whitespace
+		last_pch = trim(line) ;
+		// start searching for backtick
+		pch = strchr( last_pch, '`' ) ;
+		while ( pch ) {
+			// if symbol found, copy everything from end of last_pch to here
+			strncpy( p_proc_line, last_pch, pch - last_pch ) ;
+			p_proc_line += pch - last_pch ;
+			*p_proc_line = '\0' ;
+			// find the end of the symbol
+			pch_end = pch+1 ;
+			while ( ( *pch_end >= '0' && *pch_end <= '9' ) ||
+				( *pch_end >= 'A' && *pch_end <= 'Z' ) ||
+				( *pch_end >= 'a' && *pch_end <= 'z' ) || 
+				*pch_end == '_' )
+				pch_end++ ;
+			// copy symbol into array
+			strncpy( symbol, pch+1, pch_end - (pch+1) ) ;
+			*(symbol + (pch_end - (pch+1))) = '\0' ;
+			value = ret_veri_definedval( symbol ) ;
+			if ( value ) {
+				strcpy( p_proc_line, value ) ;
+				p_proc_line += strlen( value ) ;
+			}
+			else {
+				// symbol not found, just pass it through
+				*p_proc_line++ = '`' ;
+				strcpy( p_proc_line, symbol ) ;
+				p_proc_line += strlen( symbol ) ;
+			}
+			last_pch = pch_end ;
+			pch = strchr( last_pch+1, '`' ) ;
+		}
+		pch = strchr( last_pch, '\0' ) ;
+		strncpy( p_proc_line, last_pch, pch - last_pch ) ;
+		p_proc_line += pch - last_pch ;
+		*p_proc_line = '\0' ;
+
+		strcpy( line, proc_line ) ;
+		
+		//fprintf(stderr, "%s:%d\t%s\n", current_include->path,line_number, line);
+
 		/* Preprocessor directives have a backtick on the first coloumn. */
 		if (line[0] == '`') 
 		{
@@ -387,8 +435,28 @@ void veri_preproc_bootstraped(FILE *source, FILE *preproc_producer, veri_include
 				token = trim(strtok(NULL, " \t"));
 				//printf("token is: %s\n", token);
 
-				value = trim(strtok(NULL, " \t"));
+				// symbol value can potentially be to the end of the line!
+				value = trim(strtok(NULL, "\r\n"));
 				//printf("value is: %s\n", value);
+
+				// however, be aware of "`define SYMBOL 1 + 2 + 3 + 4 // comment!"
+				// if a comment is found, terminate string there
+				// fortunately, we don't need to worry about /* */ style comments 
+				// because they shouldn't comment out the rest of the line, 
+				// unless it dangles past one line
+				if ( value ) {
+					p = value ;
+					while (*p) {
+						if (*p == '/')
+							if ( *(p+1) == '/' ) {
+								*p = '\0' ;
+								break; 
+							}
+						p++ ;
+					}
+					// trim it again just in case
+					value = trim(value) ;
+				}
 				
 				add_veri_define(token, value, line_number, current_include);
 			}
@@ -488,7 +556,7 @@ void veri_preproc_bootstraped(FILE *source, FILE *preproc_producer, veri_include
 		}
 		else if(top(skip) < 1)
 		{
-			if (fprintf(preproc_producer, "%s", line) < 0)//fputs(line, preproc_producer))
+			if (fprintf(preproc_producer, "%s\n", line) < 0)//fputs(line, preproc_producer))
 			{
 				/* There was an error writing to the stream */
 			}
@@ -506,12 +574,17 @@ char* trim(char *string)
 	int i = 0;
 	if (string != NULL)
 	{
-		for(i = strlen(string); i >= 0 ; i--)
+		// advance past all spaces at the beginning
+		while( isspace( *string ) ) string++ ;
+		// trim all spaces at the end
+		for(i = strlen(string)-1; i >= 0 ; i--)
 		{
 			if(isspace(string[i]) > 0)
 			{
 				string[i] = '\0';
 			}
+			else
+				break ;
 		}
 	}
 	return string;
