@@ -212,7 +212,7 @@ statement: seq_block								{$$ = $1;}
 	;
 	 
 blocking_assignment: primary '=' expression 					{$$ = newBlocking($1, $3, yylineno);}
-	| primary '=' vDELAY_ID expression					{$$ = newBlocking($1, $3, yylineno);}
+	| primary '=' vDELAY_ID expression					{$$ = newBlocking($1, $4, yylineno);}
 	;
 
 non_blocking_assignment: primary voLTE expression 				{$$ = newNonBlocking($1, $3, yylineno);}

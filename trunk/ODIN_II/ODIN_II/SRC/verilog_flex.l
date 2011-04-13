@@ -48,7 +48,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 <INITIAL>"casex"		{ MP; return vNOT_SUPPORT;}
 <INITIAL>"casez"		{ MP; return vNOT_SUPPORT;}
 <INITIAL>"default"		{ MP; return vDEFAULT;}
-<INITIAL>"`define"		{ MP; return vDEFINE;}
+<INITIAL>"`define"[^\n]*	{ MP; continue; }
 <INITIAL>"defparam"		{ MP; return vDEFPARAM;}
 <INITIAL>"disable"		{ MP; return vNOT_SUPPORT;}
 <INITIAL>"edge"			{ MP; return vNOT_SUPPORT;}
