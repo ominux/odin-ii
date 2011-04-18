@@ -510,6 +510,7 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 	i = 0;
 	if(0 == strcmp(Parent->name, "delay_constant")) {
 		annotation->type = (int) E_ANNOT_PIN_TO_PIN_DELAY;
+		annotation->format = E_ANNOT_PIN_TO_PIN_CONSTANT;
 		Prop = FindProperty(Parent, "max", FALSE);
 		if(Prop) {
 			annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_MAX;
@@ -532,6 +533,7 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 		ezxml_set_attr(Parent, "out_port", NULL);
 	} else if (0 == strcmp(Parent->name, "delay_matrix")) {
 		annotation->type = (int) E_ANNOT_PIN_TO_PIN_DELAY;
+		annotation->format = E_ANNOT_PIN_TO_PIN_MATRIX;
 		Prop = FindProperty(Parent, "type", TRUE);
 		annotation->value[i] = my_strdup(Parent->txt);
 		ezxml_set_txt(Parent, "");
@@ -551,6 +553,7 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 		ezxml_set_attr(Parent, "out_port", NULL);
 	} else if (0 == strcmp(Parent->name, "C_constant")) {
 		annotation->type = (int) E_ANNOT_PIN_TO_PIN_CAPACITANCE;
+		annotation->format = E_ANNOT_PIN_TO_PIN_CONSTANT;
 		Prop = FindProperty(Parent, "C", TRUE);
 		annotation->value[i] = my_strdup(Prop);
 		ezxml_set_attr(Parent, "C", NULL);
@@ -566,6 +569,7 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 		assert(annotation->output_pins != NULL || annotation->input_pins != NULL);
 	} else if (0 == strcmp(Parent->name, "C_matrix")) {
 		annotation->type = (int) E_ANNOT_PIN_TO_PIN_CAPACITANCE;
+		annotation->format = E_ANNOT_PIN_TO_PIN_MATRIX;
 		annotation->value[i] = my_strdup(Parent->txt);
 		ezxml_set_txt(Parent, "");
 		annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_CAPACITANCE_C;
@@ -579,6 +583,7 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 		assert(annotation->output_pins != NULL || annotation->input_pins != NULL);
 	} else if (0 == strcmp(Parent->name, "T_setup")) {
 		annotation->type = (int) E_ANNOT_PIN_TO_PIN_DELAY;
+		annotation->format = E_ANNOT_PIN_TO_PIN_CONSTANT;
 		Prop = FindProperty(Parent, "value", TRUE);
 		annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_TSETUP;
 		annotation->value[i] = my_strdup(Prop);
@@ -592,16 +597,17 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 		ezxml_set_attr(Parent, "clock", NULL);
 	} else if (0 == strcmp(Parent->name, "T_clock_to_Q")) {
 		annotation->type = (int) E_ANNOT_PIN_TO_PIN_DELAY;
+		annotation->format = E_ANNOT_PIN_TO_PIN_CONSTANT;
 		Prop = FindProperty(Parent, "max", FALSE);
 		if(Prop) {
-			annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_MAX;
+			annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_CLOCK_TO_Q_MAX;
 			annotation->value[i] = my_strdup(Prop);
 			ezxml_set_attr(Parent, "max", NULL);
 			i++;
 		}
 		Prop = FindProperty(Parent, "min", FALSE);
 		if(Prop) {
-			annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_MAX;
+			annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_CLOCK_TO_Q_MIN;
 			annotation->value[i] = my_strdup(Prop);
 			ezxml_set_attr(Parent, "min", NULL);
 			i++;
@@ -615,6 +621,7 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 		ezxml_set_attr(Parent, "clock", NULL);
 	} else if (0 == strcmp(Parent->name, "T_hold")) {
 		annotation->type = (int) E_ANNOT_PIN_TO_PIN_DELAY;
+		annotation->format = E_ANNOT_PIN_TO_PIN_CONSTANT;
 		Prop = FindProperty(Parent, "value", TRUE);
 		annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_DELAY_THOLD;
 		annotation->value[i] = my_strdup(Prop);
@@ -2445,7 +2452,7 @@ void
 EchoArch(INP const char *EchoFile, INP const t_type_descriptor * Types,
 	INP int NumTypes, struct s_arch *arch)
 {
-    int i, j, k;
+    int i, j;
     FILE * Echo;
 	t_model * cur_model;
 	t_model_ports * model_port;

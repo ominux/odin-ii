@@ -40,8 +40,11 @@ enum e_pb_type_class
 /* Annotations for pin-to-pin connections */
 enum e_pin_to_pin_annotation_type
 {E_ANNOT_PIN_TO_PIN_DELAY = 0, E_ANNOT_PIN_TO_PIN_CAPACITANCE};
+enum e_pin_to_pin_annotation_format
+{E_ANNOT_PIN_TO_PIN_MATRIX = 0, E_ANNOT_PIN_TO_PIN_CONSTANT};
 enum e_pin_to_pin_delay_annotations
 {E_ANNOT_PIN_TO_PIN_DELAY_MIN = 0, E_ANNOT_PIN_TO_PIN_DELAY_MAX, E_ANNOT_PIN_TO_PIN_DELAY_TSETUP, 
+E_ANNOT_PIN_TO_PIN_DELAY_CLOCK_TO_Q_MIN, E_ANNOT_PIN_TO_PIN_DELAY_CLOCK_TO_Q_MAX,
 E_ANNOT_PIN_TO_PIN_DELAY_THOLD};
 enum e_pin_to_pin_capacitance_annotations
 {E_ANNOT_PIN_TO_PIN_CAPACITANCE_C = 0};
@@ -143,6 +146,7 @@ typedef struct s_port t_port;
  * value: value/property pair
  * prop: value/property pair
  * type: type of annotation
+ * format: formatting of data
  * input_port: input string verbatim to parse later
  * output_port: input string output to parse later
  */
@@ -153,6 +157,7 @@ struct s_pin_to_pin_annotation
 	int num_value_prop_pairs;
 
 	enum e_pin_to_pin_annotation_type type;
+	enum e_pin_to_pin_annotation_format format;
 
 	char * input_pins;
 	char * output_pins;
@@ -212,7 +217,6 @@ enum e_pb_graph_pin_type
  * num_edges: number of edges attached to this pin
  * parent_node: parent pb_graph_node
  * pin_count_in_cluster: Unique number for pin inside cluster
- * tnode: corresponding timing node for this pin
  */
 struct s_pb_graph_pin
 {
@@ -226,8 +230,12 @@ struct s_pb_graph_pin
 	struct s_pb_graph_node *parent_node;
 	int pin_count_in_cluster;
 
+	/* timing information */
 	enum e_pb_graph_pin_type type; /* Is a sequential logic element (TRUE), inpad/outpad (TRUE), or neither (FALSE) */
 	float tsu_tco; /* For sequential logic elements, this is the setup time (if input) or clock-to-q time (if output) */
+	struct s_pb_graph_pin** pin_timing; /* primitive ipin to opin timing */
+	float *pin_timing_del_max; /* primitive ipin to opin timing */
+	int num_pin_timing; /* primitive ipin to opin timing */
 };
 typedef struct s_pb_graph_pin t_pb_graph_pin;
 
