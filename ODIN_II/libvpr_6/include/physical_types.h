@@ -208,7 +208,7 @@ struct s_pb_graph_edge;
 
 
 enum e_pb_graph_pin_type
-{ PB_PIN_NORMAL = 0, PB_PIN_SEQUENTIAL, PB_PIN_INPAD, PB_PIN_OUTPAD, PB_PIN_TERMINAL };
+{ PB_PIN_NORMAL = 0, PB_PIN_SEQUENTIAL, PB_PIN_INPAD, PB_PIN_OUTPAD, PB_PIN_TERMINAL, PB_PIN_CLOCK };
 
 /** Describes a pb graph pin
  * port: pointer to the port that this pin is associated with 
