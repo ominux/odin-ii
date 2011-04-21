@@ -614,7 +614,7 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 		}
 		
 		Prop = FindProperty(Parent, "port", TRUE);
-		annotation->output_pins = my_strdup(Prop);
+		annotation->input_pins = my_strdup(Prop);
 		ezxml_set_attr(Parent, "port", NULL);
 		Prop = FindProperty(Parent, "clock", TRUE);
 		annotation->clock = my_strdup(Prop);
@@ -742,19 +742,6 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 	i = 0;
 	/* Determine if this is a leaf or container pb_type */
 	if(pb_type->blif_model != NULL) {
-		/* leaf pb_type, if special known class, then read class lib otherwise treat as primitive */
-		if(pb_type->class_type == LUT_CLASS) {
-			ProcessLutClass(pb_type);
-		} else if(pb_type->class_type == MEMORY_CLASS) {
-			ProcessMemoryClass(pb_type);
-		} else {
-			/* other leaf pb_type do not have modes */
-			pb_type->num_modes = 0;
-			assert(CountChildren(Parent, "mode", 0) == 0);
-		}
-
-		pb_type->area = GetFloatProperty(Parent, "area", FALSE, 0);
-
 		/* Process delay and capacitance annotations */
 		num_annotations = 0;
 		num_annotations += CountChildren(Parent, "delay_constant", 0);
@@ -798,6 +785,19 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 			}
 		}
 		assert(j == num_annotations);
+
+		/* leaf pb_type, if special known class, then read class lib otherwise treat as primitive */
+		if(pb_type->class_type == LUT_CLASS) {
+			ProcessLutClass(pb_type);
+		} else if(pb_type->class_type == MEMORY_CLASS) {
+			ProcessMemoryClass(pb_type);
+		} else {
+			/* other leaf pb_type do not have modes */
+			pb_type->num_modes = 0;
+			assert(CountChildren(Parent, "mode", 0) == 0);
+		}
+
+		pb_type->area = GetFloatProperty(Parent, "area", FALSE, 0);
 	} else {
 		/* container pb_type, process modes */
 		assert(pb_type->class_type == UNKNOWN_CLASS);
@@ -1357,6 +1357,7 @@ SetupEmptyType()
 
 static void alloc_and_load_default_child_for_pb_type(INOUTP t_pb_type *pb_type, char *new_name, t_pb_type *copy) {
 	int i, j;
+	char *dot;
 	
 	assert(pb_type->blif_model != NULL);
 
@@ -1388,8 +1389,16 @@ static void alloc_and_load_default_child_for_pb_type(INOUTP t_pb_type *pb_type, 
 	copy->num_annotations = pb_type->num_annotations;
 	for(i = 0; i < copy->num_annotations; i++) {
 		copy->annotations[i].clock = my_strdup(pb_type->annotations[i].clock);
-		copy->annotations[i].input_pins = my_strdup(pb_type->annotations[i].input_pins);
-		copy->annotations[i].output_pins = my_strdup(pb_type->annotations[i].output_pins);
+		dot = strstr(pb_type->annotations[i].input_pins, ".");
+		copy->annotations[i].input_pins = my_malloc(sizeof(char) * (strlen(new_name) + strlen(dot) + 1));
+		copy->annotations[i].input_pins[0] = '\0';
+		strcat(copy->annotations[i].input_pins, new_name);
+		strcat(copy->annotations[i].input_pins, dot);
+		dot = strstr(pb_type->annotations[i].output_pins, ".");
+		copy->annotations[i].output_pins = my_malloc(sizeof(char) * (strlen(new_name) + strlen(dot) + 1));
+		copy->annotations[i].output_pins[0] = '\0';
+		strcat(copy->annotations[i].output_pins, new_name);
+		strcat(copy->annotations[i].output_pins, dot);
 		copy->annotations[i].type = pb_type->annotations[i].type;
 		copy->annotations[i].num_value_prop_pairs = pb_type->annotations[i].num_value_prop_pairs;
 		copy->annotations[i].prop = my_malloc(sizeof(int) * pb_type->annotations[i].num_value_prop_pairs);
@@ -1406,7 +1415,6 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 	char *default_name;
 	t_port *in_port;
 	t_port *out_port;
-
 	
 	if(strcmp(lut_pb_type->name, "lut") != 0) {
 		default_name = my_strdup("lut");
@@ -1461,6 +1469,10 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 	lut_pb_type->modes[1].num_pb_type_children = 1;
 	lut_pb_type->modes[1].pb_type_children = my_calloc(1, sizeof(t_pb_type));
 	alloc_and_load_default_child_for_pb_type(lut_pb_type, default_name, lut_pb_type->modes[1].pb_type_children);
+	/* moved annotations to child so delete old annotations */
+	lut_pb_type->num_annotations = 0;
+	free(lut_pb_type->annotations);
+	lut_pb_type->annotations = NULL;
 	lut_pb_type->modes[1].pb_type_children[0].depth = lut_pb_type->depth + 1;
 	lut_pb_type->modes[1].pb_type_children[0].parent_mode = &lut_pb_type->modes[1];
 
