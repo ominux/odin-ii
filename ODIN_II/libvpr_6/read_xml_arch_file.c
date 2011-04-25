@@ -919,8 +919,8 @@ static void ProcessInterconnect(INOUTP ezxml_t Parent,
 			num_annotations += CountChildren(Cur, "C_constant", 0);
 			num_annotations += CountChildren(Cur, "C_matrix", 0);
 
-			mode->interconnect->annotations = my_calloc(num_annotations, sizeof(t_pin_to_pin_annotation));
-			mode->interconnect->num_annotations = num_annotations;
+			mode->interconnect[i].annotations = my_calloc(num_annotations, sizeof(t_pin_to_pin_annotation));
+			mode->interconnect[i].num_annotations = num_annotations;
 
 			k = 0;
 			Cur2 = NULL;
@@ -936,7 +936,7 @@ static void ProcessInterconnect(INOUTP ezxml_t Parent,
 				}
 				while (Cur2 != NULL)
 				{
-					ProcessPinToPinAnnotations(Cur2, &mode->interconnect->annotations[k]);
+					ProcessPinToPinAnnotations(Cur2, &(mode->interconnect[i].annotations[k]));
 
 					/* get next iteration */
 					Prev2 = Cur2;
@@ -2534,7 +2534,7 @@ EchoArch(INP const char *EchoFile, INP const t_type_descriptor * Types,
 static void
 PrintPb_types_rec(INP FILE * Echo, INP const t_pb_type * pb_type, int level)
 {
-	int i, j;
+	int i, j, k;
 	char *tabs;
 
 	tabs = my_malloc((level + 1) * sizeof(char));
@@ -2563,6 +2563,11 @@ PrintPb_types_rec(INP FILE * Echo, INP const t_pb_type * pb_type, int level)
 			fprintf(Echo, "%s\t\tinterconnect %d %s %s\n", tabs, pb_type->modes[i].interconnect[j].type,
 				pb_type->modes[i].interconnect[j].input_string, 
 				pb_type->modes[i].interconnect[j].output_string);
+			for(k = 0; k < pb_type->modes[i].interconnect[j].num_annotations; k++) {
+				fprintf(Echo, "%s\t\t\tannotation %s %s %d: %s\n", tabs, pb_type->modes[i].interconnect[j].annotations[k].input_pins,
+					pb_type->modes[i].interconnect[j].annotations[k].output_pins, pb_type->modes[i].interconnect[j].annotations[k].format,
+					pb_type->modes[i].interconnect[j].annotations[k].value[0]);
+			}
 		}
 	}
 	free(tabs);
