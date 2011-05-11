@@ -93,6 +93,8 @@ config_t
 	char *debug_output_path; // path for where to output the debug outputs
 	short output_ast_graphs; // switch that outputs ast graphs per node for use with GRaphViz tools
 	short output_netlist_graphs; // switch that outputs netlist graphs per node for use with GraphViz tools
+	short print_parse_tokens; // switch that controls whether or not each token is printed during parsing
+	short output_preproc_source; // switch that outputs the pre-processed source
 	int min_hard_multiplier; // threshold from hard to soft logic
 	int fixed_hard_multiplier; // flag for fixed or variable hard mult
 	int fracture_hard_multiplier; // flag for fractured hard multipliers

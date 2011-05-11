@@ -41,97 +41,99 @@
    enum yytokentype {
      vSYMBOL_ID = 258,
      vNUMBER_ID = 259,
-     vALWAYS = 260,
-     vAND = 261,
-     vASSIGN = 262,
-     vBEGIN = 263,
-     vCASE = 264,
-     vDEFAULT = 265,
-     vDEFINE = 266,
-     vELSE = 267,
-     vEND = 268,
-     vENDCASE = 269,
-     vENDMODULE = 270,
-     vIF = 271,
-     vINOUT = 272,
-     vINPUT = 273,
-     vMODULE = 274,
-     vNAND = 275,
-     vNEGEDGE = 276,
-     vNOR = 277,
-     vNOT = 278,
-     vOR = 279,
-     vOUTPUT = 280,
-     vPARAMETER = 281,
-     vPOSEDGE = 282,
-     vREG = 283,
-     vWIRE = 284,
-     vXNOR = 285,
-     vXOR = 286,
-     vDEFPARAM = 287,
-     voANDAND = 288,
-     voOROR = 289,
-     voLTE = 290,
-     voGTE = 291,
-     voSLEFT = 292,
-     voSRIGHT = 293,
-     voEQUAL = 294,
-     voNOTEQUAL = 295,
-     voCASEEQUAL = 296,
-     voCASENOTEQUAL = 297,
-     voXNOR = 298,
-     voNAND = 299,
-     voNOR = 300,
-     vNOT_SUPPORT = 301,
-     LOWER_THAN_ELSE = 302
+     vDELAY_ID = 260,
+     vALWAYS = 261,
+     vAND = 262,
+     vASSIGN = 263,
+     vBEGIN = 264,
+     vCASE = 265,
+     vDEFAULT = 266,
+     vDEFINE = 267,
+     vELSE = 268,
+     vEND = 269,
+     vENDCASE = 270,
+     vENDMODULE = 271,
+     vIF = 272,
+     vINOUT = 273,
+     vINPUT = 274,
+     vMODULE = 275,
+     vNAND = 276,
+     vNEGEDGE = 277,
+     vNOR = 278,
+     vNOT = 279,
+     vOR = 280,
+     vOUTPUT = 281,
+     vPARAMETER = 282,
+     vPOSEDGE = 283,
+     vREG = 284,
+     vWIRE = 285,
+     vXNOR = 286,
+     vXOR = 287,
+     vDEFPARAM = 288,
+     voANDAND = 289,
+     voOROR = 290,
+     voLTE = 291,
+     voGTE = 292,
+     voSLEFT = 293,
+     voSRIGHT = 294,
+     voEQUAL = 295,
+     voNOTEQUAL = 296,
+     voCASEEQUAL = 297,
+     voCASENOTEQUAL = 298,
+     voXNOR = 299,
+     voNAND = 300,
+     voNOR = 301,
+     vNOT_SUPPORT = 302,
+     LOWER_THAN_ELSE = 303
    };
 #endif
 /* Tokens.  */
 #define vSYMBOL_ID 258
 #define vNUMBER_ID 259
-#define vALWAYS 260
-#define vAND 261
-#define vASSIGN 262
-#define vBEGIN 263
-#define vCASE 264
-#define vDEFAULT 265
-#define vDEFINE 266
-#define vELSE 267
-#define vEND 268
-#define vENDCASE 269
-#define vENDMODULE 270
-#define vIF 271
-#define vINOUT 272
-#define vINPUT 273
-#define vMODULE 274
-#define vNAND 275
-#define vNEGEDGE 276
-#define vNOR 277
-#define vNOT 278
-#define vOR 279
-#define vOUTPUT 280
-#define vPARAMETER 281
-#define vPOSEDGE 282
-#define vREG 283
-#define vWIRE 284
-#define vXNOR 285
-#define vXOR 286
-#define vDEFPARAM 287
-#define voANDAND 288
-#define voOROR 289
-#define voLTE 290
-#define voGTE 291
-#define voSLEFT 292
-#define voSRIGHT 293
-#define voEQUAL 294
-#define voNOTEQUAL 295
-#define voCASEEQUAL 296
-#define voCASENOTEQUAL 297
-#define voXNOR 298
-#define voNAND 299
-#define voNOR 300
-#define vNOT_SUPPORT 301
-#define LOWER_THAN_ELSE 302
+#define vDELAY_ID 260
+#define vALWAYS 261
+#define vAND 262
+#define vASSIGN 263
+#define vBEGIN 264
+#define vCASE 265
+#define vDEFAULT 266
+#define vDEFINE 267
+#define vELSE 268
+#define vEND 269
+#define vENDCASE 270
+#define vENDMODULE 271
+#define vIF 272
+#define vINOUT 273
+#define vINPUT 274
+#define vMODULE 275
+#define vNAND 276
+#define vNEGEDGE 277
+#define vNOR 278
+#define vNOT 279
+#define vOR 280
+#define vOUTPUT 281
+#define vPARAMETER 282
+#define vPOSEDGE 283
+#define vREG 284
+#define vWIRE 285
+#define vXNOR 286
+#define vXOR 287
+#define vDEFPARAM 288
+#define voANDAND 289
+#define voOROR 290
+#define voLTE 291
+#define voGTE 292
+#define voSLEFT 293
+#define voSRIGHT 294
+#define voEQUAL 295
+#define voNOTEQUAL 296
+#define voCASEEQUAL 297
+#define voCASENOTEQUAL 298
+#define voXNOR 299
+#define voNAND 300
+#define voNOR 301
+#define vNOT_SUPPORT 302
+#define LOWER_THAN_ELSE 303
 
 
 
@@ -145,7 +147,7 @@ typedef union YYSTYPE
 	ast_node_t *node;
 }
 /* Line 1529 of yacc.c.  */
-#line 149 "SRC/verilog_bison.h"
+#line 151 "SRC/verilog_bison.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

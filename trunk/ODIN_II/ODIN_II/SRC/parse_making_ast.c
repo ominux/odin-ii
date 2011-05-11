@@ -59,6 +59,32 @@ int size_all_file_items_list;
 
 short to_view_parse;
 
+void graphVizOutputPreproc(FILE *yyin, char* path, char *file)
+{
+	char line[MaxLine];
+	FILE *fp;
+	char *tmp;
+
+	// strip the ".v" from file
+	tmp = strrchr(file, '.');
+	oassert(tmp);
+	oassert(*(tmp+1) == 'v');
+	*tmp = '\0';
+	
+	// strip the path from file
+	tmp = strrchr(file, '/');
+	if (tmp) file = tmp ;
+
+	sprintf( line, "%s/%s_preproc.v", path, file ) ;
+	fp = fopen( line, "w" ) ;
+	oassert( fp ) ;
+	while ( fgets( line, MaxLine, yyin ) )
+		fprintf( fp, "%s", line ) ;
+	fclose( fp ) ;
+	rewind( yyin ) ;
+}
+
+
 /*---------------------------------------------------------------------------------------------
  * (function: parse_to_ast)
  *-------------------------------------------------------------------------------------------*/
@@ -69,7 +95,7 @@ void parse_to_ast()
 	extern int yylineno;
 	
 	/* hooks into macro at the top of verilog_flex.l that shows the tokens as they're parsed.  Set to true if you want to see it go...*/
-	to_view_parse = FALSE;
+	to_view_parse = configuration.print_parse_tokens;
 
 	/* initialize the parser */
 	init_parser();
@@ -93,6 +119,10 @@ void parse_to_ast()
 		yyin = veri_preproc(yyin);
 		cleanup_veri_preproc();
 
+		/* write out the pre-processed file */
+		if ( configuration.output_preproc_source )
+			graphVizOutputPreproc( yyin, configuration.debug_output_path, configuration.list_of_file_names[0] ) ;
+			
 		/* set the file name */	
 		current_parse_file = 0;
 
@@ -121,6 +151,10 @@ void parse_to_ast()
 			yyin = veri_preproc(yyin);
 			cleanup_veri_preproc();
 			
+			/* write out the pre-processed file */
+			if ( configuration.output_preproc_source )
+				graphVizOutputPreproc( yyin, configuration.debug_output_path, configuration.list_of_file_names[i] ) ;
+ 			
 			/* set the file name */	
 			current_parse_file = i;
 
@@ -251,6 +285,7 @@ void clean_up_parser_for_file()
  *-------------------------------------------------------------------------------------------*/
 void next_parsed_verilog_file(ast_node_t *file_items_list)
 {
+	int 
 	/* optimization entry point */
 	printf("Optimizing module by AST based optimizations\n");
 	optimizations_on_AST(file_items_list);
@@ -258,7 +293,11 @@ void next_parsed_verilog_file(ast_node_t *file_items_list)
 	if (configuration.output_ast_graphs == 1)
 	{
 		/* IF - we want outputs for the graphViz files of each file */
-		graphVizOutputAst(configuration.debug_output_path, file_items_list);
+		for (i = 0; i < file_items_list->num_children; i++)
+		{
+			assert(file_items_list->children[i]);
+			graphVizOutputAst(configuration.debug_output_path, file_items_list->children[i]);
+		}
 	}
 
 	/* store the root of this files ast */
@@ -966,12 +1005,12 @@ void graphVizOutputAst(char* path, ast_node_t *top)
 	static int file_num = 0;
 
 	/* open the file */
-	sprintf(path_and_file, "%s/ast_%d.dot", path, file_num);
+	sprintf(path_and_file, "%s/%s_ast.dot", path, top->children[0]->types.identifier);
 	fp = fopen(path_and_file, "w");
 	file_num++;
 
         /* open graph */
-        fprintf(fp, "digraph G {\nranksep=.25;");
+        fprintf(fp, "digraph G {\t\nranksep=.25;\n");
 	unique_label_count = 0;
 	
 	graphVizOutputAst_traverse_node(fp, top, NULL, -1);
