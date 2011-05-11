@@ -192,6 +192,22 @@ void read_debug_switches(ezxml_t a_node, config_t *config)
 		FreeNode(child);
 	}
 
+	child = ezxml_child(a_node, "print_parse_tokens");
+	if (child != NULL)
+	{
+		config->print_parse_tokens = atoi(ezxml_txt(child));
+		ezxml_set_txt(child, "");
+		FreeNode(child);
+	}
+
+	child = ezxml_child(a_node, "output_preproc_source");
+	if (child != NULL)
+	{
+		config->output_preproc_source = atoi(ezxml_txt(child));
+		ezxml_set_txt(child, "");
+		FreeNode(child);
+	}
+
 	return;
 }
 

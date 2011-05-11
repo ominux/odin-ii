@@ -142,6 +142,8 @@ void get_options(int argc, char **argv)
 	configuration.output_type = "blif";
 	configuration.output_ast_graphs = 0;
 	configuration.output_netlist_graphs = 0;
+	configuration.print_parse_tokens = 0;
+	configuration.output_preproc_source = 0;
 	configuration.debug_output_path = ".";
 	configuration.arch_file = NULL;
 
