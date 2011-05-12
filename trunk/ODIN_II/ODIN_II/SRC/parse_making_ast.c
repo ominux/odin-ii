@@ -24,6 +24,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "globals.h"
 #include "types.h"
 #include "errors.h"
@@ -285,7 +286,7 @@ void clean_up_parser_for_file()
  *-------------------------------------------------------------------------------------------*/
 void next_parsed_verilog_file(ast_node_t *file_items_list)
 {
-	int 
+	int i;
 	/* optimization entry point */
 	printf("Optimizing module by AST based optimizations\n");
 	optimizations_on_AST(file_items_list);
