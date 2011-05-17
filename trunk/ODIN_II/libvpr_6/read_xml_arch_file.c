@@ -1394,11 +1394,16 @@ static void alloc_and_load_default_child_for_pb_type(INOUTP t_pb_type *pb_type, 
 		copy->annotations[i].input_pins[0] = '\0';
 		strcat(copy->annotations[i].input_pins, new_name);
 		strcat(copy->annotations[i].input_pins, dot);
+		if(pb_type->annotations[i].output_pins != NULL) {
 		dot = strstr(pb_type->annotations[i].output_pins, ".");
-		copy->annotations[i].output_pins = my_malloc(sizeof(char) * (strlen(new_name) + strlen(dot) + 1));
-		copy->annotations[i].output_pins[0] = '\0';
-		strcat(copy->annotations[i].output_pins, new_name);
-		strcat(copy->annotations[i].output_pins, dot);
+			copy->annotations[i].output_pins = my_malloc(sizeof(char) * (strlen(new_name) + strlen(dot) + 1));
+			copy->annotations[i].output_pins[0] = '\0';
+			strcat(copy->annotations[i].output_pins, new_name);
+			strcat(copy->annotations[i].output_pins, dot);
+		} else {
+			copy->annotations[i].output_pins = NULL;
+		}
+		copy->annotations[i].format = pb_type->annotations[i].format;
 		copy->annotations[i].type = pb_type->annotations[i].type;
 		copy->annotations[i].num_value_prop_pairs = pb_type->annotations[i].num_value_prop_pairs;
 		copy->annotations[i].prop = my_malloc(sizeof(int) * pb_type->annotations[i].num_value_prop_pairs);
