@@ -1259,26 +1259,21 @@ void connect_hard_block_and_alias(ast_node_t* hb_instance, char *instance_name_p
 					nnet_t* net = (nnet_t*)output_nets_sc->data[sc_spot_output];
 					nnet_t* in_net = (nnet_t*)input_nets_sc->data[sc_spot_input_old];
 
-					if ((net != in_net) && (net->combined == TRUE))
-					{
-						/* if they haven't been combined already,
-						   then join the inputs and output */
-						join_nets(net, in_net);
+					/* if they haven't been combined already,
+						then join the inputs and output */
+					in_net->name = net->name;
+					combine_nets(net, in_net, verilog_netlist);
+                                        
+					/* since the driver net is deleted,
+						copy the spot of the in_net over */
+					input_nets_sc->data[sc_spot_input_old] = (void*)in_net;
+					output_nets_sc->data[sc_spot_output] = (void*)in_net;
 
-						/* since the driver net is deleted, 
-						   copy the spot of the in_net over */
-						input_nets_sc->data[sc_spot_input_old] = (void*)net;
-					}
-					else if ((net != in_net) && (net->combined == FALSE))
-					{
-						/* if they haven't been combined already,
-						   then join the inputs and output */
-						combine_nets(net, in_net, verilog_netlist);
-
-						/* since the driver net is deleted,
-						   copy the spot of the in_net over */
-						output_nets_sc->data[sc_spot_output] = (void*)in_net;
-					}
+					/* if this input is not yet used in this module
+						then we'll add it */
+					sc_spot_input_new = sc_add_string(input_nets_sc, full_name);
+					/* copy the pin to the old spot */
+					input_nets_sc->data[sc_spot_input_new] = (void *)in_net;
 				}
 
 				free(full_name);
