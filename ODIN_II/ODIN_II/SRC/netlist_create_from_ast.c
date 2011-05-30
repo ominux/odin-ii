@@ -3197,7 +3197,7 @@ signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 		return create_dual_port_ram_block(block, instance_name_prefix, hb_model);
 	}
 
-	/* dual_port_ram's are a special case due to splitting */
+	/* memory's are a special case due to splitting */
 	if (strcmp(hb_model->name, "multiply") == 0)
 	{
 		is_mult = 1;
@@ -3317,10 +3317,11 @@ signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 						pin_name = make_full_ref_name(block_node->name, NULL, NULL, hb_ports->name, -1);
 	
 					new_pin1 = allocate_npin();
-					if (hb_ports->size > 1)
-						new_pin1->mapping = make_signal_name(hb_ports->name, j);
-					else
+//					if (hb_ports->size > 1)
+//						new_pin1->mapping = make_signal_name(hb_ports->name, j);
+//					else
 						new_pin1->mapping = make_signal_name(hb_ports->name, -1);
+					new_pin1->name = pin_name;
 					new_pin2 = allocate_npin();
 					new_net = allocate_nnet();
 					new_net->name = hb_ports->name;
