@@ -49,7 +49,7 @@ void graphVizOutputNetlist(char* path, char* name, short marker_value, netlist_t
 	fp = fopen(path_and_file, "w");
 
         /* open graph */
-        fprintf(fp, "digraph G {\nranksep=.25;\n");
+        fprintf(fp, "digraph G {\n\tranksep=.25;\n");
 	
 	depth_first_traversal_graph_display(fp, marker_value, netlist);
 
@@ -105,23 +105,23 @@ void depth_first_traverse_visualize(nnode_t *node, FILE *fp, int traverse_mark_n
 		temp_string = make_simple_name(node->name, "^-+.", '_');
 		if ((node->type == FF_NODE) || (node->type == BUF_NODE))
 		{
-			fprintf(fp, "\t%s [shape=box];\n", temp_string);
+			fprintf(fp, "\t\"%s\" [shape=box];\n", temp_string);
 		}
 		else if (node->type == INPUT_NODE)
 		{
-			fprintf(fp, "\t%s [shape=triangle];\n", temp_string);
+			fprintf(fp, "\t\"%s\" [shape=triangle];\n", temp_string);
 		}
 		else if (node->type == CLOCK_NODE)
 		{
-			fprintf(fp, "\t%s [shape=triangle];\n", temp_string);
+			fprintf(fp, "\t\"%s\" [shape=triangle];\n", temp_string);
 		}
 		else if (node->type == OUTPUT_NODE)
 		{
-			fprintf(fp, "\t%s_O [shape=triangle];\n", temp_string);
+			fprintf(fp, "\t\"%s_O\" [shape=triangle];\n", temp_string);
 		}
 		else
 		{
-			fprintf(fp, "\t%s [label=\"%d:%d\"];\n", temp_string, node->forward_level, node->backward_level);
+			fprintf(fp, "\t\"%s\"\n", temp_string);
 		}
 		free(temp_string);
 
@@ -159,7 +159,10 @@ void depth_first_traverse_visualize(nnode_t *node, FILE *fp, int traverse_mark_n
 					sprintf(temp_string2, "%s_O", temp_string2);
 				}
 
-				fprintf(fp, "\t%s -> %s [label=\"%s\"];\n", temp_string, temp_string2, next_net->fanout_pins[j]->name);
+				fprintf(fp, "\t\"%s\" -> \"%s\"", temp_string, temp_string2); 
+				if (next_net->fanout_pins[j]->name)
+					fprintf(fp, "[label=\"%s\"]", next_net->fanout_pins[j]->name);
+				fprintf(fp, ";\n");
 
 				free(temp_string);
 				free(temp_string2);
@@ -184,7 +187,7 @@ void graphVizOutputCombinationalNet(char* path, char* name, short marker_value, 
 	fp = fopen(path_and_file, "w");
 
         /* open graph */
-        fprintf(fp, "digraph G {\nranksep=.25;\n");
+        fprintf(fp, "digraph G {\n\tranksep=.25;\n");
 	
 	forward_traversal_net_graph_display(fp, marker_value, current_node);
 	backward_traversal_net_graph_display(fp, marker_value, current_node);
