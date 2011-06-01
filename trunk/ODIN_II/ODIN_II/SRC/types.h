@@ -34,6 +34,8 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 #define config_t struct config_t_t
 #define global_args_t struct global_args_t_t
+#define global_args_read_blif_t struct global_args_read_blif_t 
+/* new struct for the global arguments of verify_blif function */
 
 #define ast_node_t struct ast_node_t_t
 #define info_ast_visit_t struct info_on_ast_visit_t_t
@@ -119,6 +121,17 @@ global_args_t
 	char *activation_blif_file;
 	char *activation_netlist_file;
 	char *high_level_block;
+	char *sim_vectors_file;
+	int num_test_vectors;
+	simulation_type sim_type;
+};
+
+/* global arguments of the verify_blif function */
+global_args_read_blif_t
+{
+	char *config_file;
+	char *blif_file;
+	char *arch_file; // Name of the FPGA architecture file
 	char *sim_vectors_file;
 	int num_test_vectors;
 	simulation_type sim_type;
