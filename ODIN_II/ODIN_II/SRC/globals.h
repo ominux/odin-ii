@@ -24,6 +24,7 @@ extern STRING_CACHE *input_nets_sc;
 extern STRING_CACHE *local_symbol_table_sc;
 
 extern netlist_t *verilog_netlist;
+
 extern ast_node_t *top_module;
 extern nnode_t** top_input_nodes;
 extern int num_top_input_nodes;
@@ -43,6 +44,10 @@ extern char *pad_string;
 extern t_arch Arch;
 /* ACTIVATION ESTIMATION GLOBALS */
 extern netlist_t *blif_netlist;
+
+/* Global variable for read_blif function call */ 
+extern netlist_t *read_blif_netlist;
+extern global_args_read_blif_t global_args_read_blif;
 
 #endif
 

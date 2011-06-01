@@ -10,7 +10,8 @@ WARN_FLAGS = -Wall
 
 SRC_DIR = SRC
 
-EXE = odin_II.exe
+EXEO = odin_II.exe
+EXEV= verify_blif.exe
 
 DEBUG_FLAGS = -g
 OPT_FLAGS = -O2
@@ -29,75 +30,88 @@ FLAGS = $(DEBUG_FLAGS) $(WARN_FLAGS)  $(INC_FLAGS)
 C_FLAGS = $(C_DIRECTIVE)
 
 OBJS = \
-OBJ/netlist_stats.o \
-OBJ/output_graphcrunch_format.o \
-OBJ/read_netlist.o \
-OBJ/activity_estimation.o \
-OBJ/read_blif.o \
-OBJ/netlist_check.o \
+OBJ/netlist_visualizer.o \
 OBJ/multipliers.o \
-OBJ/output_blif.o \
 OBJ/partial_map.o \
-OBJ/outputs.o \
-OBJ/netlist_optimizations.o \
 OBJ/errors.o \
 OBJ/node_creation_library.o \
-OBJ/netlist_visualizer.o \
-OBJ/netlist_create_from_ast.o \
 OBJ/netlist_utils.o \
 OBJ/odin_util.o \
-OBJ/ast_optimizations.o \
-OBJ/high_level_data.o \
-OBJ/ast_util.o \
-OBJ/read_xml_config_file.o \
-OBJ/parse_making_ast.o \
 OBJ/string_cache.o \
-OBJ/verilog_bison.o \
-OBJ/verilog_flex.o \
 OBJ/hard_blocks.o \
 OBJ/memories.o \
-OBJ/verilog_preprocessor.o \
 OBJ/queue.o \
-OBJ/simulate_blif.o \
+OBJ/simulate_blif.o\
+OBJ/print_netlist.o 
+
+
+OBJO = \
+OBJ/read_xml_config_file.o \
+OBJ/outputs.o \
+OBJ/parse_making_ast.o \
+OBJ/ast_util.o \
+OBJ/high_level_data.o \
+OBJ/ast_optimizations.o \
+OBJ/netlist_create_from_ast.o \
+OBJ/netlist_optimizations.o \
+OBJ/output_blif.o \
+OBJ/netlist_check.o \
+OBJ/activity_estimation.o \
+OBJ/read_netlist.o \
+OBJ/output_graphcrunch_format.o \
+OBJ/netlist_stats.o \
+OBJ/verilog_preprocessor.o \
+OBJ/verilog_bison.o \
+OBJ/verilog_flex.o \
 OBJ/odin_ii.o
 
+OBJV = OBJ/read_blif_new.o \
+OBJ/verify_blif.o
+
+
 SRC = \
-SRC/netlist_stats.c \
-SRC/output_graphcrunch_format.c \
-SRC/read_netlist.c \
-SRC/activity_estimation.c \
-SRC/read_blif.c \
-SRC/netlist_check.c \
+SRC/netlist_visualizer.c \
 SRC/multipliers.c \
-SRC/output_blif.c \
 SRC/partial_map.c \
-SRC/outputs.c \
-SRC/netlist_optimizations.c \
 SRC/errors.c \
 SRC/node_creation_library.c \
-SRC/netlist_visualizer.c \
-SRC/netlist_create_from_ast.c \
 SRC/netlist_utils.c \
 SRC/odin_util.c \
-SRC/ast_optimizations.c \
-SRC/high_level_data.c \
-SRC/ast_util.c \
-SRC/read_xml_config_file.c \
-SRC/parse_making_ast.c \
 SRC/string_cache.c \
 SRC/hard_blocks.c \
 SRC/memories.c \
-SRC/verilog_preprocessor.c \
 SRC/queue.c \
 SRC/simulate_blif.c \
+SRC/print_netlist.c
+
+
+SRCO = \
+SRC/read_xml_config_file.c \
+SRC/outputs.c \
+SRC/parse_making_ast.c \
+SRC/ast_util.c \
+SRC/high_level_data.c \
+SRC/ast_optimizations.c \
+SRC/netlist_create_from_ast.c \
+SRC/netlist_optimizations.c \
+SRC/output_blif.c \
+SRC/netlist_check.c \
+SRC/activity_estimation.c \
+SRC/read_netlist.c \
+SRC/output_graphcrunch_format.c \
+SRC/netlist_stats.c \
+SRC/verilog_preprocessor.c \
 SRC/odin_ii.c
+
+SRCV = SRC/read_blif_new.c \
+SRC/verify_blif.c 
 
 H = \
 SRC/netlist_stats.h \
 SRC/output_graphcrunch_format.h \
 SRC/read_netlist.h \
 SRC/activity_estimation.h \
-SRC/read_blif.h \
+SRC/read_blif_new.h \
 SRC/netlist_check.h \
 SRC/multipliers.h \
 SRC/output_blif.h \
@@ -122,16 +136,24 @@ SRC/memories.h \
 SRC/verilog_preprocessor.h \
 SRC/queue.h \
 SRC/simulate_blif.h \
-SRC/globals.h
+SRC/globals.h \
+SRC/print_netlist.h
 
-$(EXE): CTAGS OBJ/verilog_bison.o OBJ/verilog_flex.o $(OBJS)
-	$(CC) $(C_FLAGS) $(FLAGS) $(OBJS) -o $(EXE) $(LIB)
+
+all: $(EXEO) $(EXEV)
+
+$(EXEO): CTAGS OBJ/verilog_bison.o OBJ/verilog_flex.o $(OBJS) $(OBJO)
+	$(CC) $(C_FLAGS) $(FLAGS) $(OBJS) $(OBJO) -o $(EXEO) $(LIB)
+
+$(EXEV): CTAGS $(OBJS) $(OBJV) 
+	$(CC) $(C_FLAGS) $(FLAGS) $(OBJS) $(OBJV) -o $(EXEV) $(LIB) 
 
 CTAGS :
 	cd SRC && ctags *.[ch] && cd -
 
 OBJ/%.o:$(SRC_DIR)/%.c $(H)
 	$(CC) $(C_FLAGS) $(FLAGS) -c $< -o $@ 
+
 
 SRC/verilog_flex.c: SRC/verilog_flex.l
 	$(PARSER1) -oSRC/verilog_flex.c SRC/verilog_flex.l
@@ -147,6 +169,8 @@ clean :
 	rm -f *.exe
 	rm -f OBJ/*.o
 	rm -f SRC/*~
+	
 
 regression_clean :
 	rm -f REGRESSION_TESTS/BASIC_TESTS/*.*
+
