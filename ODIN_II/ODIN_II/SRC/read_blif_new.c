@@ -779,11 +779,19 @@ void create_internal_node_and_driver()
     	  allocate_more_node_input_pins(new_node, input_count-1);
 
  /* add the port information */
-    	  for(i=0;i<input_count-1;i++)
-	  { 
-	  	add_input_port_information(new_node, 1);
-	  }  
-  	}
+	 	if(new_node->type==MUX_2)
+		{
+			add_input_port_information(new_node, (input_count-1)/2);
+			add_input_port_information(new_node, (input_count-1)/2);
+		}
+		else
+		{
+	    	  for(i=0;i<input_count-1;i++)
+		  { 
+		  	add_input_port_information(new_node, 1);
+		  }  
+	  	}
+	}
   /* add names and type information to the created input pins */
   	for(i=0;i<=input_count-2;i++)
   	{
