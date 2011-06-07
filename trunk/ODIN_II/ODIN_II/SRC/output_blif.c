@@ -403,6 +403,7 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 			/* now hookup the input wires with their respective ports.  [1+i] to skip output spot. */
 			/* Just print the driver_pin->name NOT driver_pin->node->name -- KEN */
 			if ((node->input_pins[i]->net->driver_pin->node->type == MULTIPLY) ||
+			    (node->input_pins[i]->net->driver_pin->node->type == HARD_IP) ||
 			    (node->input_pins[i]->net->driver_pin->node->type == MEMORY))
 			{
 				fprintf(out, " %s", node->input_pins[i]->net->driver_pin->name); 
@@ -566,6 +567,7 @@ void define_set_input_logical_function(nnode_t *node, char *bit_output, FILE *ou
 			/* now hookup the input wires with their respective ports.  [1+i] to skip output spot. */
 			/* Just print the driver_pin->name NOT driver_pin->node->name -- KEN */
 			if ((node->input_pins[i]->net->driver_pin->node->type == MULTIPLY) ||
+			    (node->input_pins[i]->net->driver_pin->node->type == HARD_IP) ||
 			    (node->input_pins[i]->net->driver_pin->node->type == MEMORY))
 			{
 				fprintf(out, " %s", node->input_pins[i]->net->driver_pin->name); 
@@ -650,6 +652,7 @@ void define_decoded_mux(nnode_t *node, FILE *out)
 			/* now hookup the input wires with their respective ports.  [1+i] to skip output spot. */
 			/* Just print the driver_pin->name NOT driver_pin->node->name -- KEN */
 			if ((node->input_pins[i]->net->driver_pin->node->type == MULTIPLY) ||
+			    (node->input_pins[i]->net->driver_pin->node->type == HARD_IP) ||
 			    (node->input_pins[i]->net->driver_pin->node->type == MEMORY))
 			{
 				fprintf(out, " %s", node->input_pins[i]->net->driver_pin->name); 

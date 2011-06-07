@@ -1082,9 +1082,9 @@ void create_top_driver_nets(char *instance_name_prefix)
 	
 	/* CREATE the driver for the ZERO */
 	blif_zero_string = make_full_ref_name(instance_name_prefix, NULL, NULL, zero_string, -1);
-	blif_netlist->gnd_node->name =GND;
+	blif_netlist->gnd_node->name = (char *)GND;
 
-	sc_spot = sc_add_string(output_nets_sc,GND);
+	sc_spot = sc_add_string(output_nets_sc, (char *)GND);
 	if (output_nets_sc->data[sc_spot] != NULL)
 	{
 		error_message(NETLIST_ERROR,-1,-1, "Error in Odin\n");
@@ -1096,9 +1096,9 @@ void create_top_driver_nets(char *instance_name_prefix)
 
 	/* CREATE the driver for the ONE and store twice */
 	blif_one_string = make_full_ref_name(instance_name_prefix, NULL, NULL, one_string, -1);
-	blif_netlist->vcc_node->name = VCC;
+	blif_netlist->vcc_node->name = (char *)VCC;
 
-	sc_spot = sc_add_string(output_nets_sc,VCC);
+	sc_spot = sc_add_string(output_nets_sc, (char *)VCC);
 	if (output_nets_sc->data[sc_spot] != NULL)
 	{
 		error_message(NETLIST_ERROR,-1,-1, "Error in Odin\n");
@@ -1109,9 +1109,9 @@ void create_top_driver_nets(char *instance_name_prefix)
 
 	/* CREATE the driver for the PAD */
 	blif_pad_string = make_full_ref_name(instance_name_prefix, NULL, NULL, pad_string, -1);
-	blif_netlist->pad_node->name = HBPAD;
+	blif_netlist->pad_node->name = (char *)HBPAD;
 
-	sc_spot = sc_add_string(output_nets_sc,HBPAD);
+	sc_spot = sc_add_string(output_nets_sc, (char *)HBPAD);
 	if (output_nets_sc->data[sc_spot] != NULL)
 	{
 		error_message(NETLIST_ERROR, -1,-1, "Error in Odin\n");

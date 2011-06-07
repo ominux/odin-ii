@@ -46,6 +46,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "hard_blocks.h"
 #include "memories.h"
 #include "simulate_blif.h"
+#include "errors.h"
 
 global_args_t global_args;
 int current_parse_file;
