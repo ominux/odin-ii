@@ -298,9 +298,10 @@ void print_netlist_for_checking (netlist_t *netlist, char *name)
 
 void function_to_print_node_and_its_pin(npin_t * temp_pin)  
 {
-	int i,j;	
+	int i;	
 	nnode_t *node;	
 	npin_t *pin;
+
 	printf("\n-------Printing the related net driver pin info---------\n");
 	node=temp_pin->node;
 		
