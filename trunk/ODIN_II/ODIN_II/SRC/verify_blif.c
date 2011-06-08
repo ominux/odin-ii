@@ -35,7 +35,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "arch_types.h"
 #include "read_xml_arch_file.h"
 #include "simulate_blif.h"
-#include "read_blif_new.h"
+#include "read_blif.h"
 #include "multipliers.h"
 #include "hard_blocks.h"
 #include "memories.h"
@@ -94,7 +94,7 @@ int main(int argc,char **argv)
 printf("--------------------------------------------------------------------------\n");
 printf("Reading the read_blif and Extracting the netlist\n");
     //lut_size = type_descriptors[2].max_subblock_inputs; /* VPR6 does not support
-   read_blif_new(global_args_read_blif.blif_file);
+   read_blif(global_args_read_blif.blif_file);
 
 printf("Printing the netlist as a graph\n");
     char path[]=".";

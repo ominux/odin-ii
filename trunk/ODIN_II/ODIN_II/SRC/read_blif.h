@@ -1,2 +1,7 @@
+#ifndef READ_BLIF_H
+#define READ_BLIF_H
 
-netlist_t * read_blif ( char *blif_file, int lut_size);
+void read_blif(char* blif_file);
+
+#endif
+

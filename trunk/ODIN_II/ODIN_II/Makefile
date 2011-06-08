@@ -65,7 +65,7 @@ OBJ/verilog_bison.o \
 OBJ/verilog_flex.o \
 OBJ/odin_ii.o
 
-OBJV = OBJ/read_blif_new.o \
+OBJV = OBJ/read_blif.o \
 OBJ/verify_blif.o
 
 
@@ -103,7 +103,7 @@ SRC/netlist_stats.c \
 SRC/verilog_preprocessor.c \
 SRC/odin_ii.c
 
-SRCV = SRC/read_blif_new.c \
+SRCV = SRC/read_blif.c \
 SRC/verify_blif.c 
 
 H = \
@@ -111,7 +111,7 @@ SRC/netlist_stats.h \
 SRC/output_graphcrunch_format.h \
 SRC/read_netlist.h \
 SRC/activity_estimation.h \
-SRC/read_blif_new.h \
+SRC/read_blif.h \
 SRC/netlist_check.h \
 SRC/multipliers.h \
 SRC/output_blif.h \
