@@ -61,15 +61,15 @@ void create_top_driver_nets( char *instance_name_prefix);
 void look_for_clocks();// not sure if this is needed
 void add_top_input_nodes();
 void create_top_output_nodes();
-static void read_tokens (char *buffer,int * done);
+static void read_tokens (char *buffer,int * done,char * blif_file);
 static void dum_parse ( char *buffer); 
 void create_internal_node_and_driver();
 short assign_node_type_from_node_name(char * output_name);// function will decide the node->type of the given node
-short read_bit_map_find_unknown_gate();
-void create_latch_node_and_driver();
+short read_bit_map_find_unknown_gate(int input_count,char ** bit_map);
+void create_latch_node_and_driver(char * blif_file);
 void create_hard_block_nodes();
 void hook_up_nets();
-
+char* search_clock_name(char * blif_file);
 
 void read_blif(char * blif_file)
 {
@@ -98,9 +98,9 @@ void read_blif(char * blif_file)
 
 	linenum = 0;
 	done = 0;
-	while (!done && (my_fgets (buffer, BUFSIZE, blif) != NULL) )
+	while (!done && (my_fgets(buffer, BUFSIZE, blif) != NULL) )
 	{       
-		read_tokens(buffer,&done);/* read one token at a time */
+		read_tokens(buffer,&done,blif_file);/* read one token at a time */
 	}
 
 	fclose (blif);
@@ -119,7 +119,7 @@ void read_blif(char * blif_file)
  * (function: read_tokens)
  *-------------------------------------------------------------------------------------------*/
 
-static void read_tokens (char *buffer,int * done)
+static void read_tokens (char *buffer,int * done,char * blif_file)
 {
 	
 	/* Figures out which, if any token is at the start of this line and *
@@ -167,7 +167,7 @@ static void read_tokens (char *buffer,int * done)
 	if(strcmp(ptr,".latch") == 0)
 	{
 	/* create the ff node */	
-	create_latch_node_and_driver();
+	create_latch_node_and_driver(blif_file);
 	return;
 	}
 
@@ -197,20 +197,17 @@ static void read_tokens (char *buffer,int * done)
 	return;
 	}
 	
-
-
 }
-
 
 
 /*---------------------------------------------------------------------------------------------
    * function:assign_node_type_from_node_name(char *)
      This function tries to assign the node->type by looking at the name
-     If it fails 
+     Else return GENERIC
 *-------------------------------------------------------------------------------------------*/
 short assign_node_type_from_node_name(char * output_name)
 {
-
+	
 #ifdef debug_mode
 	printf("\n reading assign_node_type_from_node_name");
 	printf("\n output_name : %s",output_name);
@@ -221,8 +218,19 @@ short assign_node_type_from_node_name(char * output_name)
   int j=0;
   char *extracted_string;//stores the extracted string
   length_string=strlen(output_name);
-  for(start=length_string-1;output_name[start]!='^';start--);
-  for(end=length_string-1;output_name[end]!='~';end--);
+
+  for(start=length_string-1;(start >=0) && (output_name[start]!='^');start--);
+  for(end=length_string-1;(end>=0) && (output_name[end]!='~');end--);
+
+  /* name convention does not match */
+
+#ifdef debug_mode
+	printf("\n Start= %d  end=%d  \n",start,end);
+#endif
+  
+  if((start>=end) || (end==0))
+	  return GENERIC;
+	 	
   extracted_string=(char*)malloc(sizeof(char)*((end-start+2)));
   for(i=start+1;i<end;i++)
   {
@@ -230,6 +238,11 @@ short assign_node_type_from_node_name(char * output_name)
     j++;
   }
   extracted_string[j]='\0';
+
+#ifdef debug_mode
+	printf("Extracted string: %s \n",extracted_string);
+#endif
+
   /* Check if the type existe, return the type else return -1 */
   /* if construst use , as we have strings here */
   if(strcmp(extracted_string,"GT")==0)
@@ -316,7 +329,7 @@ short assign_node_type_from_node_name(char * output_name)
 	return ADD; 
   else if(strcmp(extracted_string,"MINUS")==0)
 	return MINUS;  
-  else return -1;
+  else return GENERIC; /* If name type does not exits */
 
 
 }
@@ -326,7 +339,7 @@ short assign_node_type_from_node_name(char * output_name)
      to create an ff node and driver from that node 
      format .latch <input> <output> [<type> <control/clock>] <initial val>
 *-------------------------------------------------------------------------------------------*/
-void create_latch_node_and_driver()
+void create_latch_node_and_driver(char * blif_file)
 {
 
 #ifdef debug_mode
@@ -343,6 +356,8 @@ void create_latch_node_and_driver()
 			  /*input_token_count=3 it is not and =5 it is */
   int i;
   char ** names=NULL;// Store the names of the tokens
+  char *clock_name; // Needed if the control (clock) not specified	
+
   /* Storing the names of the input and the final output in array names */
  	while ((ptr= my_strtok (NULL, TOKENS, blif, buffer)) != NULL)
   	{
@@ -357,14 +372,31 @@ void create_latch_node_and_driver()
   /* assigning the new_node */
 
 #ifdef debug_mode
-printf("\n\tinput_token_count=%d",input_token_count);
+printf("\n\tinput_token_count=%d\n",input_token_count);
 #endif
 
    	if(input_token_count!=5)
   	{
-   	  printf("This .latch Format not supported \n\t required format :.latch <input> <output> [<type> <control/clock>] <initial val>");
-	  exit(-1);
+		/* supported added for the ABC .latch output without control */
+		if(input_token_count==3)
+		{
+			clock_name=search_clock_name(blif_file);
+			input_token_count=5;
+			names= (char**)realloc(names, sizeof(char*)* input_token_count);  
+			names[3]=(char*)malloc(sizeof(char)*(strlen(clock_name)+1));
+			names[4]=(char*)malloc(sizeof(char)*(1+1));
+			sprintf(names[4],"%s",names[2]);
+			sprintf(names[2],"re");
+			sprintf(names[3],"%s",clock_name);
+		}
+
+		else
+		{	
+	   	  printf("This .latch Format not supported \n\t required format :.latch <input> <output> [<type> <control/clock>] <initial val>");
+		  exit(-1);
+		}
 	}
+
   new_node->related_ast_node = NULL;
   new_node->type=FF_NODE;
   
@@ -429,6 +461,128 @@ printf("\n\tinput_token_count=%d",input_token_count);
 #endif
 
 }
+
+/*---------------------------------------------------------------------------------------------
+   * function: search_clock_name
+     to search the clock if the control in the latch 
+     is not mentioned
+*-------------------------------------------------------------------------------------------*/
+char* search_clock_name(char * blif_file)
+{
+  FILE * temp_read_blif;
+  int found=0;
+  char *ptr;
+  char buffer[BUFSIZE];
+  char ** input_names=NULL;
+  int input_names_count=0;
+  int i=0;
+  temp_read_blif=fopen(blif_file,"r");
+
+#ifdef debug_mode
+	printf("Control for the .latch not mentioned, searching for the clock\n");
+#endif
+
+  while(1)
+  {
+	if(found==1)
+	break;
+
+	my_fgets(buffer,BUFSIZE,temp_read_blif);
+#ifdef debug_mode
+	printf(" buffer : %s \n",buffer);
+#endif
+
+	if(feof(temp_read_blif)!=0)// not sure if this is needed 
+	break;
+	
+	ptr= my_strtok(buffer,TOKENS,temp_read_blif,buffer);
+#ifdef debug_mode
+	printf(" ptr : %s \n",ptr);
+#endif	
+
+	if(ptr==NULL)
+	continue;
+
+	if(strcmp(ptr,".end")==0)
+	break;
+
+	
+
+	if(strcmp(ptr,".inputs")==0)
+	{
+	  /* store the inputs in array of string */
+	  while(1)
+	  {
+		ptr=my_strtok (NULL, TOKENS, blif, buffer);
+
+#ifdef debug_mode
+	printf(" ptr : %s \n",ptr);
+#endif		
+		if(ptr==NULL)
+		break;
+
+		input_names_count++;
+		input_names=(char**)realloc(input_names,sizeof(char*) * input_names_count);
+		input_names[input_names_count-1]=(char*)malloc(sizeof(char)*(strlen(ptr)+1));
+		sprintf(input_names[input_names_count-1],"%s",ptr);
+		
+	  }
+
+	continue;
+	}
+
+	if(strcmp(ptr,".names")==0 || strcmp(ptr,".latch")==0)
+	{
+	  while(1)
+	  {
+
+#ifdef debug_mode
+	printf(" ptr : %s \n",ptr);
+#endif  		
+		ptr=my_strtok (NULL, TOKENS, blif, buffer);
+		
+		if(ptr==NULL)
+		  break;
+
+		for(i=0;i<input_names_count;i++)
+		{
+			if(strcmp(ptr,input_names[i])==0)
+			{				
+			  free(input_names[i]);	
+			  input_names[i]=input_names[input_names_count-1];
+			  input_names_count--;	
+			}
+		}
+	  }
+	continue;
+	}
+	
+	if(input_names_count==1)
+	{
+		found=1;
+		break;
+	}
+		
+  } 
+  fclose(temp_read_blif);
+
+
+  if(found==1)
+  {
+#ifdef debug_mode
+	printf("Clock name found: %s\n",input_names[0]);
+#endif
+	return input_names[0];
+  }
+  else
+  {
+	printf("ERROR : The clock could n't be found \n");
+	exit(-1);
+  }	
+
+}
+  
+
 
 /*---------------------------------------------------------------------------------------------
    * function:create_hard_block_nodes
@@ -719,6 +873,7 @@ void create_internal_node_and_driver()
   char ** names=NULL;// stores the names of the input and the output, last name stored would be of the output
   int input_count=0;
   int i;
+  char **bit_map=NULL;
 
   /* Storing the names of the input and the final output in array names */
  	while ((ptr= my_strtok (NULL, TOKENS, blif, buffer)) != NULL)
@@ -755,23 +910,36 @@ void create_internal_node_and_driver()
 		return;
 		}
 
+  /* assign the node type by seeing the name */
   node_type=assign_node_type_from_node_name(names[input_count-1]);
   
 #ifdef debug_mode
   	printf("\n exiting assign_node_type_from_node_name\n");
   	printf("\n node_type= %d\n",node_type);  
 #endif  	
-
-	if(node_type != -1)
+	
+	if(node_type!=GENERIC)
+	{
+	  new_node->type=node_type;
+	  skip_reading_bit_map=TRUE;
+	}
+ /* Check for GENERIC type , change the node by reading the bit map */
+	else if(node_type == GENERIC)
   	{
-    	  new_node->type =node_type;
+    	  new_node->type=read_bit_map_find_unknown_gate(input_count-1,bit_map);
     	  skip_reading_bit_map=TRUE;
-  	}
-  	else
-  	{ 
-    	  new_node->type= read_bit_map_find_unknown_gate();
-  	}
 
+#ifdef debug_mode
+  	printf("\n exiting read_bit_map_find_unknown_gate \n");
+  	printf("\n node_type= %d\n",new_node->type);  
+#endif
+
+	}
+ 
+ /* assigning the bit_map to the node if it is GENERIC */
+	
+	if(new_node->type==GENERIC)
+	new_node->bit_map=bit_map;
   
   /* allocate the input pin (= input_count-1)*/
  	 if (input_count-1 > 0) // check if there is any input pins	
@@ -848,14 +1016,180 @@ void create_internal_node_and_driver()
    * function: read_bit_map_find_unknown_gate
      read the bit map for simulation
 *-------------------------------------------------------------------------------------------*/
-
   
-short read_bit_map_find_unknown_gate()
+short read_bit_map_find_unknown_gate(int input_count,char ** bit_map)
 {
 
-	printf("read_bit_map_find_unknown_gate not written till now");
-	exit(-1);
+#ifdef debug_mode
+	printf(" Reading the read_bit_map_find_unknown_gate \n");
+#endif
+
+  FILE * temp_fpointer;
+  char buffer[BUFSIZE];
+  fpos_t pos;// store the current position of the file pointer
+  int line_count_bitmap=0;
+  char *ptr;
+  int i,j;
+
+  fgetpos(blif,&pos);
+  temp_fpointer=blif;
+  while(1)
+  {
+  	my_fgets (buffer, BUFSIZE, temp_fpointer);
+  	if(!(buffer[0]=='0' || buffer[0]=='1' || buffer[0]=='-'))
+    		break;
+
+   line_count_bitmap++;
+   
+   ptr = my_strtok(buffer,TOKENS,temp_fpointer, buffer); /* extract the input only*/
+   bit_map=(char**)realloc(bit_map,sizeof(char*)*line_count_bitmap);
+   bit_map[line_count_bitmap-1]=(char*)malloc(sizeof(char)*(strlen(ptr)+1));
+   sprintf(bit_map[line_count_bitmap-1],"%s",ptr);
+  }
+  
+#ifdef debug_mode
+	printf(" Line_count_bitmap = %d \n",line_count_bitmap);
+	printf(" input_count= %d \n",input_count);
+	printf("Printing the extracted bit map \n");
+	for(i=0;i<line_count_bitmap;i++)
+	printf("\t: %s \n",bit_map[i]);
+#endif
+
+  fsetpos(blif,&pos);
+
+  /* check if the node type is known */ 
+  
+  /* Single line bit map : */
+
+  if(line_count_bitmap==1)
+  {
+	  /* GT */
+	  if(strcmp(bit_map[0],"100")==0)
+		return GT;
+
+	  /* LT */
+	  if(strcmp(bit_map[0],"010")==0)
+		return LT;
+
+  	  /* LOGICAL_AND */
+ 	  for(i=0;i<input_count && bit_map[0][i]=='1';i++);
+	  if(i==input_count)
+		return LOGICAL_AND;
 	
+	  /* BITWISE_NOT */
+	  if(strcmp(bit_map[0],"0")==0)
+		return BITWISE_NOT;
+
+	  /* LOGICAL_NOR */
+	  for(i=0;i<input_count && bit_map[0][i]=='0';i++);
+	  if(i==input_count)
+		return LOGICAL_NOR;
+
+  }	
+
+  /* Assumption that bit map is in order when read from blif */
+  
+  else if(line_count_bitmap==2)
+  {
+
+#ifdef debug_mode
+	printf(" check : %d \n",strcmp(bit_map[0],"01"));
+	printf(" check : %d \n",strcmp(bit_map[1],"10"));
+#endif
+
+     	/* LOGICAL_XOR */
+	if((strcmp(bit_map[0],"01")==0) && (strcmp(bit_map[1],"10")==0))
+		return 	LOGICAL_XOR;
+
+	/* LOGICAL_XNOR */
+	if((strcmp(bit_map[0],"00")==0) && (strcmp(bit_map[1],"11")==0)) 			return 	LOGICAL_XNOR;
+ }	  
+
+
+  else if (line_count_bitmap==4)
+  {
+	/* ADDER_FUNC */
+	if((strcmp(bit_map[0],"001")==0) && (strcmp(bit_map[1],"010")==0) && (strcmp(bit_map[2],"100")==0) && (strcmp(bit_map[3],"111")==0))
+		return ADDER_FUNC;
+	
+	/* CARRY_FUNC */
+	if((strcmp(bit_map[0],"011")==0) && (strcmp(bit_map[1],"100")==0) && (strcmp(bit_map[2],"110")==0) && (strcmp(bit_map[3],"111")==0))
+		return 	CARRY_FUNC;
+  
+	/* LOGICAL_XOR */
+	if((strcmp(bit_map[0],"001")==0) && (strcmp(bit_map[1],"010")==0) && (strcmp(bit_map[2],"100")==0) && (strcmp(bit_map[3],"111")==0))
+		return 	LOGICAL_XOR;
+
+	/* LOGICAL_XNOR */
+	if((strcmp(bit_map[0],"000")==0) && (strcmp(bit_map[1],"011")==0) && (strcmp(bit_map[2],"101")==0) && (strcmp(bit_map[3],"110")==0))
+		return 	LOGICAL_XNOR;
+
+
+  }
+  
+  if(line_count_bitmap==input_count)
+  {
+	/* LOGICAL_OR */
+	for(i=0;i<line_count_bitmap;i++)
+	{
+		if(bit_map[i][i]=='1')
+		{
+			for(j=1;j<input_count;j++)
+			{
+				if(bit_map[i][(i+j)% input_count]!='-')
+					break;
+			}
+			if(j!=input_count)
+			break;
+		}
+		else break;
+	}	
+	if(i==line_count_bitmap)
+		return LOGICAL_OR;
+
+	/* LOGICAL_NAND */
+
+	for(i=0;i<line_count_bitmap;i++)
+	{
+		if(bit_map[i][i]=='0')
+		{
+			for(j=1;j<input_count;j++)
+			{
+				if(bit_map[i][(i+j)% input_count]!='-')
+					break;
+			}
+			if(j!=input_count)
+			break;
+		}
+		else break;
+	}	
+	if(i==line_count_bitmap)
+		return LOGICAL_NAND;
+  }
+
+  /* MUX_2 */	
+  if(line_count_bitmap*2==input_count);
+  {
+	for(i=0;i<line_count_bitmap;i++)
+	{
+	  if((bit_map[i][i]=='1') && (bit_map[i][i+line_count_bitmap] =='1'))
+	  {
+		for(j=1;j<line_count_bitmap;j++)
+		{
+			if((bit_map[i][(i+j)%line_count_bitmap]!='-') || (bit_map[i][((i+j)%line_count_bitmap)+line_count_bitmap]!='-'))
+				break;	
+ 		}
+		if(j!=input_count)
+		break;
+	  }
+	  else break;
+	}
+	if(i==line_count_bitmap)
+		return MUX_2;
+  }
+
+	return GENERIC;
+
 }
 
 /*
@@ -1129,9 +1463,7 @@ void create_top_driver_nets(char *instance_name_prefix)
 /*---------------------------------------------------------------------------------------------
  * (function: dum_parse)
  *-------------------------------------------------------------------------------------------*/
-static void
-dum_parse (
-    char *buffer)
+static void dum_parse (char *buffer)
 {
 	/* Continue parsing to the end of this (possibly continued) line. */
 	while (my_strtok (NULL, TOKENS, blif, buffer) != NULL);

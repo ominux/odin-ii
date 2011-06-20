@@ -199,7 +199,8 @@ typedef enum
 	NETLIST_FUNCTION,
 	MEMORY,
 	PAD_NODE,
-	HARD_IP /* 40 */
+	HARD_IP, /* 40 */
+	GENERIC /*41 added for the unknown node type */
 } operation_list;
 	
 typedef enum 
@@ -379,6 +380,8 @@ nnode_t
 	void (*simulate_block_cycle)(int, int, int*, int, int*);
 
 	short *associated_function;
+
+	char** bit_map; /*storing the bit map */
 };
 
 npin_t
