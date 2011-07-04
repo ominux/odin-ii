@@ -23,6 +23,7 @@ libvpr_6.a: $(OBJS)
 $(EXE): main.c main.o libvpr_6.a
 	$(CC) main.c $(INC_FLAGS) -c
 	$(CC) main.o -o $(EXE) $(INC_FLAGS) -L../libvpr_6 -lm -lvpr_6
+	cp libvpr_6.a libvpr.a
 
 
 .c.o:%.c $(H)
@@ -30,6 +31,7 @@ $(EXE): main.c main.o libvpr_6.a
 
 clean :
 	rm -f libvpr_6.a
+	rm -f libvpr.a
 	rm -f $(OBJS)
 	rm -f read_arch
 
