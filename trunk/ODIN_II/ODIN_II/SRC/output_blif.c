@@ -153,8 +153,8 @@ void output_blif(char *file_name, netlist_t *netlist)
 	}
 	fprintf(out, "\n");
 
-	/* add gnd, hbpad, and vcc */
-	fprintf(out, "\n.names gnd\n.names hbpad\n.names vcc\n1\n");
+	/* add gnd, unconn, and vcc */
+	fprintf(out, "\n.names gnd\n.names unconn\n.names vcc\n1\n");
 	fprintf(out, "\n");
 
 	/* traverse the internals of the flat net-list */
@@ -208,8 +208,8 @@ void depth_first_traversal_to_output(short marker_value, FILE *fp, netlist_t *ne
 
 	netlist->gnd_node->name = "gnd";
 	netlist->vcc_node->name = "vcc";
-	netlist->pad_node->name = "hbpad";
-	/* now traverse the ground, vcc, and hbpad pins */
+	netlist->pad_node->name = "unconn";
+	/* now traverse the ground, vcc, and unconn pins */
 	depth_traverse_output_blif(netlist->gnd_node, marker_value, fp);
 	depth_traverse_output_blif(netlist->vcc_node, marker_value, fp);
 	depth_traverse_output_blif(netlist->pad_node, marker_value, fp);
