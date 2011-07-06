@@ -382,6 +382,7 @@ nnode_t
 	short *associated_function;
 
 	char** bit_map; /*storing the bit map */
+	int bit_map_line_count;
 };
 
 npin_t

@@ -43,15 +43,15 @@ int linenum;
 
 STRING_CACHE *output_nets_sc;
 STRING_CACHE *input_nets_sc;
-STRING_CACHE *top_output_nodes_sc;
 
 const char *GND ="gnd";
 const char *VCC="vcc";
-const char *HBPAD="hbpad";
+const char *HBPAD="unconn";
 
 char *blif_one_string = "ONE_VCC_CNS";
 char *blif_zero_string = "ZERO_GND_ZERO";
 char *blif_pad_string = "ZERO_PAD_ZERO";
+char *default_clock_name="top^clock"; 
 
 netlist_t * blif_netlist; 
 int linenum;/* keeps track of the present line, used for printing the error line : line number */
@@ -65,7 +65,7 @@ static void read_tokens (char *buffer,int * done,char * blif_file);
 static void dum_parse ( char *buffer); 
 void create_internal_node_and_driver();
 short assign_node_type_from_node_name(char * output_name);// function will decide the node->type of the given node
-short read_bit_map_find_unknown_gate(int input_count,char ** bit_map);
+short read_bit_map_find_unknown_gate(int input_count,nnode_t * node);
 void create_latch_node_and_driver(char * blif_file);
 void create_hard_block_nodes();
 void hook_up_nets();
@@ -79,7 +79,6 @@ void read_blif(char * blif_file)
 
       /* initialize the string caches that hold the aliasing of module nets and input pins */
       output_nets_sc = sc_new_string_cache();
-      top_output_nodes_sc = sc_new_string_cache();
       input_nets_sc = sc_new_string_cache();
 
       blif_netlist = allocate_netlist();
@@ -109,8 +108,9 @@ void read_blif(char * blif_file)
 	printf("\nreading look_for_clock\n");
 #endif
       /* now look for high-level signals */
+	
 	look_for_clocks(); 
-
+	/* not need as simulator does't propogates clock signal */ 
 }
 
 
@@ -369,6 +369,8 @@ void create_latch_node_and_driver(char * blif_file)
     	  names[input_token_count-1]=(char*)malloc(sizeof(char)*(strlen(ptr)+1));
   	  sprintf(names[input_token_count-1],"%s",ptr);
   	}
+
+
   /* assigning the new_node */
 
 #ifdef debug_mode
@@ -383,11 +385,18 @@ printf("\n\tinput_token_count=%d\n",input_token_count);
 			clock_name=search_clock_name(blif_file);
 			input_token_count=5;
 			names= (char**)realloc(names, sizeof(char*)* input_token_count);  
-			names[3]=(char*)malloc(sizeof(char)*(strlen(clock_name)+1));
+			if(clock_name!=NULL)
+			{
+			  names[3]=(char*)malloc(sizeof(char)*(strlen(clock_name)+1));
+			  sprintf(names[3],"%s",clock_name);
+			}
+			else
+			names[3]=NULL;			
+
 			names[4]=(char*)malloc(sizeof(char)*(1+1));
 			sprintf(names[4],"%s",names[2]);
 			sprintf(names[2],"re");
-			sprintf(names[3],"%s",clock_name);
+
 		}
 
 		else
@@ -445,6 +454,8 @@ printf("\n\tinput_token_count=%d\n",input_token_count);
   
   /*list this output in output_nets_sc */
    sc_spot = sc_add_string(output_nets_sc,new_node->name);
+
+
    	if (output_nets_sc->data[sc_spot] != NULL)
    	{
      	  error_message(NETLIST_ERROR,linenum,-1, "Net (%s) with the same name already created\n",ptr);	
@@ -476,7 +487,7 @@ char* search_clock_name(char * blif_file)
   char ** input_names=NULL;
   int input_names_count=0;
   int i=0;
-  temp_read_blif=fopen(blif_file,"r");
+  temp_read_blif=fopen(blif_file,"r"); 
 
 #ifdef debug_mode
 	printf("Control for the .latch not mentioned, searching for the clock\n");
@@ -513,19 +524,21 @@ char* search_clock_name(char * blif_file)
 	  /* store the inputs in array of string */
 	  while(1)
 	  {
-		ptr=my_strtok (NULL, TOKENS, blif, buffer);
+		ptr=my_strtok (NULL, TOKENS,temp_read_blif, buffer);
 
 #ifdef debug_mode
 	printf(" ptr : %s \n",ptr);
 #endif		
 		if(ptr==NULL)
 		break;
-
+		if(strcmp(ptr,"top^reset_n")!=0)
+		{
 		input_names_count++;
 		input_names=(char**)realloc(input_names,sizeof(char*) * input_names_count);
 		input_names[input_names_count-1]=(char*)malloc(sizeof(char)*(strlen(ptr)+1));
 		sprintf(input_names[input_names_count-1],"%s",ptr);
-		
+		}
+
 	  }
 
 	continue;
@@ -539,7 +552,7 @@ char* search_clock_name(char * blif_file)
 #ifdef debug_mode
 	printf(" ptr : %s \n",ptr);
 #endif  		
-		ptr=my_strtok (NULL, TOKENS, blif, buffer);
+		ptr=my_strtok (NULL, TOKENS,temp_read_blif, buffer);
 		
 		if(ptr==NULL)
 		  break;
@@ -576,8 +589,7 @@ char* search_clock_name(char * blif_file)
   }
   else
   {
-	printf("ERROR : The clock could n't be found \n");
-	exit(-1);
+	return default_clock_name;	
   }	
 
 }
@@ -873,7 +885,6 @@ void create_internal_node_and_driver()
   char ** names=NULL;// stores the names of the input and the output, last name stored would be of the output
   int input_count=0;
   int i;
-  char **bit_map=NULL;
 
   /* Storing the names of the input and the final output in array names */
  	while ((ptr= my_strtok (NULL, TOKENS, blif, buffer)) != NULL)
@@ -886,8 +897,8 @@ void create_internal_node_and_driver()
   
   /* assigning the new_node */
   new_node->related_ast_node = NULL;
-  /* gnd vcc hbpad already created as top module so ignore them */
-  if( (strcmp(names[input_count-1],"gnd")==0) ||  (strcmp(names[input_count-1],"vcc")==0) ||  (strcmp(names[input_count-1],"hbpad")==0))
+  /* gnd vcc unconn already created as top module so ignore them */
+  if( (strcmp(names[input_count-1],"gnd")==0) ||  (strcmp(names[input_count-1],"vcc")==0) ||  (strcmp(names[input_count-1],"unconn")==0))
  	{
 	skip_reading_bit_map=TRUE;
  	return;
@@ -897,18 +908,6 @@ void create_internal_node_and_driver()
   printf("\nnames %s",names[input_count-1]); 
 #endif
 
-/* can be a top output node, checking if it a top output node*/
-	sc_spot=sc_lookup_string(top_output_nodes_sc,names[input_count-1]);
-
-#ifdef debug_mode	
-	  printf("sc_spot : %ld \n",sc_spot);
-#endif
-
-		if(sc_spot!=(-1))
-		{
-		top_output_nodes_sc->data[sc_spot] = (void*)names[0];
-		return;
-		}
 
   /* assign the node type by seeing the name */
   node_type=assign_node_type_from_node_name(names[input_count-1]);
@@ -926,7 +925,7 @@ void create_internal_node_and_driver()
  /* Check for GENERIC type , change the node by reading the bit map */
 	else if(node_type == GENERIC)
   	{
-    	  new_node->type=read_bit_map_find_unknown_gate(input_count-1,bit_map);
+    	  new_node->type=read_bit_map_find_unknown_gate(input_count-1,new_node);
     	  skip_reading_bit_map=TRUE;
 
 #ifdef debug_mode
@@ -936,11 +935,6 @@ void create_internal_node_and_driver()
 
 	}
  
- /* assigning the bit_map to the node if it is GENERIC */
-	
-	if(new_node->type==GENERIC)
-	new_node->bit_map=bit_map;
-  
   /* allocate the input pin (= input_count-1)*/
  	 if (input_count-1 > 0) // check if there is any input pins	
   	{  
@@ -969,7 +963,28 @@ void create_internal_node_and_driver()
 	  add_a_input_pin_to_node_spot_idx(new_node, new_pin, i);
   	}
 
- 
+  /* add information for the intermediate VCC and GND node (appears in ABC )*/
+  if(new_node->type==GND_NODE)
+  {
+	 allocate_more_node_input_pins(new_node,1);
+	 add_input_port_information(new_node, 1);
+	 new_pin=allocate_npin();
+	 new_pin->name=(char *)GND;
+	 new_pin->type=INPUT;
+	 add_a_input_pin_to_node_spot_idx(new_node, new_pin,0);	 
+  }
+  
+  if(new_node->type==VCC_NODE)
+  {
+	 allocate_more_node_input_pins(new_node,1);
+	 add_input_port_information(new_node, 1);
+	 new_pin=allocate_npin();
+	 new_pin->name=(char *)VCC;
+	 new_pin->type=INPUT;
+	 add_a_input_pin_to_node_spot_idx(new_node, new_pin,0);	 
+  }
+
+
   /* allocate the output pin (there is always one output pin) */
   allocate_more_node_output_pins(new_node, 1);
   add_output_port_information(new_node, 1);
@@ -1017,34 +1032,54 @@ void create_internal_node_and_driver()
      read the bit map for simulation
 *-------------------------------------------------------------------------------------------*/
   
-short read_bit_map_find_unknown_gate(int input_count,char ** bit_map)
+short read_bit_map_find_unknown_gate(int input_count,nnode_t * node)
 {
 
 #ifdef debug_mode
 	printf(" Reading the read_bit_map_find_unknown_gate \n");
 #endif
-
+  	
   FILE * temp_fpointer;
   char buffer[BUFSIZE];
   fpos_t pos;// store the current position of the file pointer
-  int line_count_bitmap=0;
   char *ptr;
   int i,j;
-
+  int line_count_bitmap=0; //stores the number of lines in a particular bit map
+  char ** bit_map=NULL;
+  char output_bit_map[10];// to distinguish whether for the bit_map output is 1 or 0  
+		
   fgetpos(blif,&pos);
   temp_fpointer=blif;
+
+  if(input_count==0)
+  {
+	my_fgets (buffer, BUFSIZE, temp_fpointer);
+	ptr = my_strtok(buffer,"\t\n",temp_fpointer, buffer);
+	fsetpos(blif,&pos);
+	if(strcmp(ptr," 0")==0)
+	return GND_NODE;
+	else if(strcmp(ptr," 1")==1)
+	return VCC_NODE;
+	else if(ptr==NULL)
+	return GND_NODE;
+	else
+	return VCC_NODE;
+  }
+	
   while(1)
   {
   	my_fgets (buffer, BUFSIZE, temp_fpointer);
   	if(!(buffer[0]=='0' || buffer[0]=='1' || buffer[0]=='-'))
     		break;
 
-   line_count_bitmap++;
+   	line_count_bitmap++;
    
    ptr = my_strtok(buffer,TOKENS,temp_fpointer, buffer); /* extract the input only*/
    bit_map=(char**)realloc(bit_map,sizeof(char*)*line_count_bitmap);
    bit_map[line_count_bitmap-1]=(char*)malloc(sizeof(char)*(strlen(ptr)+1));
    sprintf(bit_map[line_count_bitmap-1],"%s",ptr);
+   ptr = my_strtok(NULL,TOKENS,temp_fpointer, buffer);
+   sprintf(output_bit_map,"%s",ptr);	 
   }
   
 #ifdef debug_mode
@@ -1071,19 +1106,32 @@ short read_bit_map_find_unknown_gate(int input_count,char ** bit_map)
 	  if(strcmp(bit_map[0],"010")==0)
 		return LT;
 
-  	  /* LOGICAL_AND */
+  	  /* LOGICAL_AND and LOGICAL_NAND for ABC*/
  	  for(i=0;i<input_count && bit_map[0][i]=='1';i++);
 	  if(i==input_count)
+	  {
+		if(strcmp(output_bit_map,"1")==0)
 		return LOGICAL_AND;
+		else if (strcmp(output_bit_map,"0")==0)
+		return LOGICAL_NAND;
+	   }
 	
 	  /* BITWISE_NOT */
 	  if(strcmp(bit_map[0],"0")==0)
 		return BITWISE_NOT;
 
-	  /* LOGICAL_NOR */
+	  /* LOGICAL_NOR and LOGICAL_OR for ABC */
 	  for(i=0;i<input_count && bit_map[0][i]=='0';i++);
 	  if(i==input_count)
+	  {
+		if(strcmp(output_bit_map,"1")==0)
 		return LOGICAL_NOR;
+		else if (strcmp(output_bit_map,"0")==0)
+		return LOGICAL_OR;
+	  }
+
+	  
+	  
 
   }	
 
@@ -1188,6 +1236,10 @@ short read_bit_map_find_unknown_gate(int input_count,char ** bit_map)
 		return MUX_2;
   }
 
+	 /* assigning the bit_map to the node if it is GENERIC */
+	
+	node->bit_map=bit_map;
+	node->bit_map_line_count=line_count_bitmap;
 	return GENERIC;
 
 }
@@ -1277,7 +1329,6 @@ void add_top_input_nodes()
   printf("\n reading the create_top_output_nodes\n");
 #endif
 
-  long sc_spot;// store the location of the string stored in string_cache
   char *ptr; 
   char buffer[BUFSIZE];
   npin_t *new_pin;
@@ -1326,12 +1377,6 @@ void add_top_input_nodes()
 	blif_netlist->top_output_nodes[blif_netlist->num_top_output_nodes] = new_node;
 	blif_netlist->num_top_output_nodes++;
   	
- 	/*list this output node in top_output_nodes_sc */
- 	 sc_spot =sc_add_string(top_output_nodes_sc,new_node->name);
-   		if (top_output_nodes_sc->data[sc_spot] != NULL)
-   		{
-     	 	 error_message(NETLIST_ERROR,linenum,-1, "Net (%s) with the same name already created\n",ptr);	
-   		}
 	}
 
 #ifdef debug_mode
@@ -1348,7 +1393,6 @@ void add_top_input_nodes()
 void look_for_clocks()
 {
 	int i; 
-
 	for (i = 0; i < blif_netlist->num_ff_nodes; i++)
 	{
 		if (blif_netlist->ff_nodes[i]->input_pins[1]->net->driver_pin->node->type != CLOCK_NODE)
@@ -1356,6 +1400,7 @@ void look_for_clocks()
 			blif_netlist->ff_nodes[i]->input_pins[1]->net->driver_pin->node->type = CLOCK_NODE;
 		}
 	}
+
 }
 
 
@@ -1518,15 +1563,13 @@ void hook_up_nets()
 		name_pin=input_pin->name;
 		sc_spot=sc_lookup_string(output_nets_sc,name_pin);
 		if(sc_spot==(-1))
-		{
+		{			
 			printf("Error :Could not hook the pin %s not available ",name_pin);
 			exit(-1);
 		}
-	 	output_net=(nnet_t*)output_nets_sc->data[sc_spot];
+		output_net=(nnet_t*)output_nets_sc->data[sc_spot];
 		/* add the pin to this net as fanout pin */
-
-		add_a_fanout_pin_to_net(output_net,input_pin);
-		
+	        add_a_fanout_pin_to_net(output_net,input_pin);	
 		
 	}
   }
@@ -1536,22 +1579,20 @@ void hook_up_nets()
   {
 	node=blif_netlist->top_output_nodes[i];
 	input_pin_count=node->num_input_pins;
-
 	for(j=0;j<input_pin_count;j++)
 	{
 		input_pin=node->input_pins[j];
-		sc_spot=sc_lookup_string(top_output_nodes_sc,input_pin->name);
-		name_pin=(char*)top_output_nodes_sc->data[sc_spot];
+		name_pin=input_pin->name;
 		sc_spot=sc_lookup_string(output_nets_sc,name_pin);
 		if(sc_spot==(-1))
 		{
 			printf("Error:Could not hook the pin %s not available ",name_pin);
 			exit(-1);
 		}
-	 	output_net=(nnet_t*)output_nets_sc->data[sc_spot];
+ 		output_net=(nnet_t*)output_nets_sc->data[sc_spot];
 		/* add the pin to this net as fanout pin */
-		output_net->name=node->name;
 		add_a_fanout_pin_to_net(output_net,input_pin);
+
 	}
 
   }

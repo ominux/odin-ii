@@ -44,6 +44,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define BUFFER_MAX_SIZE 1024
 
 //#define DEBUG_SIMULATOR
+//#define DEBUG_GENERIC_MODE_SIMULATION 
 
 #define CLOCK_PORT_NAME_1 "clock"
 #define CLOCK_PORT_NAME_2 "clk"
@@ -398,14 +399,12 @@ void simulate_cycle(netlist_t *netlist, int cycle)
 				if (node->output_pins[i]->sim_state->cycle >= cycle)
 					already_calculated = TRUE;
 		}
-
 		if (already_calculated
 				&& !is_node_top_level(netlist, node)
 				&& node->type != FF_NODE)
 		{
 				continue;
 		}
-
 		//Check if we're ready to calculate it's new value
 		for (i = 0; i < node->num_input_pins; i++)
 		{
@@ -1094,14 +1093,94 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			free(b);
 			return;
 		}
+		
+		/* adding new node type GENERIC for simulation reading the bit map */
+		case GENERIC : // simulate using the bit map reading
+		{
+
+#ifdef DEBUG_GENERIC_MODE_SIMULATION			
+printf(" Generic type detected \n");
+#endif
+			
+			int lut_size=0;
+			int i,j,found=0;
+			int line_count_bitmap=node->bit_map_line_count;
+			char **bit_map=node->bit_map;
+			while(bit_map[0][lut_size]!='\0')
+			lut_size++;
+#ifdef DEBUG_GENERIC_MODE_SIMULATION			
+printf("lut_size:%d \n",lut_size);
+for(i=0;i<lut_size;i++)
+printf("%d",node->input_pins[i]->sim_state->value);
+printf("\n"); 
+#endif			
+			for(i=0;i<line_count_bitmap && (!found);i++)
+			{
+      			  for(j=0;j<lut_size;j++)
+			  {			
+				if(node->input_pins[j]->sim_state->value <0 )
+				{
+				  update_pin_value(node->output_pins[0], -1, cycle);
+				  return;
+				}
+	
+				if(bit_map[i][j]=='-')
+				continue;
+				else if(bit_map[i][j]-'0'==node->input_pins[j]->sim_state->value)
+				continue;
+				else 
+				break;
+			  }
+
+#ifdef DEBUG_GENERIC_MODE_SIMULATION		
+printf("\nj: %d\n",j);
+#endif
+			  if(j==lut_size)
+			  found=1;
+			}	
+
+#ifdef DEBUG_GENERIC_MODE_SIMULATION			
+printf("found:%d \n",found);
+#endif					
+			if(found==1)
+			update_pin_value(node->output_pins[0], 1, cycle);
+			else
+			update_pin_value(node->output_pins[0], 0, cycle);
+
+#ifdef DEBUG_GENERIC_MODE_SIMULATION
+printf(" printing the detected bit map \n");
+printf(" line_count_bitmap : %d \n",line_count_bitmap);
+for(i=0;i<line_count_bitmap;i++)
+printf("\t %s \n",node->bit_map[i]);
+#endif
+
+
+#ifdef DEBUG_GENERIC_MODE_SIMULATION				
+printf("Exiting the generic type \n");
+#endif
+
+			return;
+		}
+
+
 		case INPUT_NODE:
 		case OUTPUT_NODE:
 			return;
 		case PAD_NODE:
 		case CLOCK_NODE:
-		case GND_NODE:
-		case VCC_NODE:
 			return;
+		case GND_NODE:
+		{
+					
+			update_pin_value(node->output_pins[0], 0, cycle);
+			return;
+		}
+		case VCC_NODE:
+		{
+						
+			update_pin_value(node->output_pins[0], 1, cycle);
+			return;
+		}
 		/* These should have already been converted to softer versions. */
 		case BITWISE_AND:
 		case BITWISE_NAND:
@@ -1978,8 +2057,11 @@ int verify_output_vectors(netlist_t *netlist, line_t **lines, int lines_size, in
  * as well as updates their cycle.
  */
 void set_constant_pin_values(netlist_t *netlist, int cycle)
-{
-	int i;
+{	
+	int i,j;
+	nnode_t* temp_node;
+	nnet_t * temp_net;
+	npin_t * temp_pin;
 	for (i = 0; i < netlist->num_clocks; i++)
 	{
 		update_pin_value(netlist->clocks[i]->output_pins[0], cycle%2, cycle);
@@ -1989,19 +2071,52 @@ void set_constant_pin_values(netlist_t *netlist, int cycle)
 		update_pin_value(netlist->gnd_node->input_pins[i], 0, cycle);
 	}
 	for (i = 0; i < netlist->gnd_node->num_output_pins; i++)
-	{
-		update_pin_value(netlist->gnd_node->output_pins[i], 0, cycle);
+	{			
+		update_pin_value(netlist->gnd_node->output_pins[i], 0, cycle);	
+		// code added, for multiple gnd node that appears in ABC 
+		temp_net=netlist->gnd_node->output_pins[i]->net;
+		for(j=0;j<temp_net->num_fanout_pins;j++)
+		{
+			if(temp_net->fanout_pins[j]==NULL)
+			continue;			
+			temp_node=temp_net->fanout_pins[j]->node;
+			if(temp_node ==NULL)
+			continue;
+			if(temp_node->type==GND_NODE)
+			{
+	
+			  //printf("gnd node detected\n");
+			  //printf("node name :%s\n",temp_node->name); 
+			  update_pin_value(temp_node->input_pins[0], 0, cycle);
+			  update_pin_value(temp_node->output_pins[0], 0, cycle);
+			}
+		}
 	}
-
 	for (i = 0; i < netlist->vcc_node->num_input_pins; i++)
 	{
 		update_pin_value(netlist->vcc_node->input_pins[i], 1, cycle);
-	}
+	}	
 	for (i = 0; i < netlist->vcc_node->num_output_pins; i++)
 	{
 		update_pin_value(netlist->vcc_node->output_pins[i], 1, cycle);
+		// code added, for multiple VCC node that appears in ABC 
+		temp_net=netlist->gnd_node->output_pins[i]->net;
+		for(j=0;j<temp_net->num_fanout_pins;j++)
+		{
+			if(temp_net->fanout_pins[j]==NULL)
+			continue;
+			temp_node=temp_net->fanout_pins[j]->node;
+			if(temp_node ==NULL)
+			continue;
+			if(temp_node->type==VCC_NODE)
+			{
+			  //printf("vcc node detected\n");
+			  //printf("node name :%s\n",temp_node->name);
+			  update_pin_value(temp_node->input_pins[0], 1, cycle);
+			  update_pin_value(temp_node->output_pins[0], 1, cycle);
+			}
+		}
 	}
-
 	for (i = 0; i < netlist->pad_node->num_input_pins; i++)
 	{
 		update_pin_value(netlist->pad_node->input_pins[i], 0, cycle);

@@ -72,6 +72,7 @@ nnode_t* allocate_nnode()
 	new_node->memory_data = NULL;
 	
 	new_node->bit_map= NULL;
+	new_node->bit_map_line_count=0;
 
 	return new_node;
 }
