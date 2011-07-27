@@ -32,25 +32,25 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define FALSE 0
 #endif
 
-#define config_t struct config_t_t
-#define global_args_t struct global_args_t_t
-#define global_args_read_blif_t struct global_args_read_blif_t 
-/* new struct for the global arguments of verify_blif function */
-
-#define ast_node_t struct ast_node_t_t
-#define info_ast_visit_t struct info_on_ast_visit_t_t
-
-#define sim_state_t struct sim_state_t_t
-#define nnode_t struct nnode_t_t
-#define npin_t struct npin_t_t
-#define nnet_t struct nnet_t_t
-#define signal_list_t struct signal_list_t_t
-#define char_list_t struct char_list_t_t
-#define netlist_t struct netlist_t_t
-#define netlist_stats_t struct netlist_stats_t_t
-
 #ifndef TYPES_H
 #define TYPES_H
+
+typedef struct config_t_t config_t;
+typedef struct global_args_t_t global_args_t;
+/* new struct for the global arguments of verify_blif function */
+typedef struct global_args_read_blif_t_t global_args_read_blif_t;
+
+typedef struct ast_node_t_t ast_node_t;
+typedef struct info_ast_visit_t_t info_ast_visit_t;
+
+typedef struct sim_state_t_t sim_state_t;
+typedef struct nnode_t_t nnode_t;
+typedef struct npin_t_t npin_t;
+typedef struct nnet_t_t nnet_t;
+typedef struct signal_list_t_t signal_list_t;
+typedef struct char_list_t_t char_list_t;
+typedef struct netlist_t_t netlist_t;
+typedef struct netlist_stats_t_t netlist_stats_t;
 
 /* for parsing and AST creation errors */
 #define PARSE_ERROR -3
@@ -85,7 +85,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 // bitvector library (PETER_LIB) defines it, so we don't
 
 /* This is the data structure that holds config file details */
-config_t
+struct config_t_t
 {
 	char **list_of_file_names;
 	int num_list_of_file_names;
@@ -112,7 +112,7 @@ typedef enum {
 }simulation_type;
 
 /* the global arguments of the software */
-global_args_t
+struct global_args_t_t
 {
 	char *config_file;
 	char *verilog_file;
@@ -127,7 +127,7 @@ global_args_t
 };
 
 /* global arguments of the verify_blif function */
-global_args_read_blif_t
+struct global_args_read_blif_t_t
 {
 	char *config_file;
 	char *blif_file;
@@ -155,6 +155,7 @@ typedef enum
 
 typedef enum
 {
+	NO_OP,
 	MULTI_PORT_MUX, // port 1 = control, port 2+ = mux options
 	FF_NODE,
 	BUF_NODE,
@@ -166,7 +167,7 @@ typedef enum
 	ADD, // +
 	MINUS, // -
 	BITWISE_NOT, // ~	
-	BITWISE_AND, // & /* 10 */
+	BITWISE_AND, // & 
 	BITWISE_OR, // |
 	BITWISE_NAND, // ~&
 	BITWISE_NOR, // ~| 
@@ -179,7 +180,7 @@ typedef enum
 	LOGICAL_NOR, // No Symbol
 	LOGICAL_XNOR, // No symbol
 	LOGICAL_XOR, // No Symbol
-	MULTIPLY, // * /*20*/
+	MULTIPLY, // * 
 	DIVIDE, // /
 	MODULO, // %
 	LT, // <
@@ -189,7 +190,7 @@ typedef enum
 	LTE, // <=
 	GTE, // >=
 	SR, // >>
-	SL, // << /*30*/
+	SL, // << 
 	CASE_EQUAL, // ===
 	CASE_NOT_EQUAL, // !==
 	ADDER_FUNC,
@@ -199,12 +200,13 @@ typedef enum
 	NETLIST_FUNCTION,
 	MEMORY,
 	PAD_NODE,
-	HARD_IP, /* 40 */
-	GENERIC /*41 added for the unknown node type */
+	HARD_IP, 
+	GENERIC /*added for the unknown node type */
 } operation_list;
 	
 typedef enum 
 {
+	NO_ID,
 	/* top level things */
 	FILE_ITEMS,
 	MODULE, 
@@ -218,7 +220,7 @@ typedef enum
 	PORT,
 	/* OTHER MODULE ITEMS */
 	MODULE_ITEMS, 
-	VAR_DECLARE,//10
+	VAR_DECLARE,
 	VAR_DECLARE_LIST,
 	ASSIGN,
 	/* primitives */
@@ -231,7 +233,7 @@ typedef enum
 	MODULE_INSTANCE,
 	/* statements */
 	BLOCK, 
-	NON_BLOCKING_STATEMENT,//20
+	NON_BLOCKING_STATEMENT,
 	BLOCKING_STATEMENT,
 	CASE,
 	CASE_LIST,
@@ -242,7 +244,7 @@ typedef enum
 	IF_Q,
 	/* Delay Control */
 	DELAY_CONTROL,
-	POSEDGE,// 30
+	POSEDGE,
 	NEGEDGE, 
 	/* expressions */
 	BINARY_OPERATION, 
@@ -256,17 +258,19 @@ typedef enum
 	NUMBERS, 
 	/* Hard Blocks */
 	HARD_BLOCK, 
-	HARD_BLOCK_NAMED_INSTANCE, // 40
+	HARD_BLOCK_NAMED_INSTANCE, 
 	HARD_BLOCK_CONNECT_LIST,
-	HARD_BLOCK_CONNECT
+	HARD_BLOCK_CONNECT,
+	// EDDIE: new enum value for ids to replace MEMORY from operation_t
+	RAM
 } ids;
 
-ast_node_t
+struct ast_node_t_t
 {
 	int unique_count;
 	int far_tag;
 	int high_number;
-	short type;
+	ids type;
 	union
 	{
 		char *identifier;
@@ -281,7 +285,7 @@ ast_node_t
 		} number;
 		struct
 		{
-			short op;
+			operation_list op;
 		} operation;
 		struct
 		{
@@ -320,7 +324,7 @@ ast_node_t
 	void *additional_data; // this is a point where you can add additional data for your optimization or technique
 };
 
-info_ast_visit_t
+struct info_ast_visit_t_t
 {
 	ast_node_t *me;
 	ast_node_t *from;
@@ -337,7 +341,7 @@ info_ast_visit_t
 #ifndef NETLIST_UTILS_H
 #define NETLIST_UTILS_H
 
-sim_state_t
+struct sim_state_t_t
 {
 	int cycle;
 	int value;
@@ -346,11 +350,11 @@ sim_state_t
 
 /* DEFINTIONS for all the different types of nodes there are.  This is also used cross-referenced in utils.c so that I can get a string version 
  * of these names, so if you add new tpyes in here, be sure to add those same types in utils.c */
-nnode_t
+struct nnode_t_t
 {
 	long unique_id;
 	char *name; // unique name of a node
-	short type; // the type of node
+	operation_list type; // the type of node
 	ast_node_t *related_ast_node; // the abstract syntax node that made this node
 
 	short traverse_visited; // a way to mark if we've visited yet
@@ -385,10 +389,10 @@ nnode_t
 	int bit_map_line_count;
 };
 
-npin_t
+struct npin_t_t
 {
 	long unique_id;
-	short type; // INPUT or OUTPUT
+	ids type; // INPUT or OUTPUT
 	char *name;
 
 	nnet_t *net; // related net
@@ -401,7 +405,7 @@ npin_t
 	sim_state_t *sim_state;
 };
 
-nnet_t
+struct nnet_t_t
 {
 	long unique_id;
 	char *name; // name for the net
@@ -416,7 +420,7 @@ nnet_t
 	void *net_data;
 };
 
-signal_list_t 
+struct signal_list_t_t 
 {
 	npin_t **signal_list;	
 	int signal_list_size;
@@ -424,13 +428,13 @@ signal_list_t
 	short is_memory;
 };
 
-char_list_t 
+struct char_list_t_t 
 {
 	char **strings;	
 	int num_strings;
 };
 
-netlist_t
+struct netlist_t_t
 {
 	nnode_t *gnd_node;
 	nnode_t *vcc_node;
@@ -475,7 +479,7 @@ netlist_t
 	t_type_ptr type; 
 };
 
-netlist_stats_t
+struct netlist_stats_t_t
 {
 	int num_inputs;
 	int num_outputs;

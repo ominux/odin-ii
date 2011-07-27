@@ -780,7 +780,7 @@ void output_activation_file_ace_and_function_file(char *output_filename, int lut
 			{
 				/* LUT + FF */
 				/* IF - this is a FF node and has more than 1 input, then it's a LUT-FF */
-				activation_t *input_node_to_ff_act_data = lut_node->input_pins[0]->net->driver_pin->node->node_data;
+				activation_t *input_node_to_ff_act_data = (activation_t *)lut_node->input_pins[0]->net->driver_pin->node->node_data;
 				sprintf(probability_string, "%s %f", probability_string, input_node_to_ff_act_data->static_probability[0]);
 				sprintf(density_string, "%s %f", density_string,  input_node_to_ff_act_data->transition_density[0]);
 

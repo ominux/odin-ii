@@ -215,7 +215,7 @@ split_sp_memory_depth(nnode_t *node)
 	new_mem_node->name = (char *)malloc(strlen(node->name) + 10);
 	strcpy(new_mem_node->name, node->name);
 	strcat(new_mem_node->name, "__H");
-	node->name = realloc(node->name, strlen(node->name) + 10);
+	node->name = (char *)realloc(node->name, strlen(node->name) + 10);
 	strcat(node->name,"__S");
 
 	/* Copy properties from the original memory node */
@@ -419,7 +419,7 @@ split_dp_memory_depth(nnode_t *node)
 	new_mem_node->name = (char *)malloc(strlen(node->name) + 10);
 	strcpy(new_mem_node->name, node->name);
 	strcat(new_mem_node->name, "__H");
-	node->name = realloc(node->name, strlen(node->name) + 10);
+	node->name = (char *)realloc(node->name, strlen(node->name) + 10);
 	strcat(node->name,"__S");
 
 	/* Copy properties from the original memory node */

@@ -31,8 +31,8 @@ generate_sc_hash(STRING_CACHE * sc)
     if(sc->next_string != NULL)
 		free(sc->next_string);
     sc->string_hash_size = sc->size * 2 + 11;
-    sc->string_hash = sc_do_alloc(sc->string_hash_size, sizeof(long));
-    sc->next_string = sc_do_alloc(sc->size, sizeof(long));
+    sc->string_hash = (long *)sc_do_alloc(sc->string_hash_size, sizeof(long));
+    sc->next_string = (long *)sc_do_alloc(sc->size, sizeof(long));
     memset(sc->string_hash, 0xff, sc->string_hash_size * sizeof(long));
     memset(sc->next_string, 0xff, sc->size * sizeof(long));
     for(i = 0; i < sc->free; i++)
@@ -49,14 +49,14 @@ sc_new_string_cache(void)
 {
     STRING_CACHE *sc;
 
-    sc = sc_do_alloc(1, sizeof(STRING_CACHE));
+    sc = (STRING_CACHE *)sc_do_alloc(1, sizeof(STRING_CACHE));
     sc->size = 100;
     sc->string_hash_size = 0;
     sc->string_hash = NULL;
     sc->next_string = NULL;
     sc->free = 0;
-    sc->string = sc_do_alloc(sc->size, sizeof(char *));
-    sc->data = sc_do_alloc(sc->size, sizeof(void *));
+    sc->string = (char **)sc_do_alloc(sc->size, sizeof(char *));
+    sc->data = (void **)sc_do_alloc(sc->size, sizeof(void *));
     sc->mod = 834535547;
     sc->mul = 247999;
     generate_sc_hash(sc);
@@ -105,7 +105,7 @@ sc_add_string(STRING_CACHE * sc,
 	    if(sc->free > 0)
 		memcpy(a, sc->data, sc->free * sizeof(void *));
 	    free(sc->data);
-	    sc->data = a;
+	    sc->data = (void **)a;
 
 	    generate_sc_hash(sc);
 	}

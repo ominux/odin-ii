@@ -2789,7 +2789,8 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 		oassert(FALSE);
 	}
 
-	block->type = MEMORY;
+	// EDDIE: Uses new enum in ids: RAM (opposed to MEMORY from operation_t previously)
+	block->type = RAM;
 	return_list = init_signal_list_structure();
 	current_idx = 0;
 	current_out_idx = 0;
@@ -2980,7 +2981,8 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
 		oassert(FALSE);
 	}
 
-	block->type = MEMORY;
+	// EDDIE: Uses new enum in ids: RAM (opposed to MEMORY from operation_t previously)
+	block->type = RAM;
 	return_list = init_signal_list_structure();
 	current_idx = 0;
 	current_out_idx = 0;

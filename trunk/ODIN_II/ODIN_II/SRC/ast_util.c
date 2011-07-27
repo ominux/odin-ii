@@ -38,7 +38,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 /*---------------------------------------------------------------------------
  * (function: create_node_w_type)
  *-------------------------------------------------------------------------*/
-ast_node_t* create_node_w_type(short id, int line_number, int file_number)
+ast_node_t* create_node_w_type(ids id, int line_number, int file_number)
 {
 	static long unique_count = 0;
 
@@ -94,6 +94,8 @@ void free_child_in_tree(ast_node_t *from, int idx_removal)
 			if (child->types.number.number != NULL)
 				free(child->types.number.number);
 			break;
+		default:
+			break;
 	}
 
 	free(child);	
@@ -129,6 +131,8 @@ void free_ast_node(ast_node_t *child)
 			if (child->types.number.number != NULL)
 				free(child->types.number.number);
 			break;
+		default:
+			break;
 	}
 
 	free(child);	
@@ -151,6 +155,8 @@ void free_ast_node_only(ast_node_t *child)
 		case NUMBERS:
 			if (child->types.number.number != NULL)
 				free(child->types.number.number);
+			break;
+		default:
 			break;
 	}
 

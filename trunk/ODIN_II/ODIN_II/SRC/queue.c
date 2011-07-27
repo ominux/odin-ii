@@ -34,7 +34,7 @@ OTHER DEALINGS IN THE SOFTWARE.
  */
 queue_t* create_queue()
 {
-	queue_t *q = malloc(sizeof(queue_t));
+	queue_t *q = (queue_t *)malloc(sizeof(queue_t));
 	q->head = NULL;
 	q->tail = NULL;
 	q->count = 0;
@@ -58,7 +58,7 @@ void enqueue_item(queue_t *q, void *item)
 //	}
 	oassert(item != NULL);
 	oassert(q != NULL);
-	node = malloc(sizeof(queue_node_t));
+	node = (queue_node_t *)malloc(sizeof(queue_node_t));
 	node->next = NULL;
 	node->item = item;
 

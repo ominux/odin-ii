@@ -42,7 +42,7 @@ nnode_t* allocate_nnode()
 	new_node = (nnode_t *)my_malloc_struct(sizeof(nnode_t));
 	
 	new_node->name = NULL;
-	new_node->type = -1;
+	new_node->type = NO_OP;
 	new_node->related_ast_node = NULL;
 	new_node->traverse_visited = -1;
 
@@ -200,14 +200,14 @@ npin_t* allocate_npin()
 	new_pin = (npin_t *)my_malloc_struct(sizeof(npin_t));
 	
 	new_pin->name = NULL;
-	new_pin->type = -1;
+	new_pin->type = NO_ID;
 	new_pin->net = NULL;
 	new_pin->pin_net_idx = -1;
 	new_pin->node = NULL;
 	new_pin->pin_node_idx = -1;
 	new_pin->mapping = NULL;
 
-	new_pin->sim_state = malloc(sizeof(sim_state_t));
+	new_pin->sim_state = (sim_state_t *)malloc(sizeof(sim_state_t));
 	new_pin->sim_state->cycle = -1;
 	new_pin->sim_state->value = -1;
 	new_pin->sim_state->prev_value = -1;

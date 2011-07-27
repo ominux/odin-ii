@@ -1,6 +1,6 @@
 #include "types.h"
 
-ast_node_t* create_node_w_type(short id, int line_number, int file_number);
+ast_node_t* create_node_w_type(ids id, int line_number, int file_number);
 void free_child_in_tree(ast_node_t *from, int idx_removal);
 void free_ast_node(ast_node_t *child);
 void free_ast_node_only(ast_node_t *child);
