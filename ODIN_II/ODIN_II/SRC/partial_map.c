@@ -43,9 +43,9 @@ void partial_map_node(nnode_t *node, short traverse_number, netlist_t *netlist);
 
 void instantiate_not_logic(nnode_t *node, short mark, netlist_t *netlist);
 void instantiate_buffer(nnode_t *node, short mark, netlist_t *netlist);
-void instantiate_bitwise_logic(nnode_t *node, int op, short mark, netlist_t *netlist);
-void instantiate_bitwise_reduction(nnode_t *node, int op, short mark, netlist_t *netlist);
-void instantiate_logical_logic(nnode_t *node, int op, short mark, netlist_t *netlist);
+void instantiate_bitwise_logic(nnode_t *node, operation_list op, short mark, netlist_t *netlist);
+void instantiate_bitwise_reduction(nnode_t *node, operation_list op, short mark, netlist_t *netlist);
+void instantiate_logical_logic(nnode_t *node, operation_list op, short mark, netlist_t *netlist);
 void instantiate_EQUAL(nnode_t *node, short type, short mark, netlist_t *netlist);
 void instantiate_GE(nnode_t *node, short type, short mark, netlist_t *netlist);
 void instantiate_GT(nnode_t *node, short type, short mark, netlist_t *netlist);
@@ -358,7 +358,7 @@ void instantiate_buffer(nnode_t *node, short mark, netlist_t *netlist)
 /*---------------------------------------------------------------------------------------------
  * (function: instantiate_logical_logic )
  *-------------------------------------------------------------------------------------------*/
-void instantiate_logical_logic(nnode_t *node, int op, short mark, netlist_t *netlist)
+void instantiate_logical_logic(nnode_t *node, operation_list op, short mark, netlist_t *netlist)
 {
 	int i;
 	int port_B_offset;
@@ -421,13 +421,13 @@ void instantiate_logical_logic(nnode_t *node, int op, short mark, netlist_t *net
  * (function: instantiate_bitwise_reduction )
  * 	Makes 2 input gates to break into bitwise
  *-------------------------------------------------------------------------------------------*/
-void instantiate_bitwise_reduction(nnode_t *node, int op, short mark, netlist_t *netlist)
+void instantiate_bitwise_reduction(nnode_t *node, operation_list op, short mark, netlist_t *netlist)
 {
 	int width;
 	int i;
 	int width_a;
 	nnode_t *new_logic_cell;
-	short cell_op;
+	operation_list cell_op;
 
 	oassert(node->num_input_pins > 0);
 	oassert(node->num_input_port_sizes == 1);
@@ -490,7 +490,7 @@ void instantiate_bitwise_reduction(nnode_t *node, int op, short mark, netlist_t 
  * (function: instantiate_bitwise_logic )
  * 	Makes 2 input gates to break into bitwise
  *-------------------------------------------------------------------------------------------*/
-void instantiate_bitwise_logic(nnode_t *node, int op, short mark, netlist_t *netlist)
+void instantiate_bitwise_logic(nnode_t *node, operation_list op, short mark, netlist_t *netlist)
 {
 	int width;
 	int i;
@@ -498,7 +498,7 @@ void instantiate_bitwise_logic(nnode_t *node, int op, short mark, netlist_t *net
 	int width_a;
 	int width_b;
 	nnode_t **new_logic_cells;
-	short cell_op;
+	operation_list cell_op;
 
 	oassert(node->num_input_pins > 0);
 	oassert(node->num_input_port_sizes == 2);

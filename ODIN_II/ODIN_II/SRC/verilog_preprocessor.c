@@ -7,6 +7,11 @@
 #include "verilog_preprocessor.h"
 #include "types.h"
 
+/* Globals */
+struct veri_Includes veri_includes;
+struct veri_Defines veri_defines;
+
+
 /*
  * Initialize the preprocessor by allocating sufficient memory and setting sane values
  */
@@ -110,7 +115,7 @@ int add_veri_define(char *symbol, char *value, int line, veri_include *defined_i
 {
 	int i;
 	veri_define *def_iterator = veri_defines.defined_constants[0];
-	veri_define *new_def = malloc(sizeof(veri_define));
+	veri_define *new_def = (veri_define *)malloc(sizeof(veri_define));
 	if (new_def == NULL) 
 	{
 		perror("new_def : malloc ");
@@ -334,7 +339,7 @@ FILE* veri_preproc(FILE *source)
 void veri_preproc_bootstraped(FILE *source, FILE *preproc_producer, veri_include *current_include)
 {
 	int line_number = 1;
-	veri_flag_stack *skip = calloc(1, sizeof(veri_flag_stack));;
+	veri_flag_stack *skip = (veri_flag_stack *)calloc(1, sizeof(veri_flag_stack));;
 	char line[MaxLine];
 	char *token, *p;
 	FILE *included_file = NULL;
@@ -429,7 +434,7 @@ void veri_preproc_bootstraped(FILE *source, FILE *preproc_producer, veri_include
 				char *value = NULL;
 				
 				/* strtok is destructive to the original string which we need to retain unchanged, this fixes it. */
-				fprintf(preproc_producer, "`define %s", line + 1 + strlen(line));
+				fprintf(preproc_producer, "`define %s\n", line + 1 + strlen(line));
 				//printf("\tIn define: %s", token + 1 + strlen(token));
 				
 				token = trim(strtok(NULL, " \t"));
@@ -624,7 +629,7 @@ void push(veri_flag_stack *stack, int flag)
 {
 	if(stack != NULL)
 	{
-		veri_flag_node *new_node = malloc(sizeof(veri_flag_node));
+		veri_flag_node *new_node = (veri_flag_node *)malloc(sizeof(veri_flag_node));
 		new_node->next = stack->top;
 		new_node->flag = flag;
 		

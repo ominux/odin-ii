@@ -1,15 +1,15 @@
 #include "types.h"
 
 nnode_t *make_not_gate_with_input(npin_t *input_pin, nnode_t *node, short mark);
-nnode_t *make_1port_logic_gate_with_inputs(short type, int width, signal_list_t *pin_list, nnode_t *node, short mark);
-nnode_t *make_2port_logic_gates_with_inputs(short type, int width_port1, signal_list_t *pin_list1, int width_port2, signal_list_t *pin_list2, nnode_t *node, short mark);
+nnode_t *make_1port_logic_gate_with_inputs(operation_list type, int width, signal_list_t *pin_list, nnode_t *node, short mark);
+nnode_t *make_2port_logic_gates_with_inputs(operation_list type, int width_port1, signal_list_t *pin_list1, int width_port2, signal_list_t *pin_list2, nnode_t *node, short mark);
 
 nnode_t *make_not_gate(nnode_t *node, short mark);
-nnode_t *make_1port_logic_gate(short type, int width, nnode_t *node, short mark);
+nnode_t *make_1port_logic_gate(operation_list type, int width, nnode_t *node, short mark);
 
-nnode_t *make_1port_gate(short type, int width_input, int width_output, nnode_t *node, short mark);
-nnode_t *make_2port_gate(short type, int width_port1, int width_port2, int width_output, nnode_t *node, short mark);
-nnode_t *make_3port_gate(short type, int width_port1, int width_port2, int width_port3, int width_output, nnode_t *node, short mark);
+nnode_t *make_1port_gate(operation_list type, int width_input, int width_output, nnode_t *node, short mark);
+nnode_t *make_2port_gate(operation_list type, int width_port1, int width_port2, int width_output, nnode_t *node, short mark);
+nnode_t *make_3port_gate(operation_list type, int width_port1, int width_port2, int width_port3, int width_output, nnode_t *node, short mark);
 
 npin_t *get_a_zero_pin();
 npin_t *get_a_one_pin();

@@ -355,7 +355,7 @@ ast_node_t *newNumberNode(char *num, int line_number)
 /*---------------------------------------------------------------------------------------------
  * (function: newList)
  *-------------------------------------------------------------------------------------------*/
-ast_node_t *newList(short node_type, ast_node_t *child)
+ast_node_t *newList(ids node_type, ast_node_t *child)
 {
 	/* create a node for this array reference */
 	ast_node_t* new_node = create_node_w_type(node_type, yylineno, current_parse_file);
@@ -570,7 +570,7 @@ ast_node_t *newRangeRef(char *id, ast_node_t *expression1, ast_node_t *expressio
 /*---------------------------------------------------------------------------------------------
  * (function: newBinaryOperation)
  *-------------------------------------------------------------------------------------------*/
-ast_node_t *newBinaryOperation(short op_id, ast_node_t *expression1, ast_node_t *expression2, int line_number)
+ast_node_t *newBinaryOperation(operation_list op_id, ast_node_t *expression1, ast_node_t *expression2, int line_number)
 {
 	info_ast_visit_t *node_details = NULL;
 	/* create a node for this array reference */
@@ -594,7 +594,7 @@ ast_node_t *newBinaryOperation(short op_id, ast_node_t *expression1, ast_node_t 
 /*---------------------------------------------------------------------------------------------
  * (function: newUnaryOperation)
  *-------------------------------------------------------------------------------------------*/
-ast_node_t *newUnaryOperation(short op_id, ast_node_t *expression, int line_number)
+ast_node_t *newUnaryOperation(operation_list op_id, ast_node_t *expression, int line_number)
 {
 	info_ast_visit_t *node_details = NULL;
 	/* create a node for this array reference */
@@ -856,7 +856,7 @@ ast_node_t *newGateInstance(char* gate_instance_name, ast_node_t *expression1, a
 /*---------------------------------------------------------------------------------------------
  * (function: newGate)
  *-------------------------------------------------------------------------------------------*/
-ast_node_t *newGate(short op_id, ast_node_t *gate_instance, int line_number)
+ast_node_t *newGate(operation_list op_id, ast_node_t *gate_instance, int line_number)
 {
 	/* create a node for this array reference */
 	ast_node_t* new_node = create_node_w_type(GATE, line_number, current_parse_file);
@@ -1236,6 +1236,8 @@ void graphVizOutputAst_traverse_node(FILE *fp, ast_node_t *node, ast_node_t *fro
 					case CASE_NOT_EQUAL:
 						fprintf(fp, "\t%d [label=\"BINARY_OPERATION\"];\n", my_label);
 						break;
+					default:
+						break;
 				}
 				break;
 			case UNARY_OPERATION:
@@ -1270,6 +1272,8 @@ void graphVizOutputAst_traverse_node(FILE *fp, ast_node_t *node, ast_node_t *fro
 						break;
 					case LOGICAL_NOT:
 						fprintf(fp, "\t%d [label=\"UNARY_OPERATION LOGICAL_NOT\"];\n", my_label);
+						break;
+					default:
 						break;
 				}
 				break;

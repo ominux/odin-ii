@@ -185,6 +185,8 @@ info_ast_visit_t *constantFold(ast_node_t *node)
 					node_details = NULL;
 				}
 				break;
+			default:
+				break;
 		}	
 
 		/* allocate the information for all the returned children info */
@@ -319,7 +321,8 @@ info_ast_visit_t *constantFold(ast_node_t *node)
 						node_details->from = new_node;
 					}
 				}
-
+				break;
+			default:
 				break;
 		}
 

@@ -12,7 +12,7 @@ void clean_up_parser_for_file();
 /* GENERAL PARSER NODES */
 ast_node_t *newSymbolNode(char *id, int line_number);
 ast_node_t *newNumberNode(char *num, int line_number);
-ast_node_t *newList(short type_id, ast_node_t *expression);
+ast_node_t *newList(ids type_id, ast_node_t *expression);
 ast_node_t *newList_entry(ast_node_t *concat_node, ast_node_t *expression);
 ast_node_t *newListReplicate(ast_node_t *exp, ast_node_t *child );
 ast_node_t *markAndProcessSymbolListWith(short id, ast_node_t *symbol_list);
@@ -20,8 +20,8 @@ ast_node_t *markAndProcessSymbolListWith(short id, ast_node_t *symbol_list);
 /* EXPRESSIONS */
 ast_node_t *newArrayRef(char *id, ast_node_t *expression, int line_number);
 ast_node_t *newRangeRef(char *id, ast_node_t *expression1, ast_node_t *expression2, int line_number);
-ast_node_t *newBinaryOperation(short op_id, ast_node_t *expression1, ast_node_t *expression2, int line_number);
-ast_node_t *newUnaryOperation(short op_id, ast_node_t *expression, int line_number);
+ast_node_t *newBinaryOperation(operation_list op_id, ast_node_t *expression1, ast_node_t *expression2, int line_number);
+ast_node_t *newUnaryOperation(operation_list op_id, ast_node_t *expression, int line_number);
 
 /* EVENT LIST AND DELAY CONTROL */
 ast_node_t *newPosedgeSymbol(char *symbol, int line_number);
@@ -44,7 +44,7 @@ ast_node_t *newModuleInstance(char* module_ref_name, ast_node_t *module_named_in
 
 /* GATE INSTANCE */
 ast_node_t *newGateInstance(char* gate_instance_name, ast_node_t *expression1, ast_node_t *expression2, ast_node_t *expression3, int line_number);
-ast_node_t *newGate(short gate_type, ast_node_t *gate_instance, int line_number);
+ast_node_t *newGate(operation_list gate_type, ast_node_t *gate_instance, int line_number);
 
 /* MODULE ITEMS */
 ast_node_t *newAssign(ast_node_t *statement, int line_number);

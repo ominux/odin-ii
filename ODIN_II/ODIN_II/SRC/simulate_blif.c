@@ -503,8 +503,8 @@ void compute_and_store_value(nnode_t *node, int cycle)
 
 	unknown = FALSE;
 
-	char *temp1 = malloc(sizeof(char)*(strlen(node->name) + 4));
-	char *temp2 = malloc(sizeof(char)*(strlen(node->name) + 4));
+	char *temp1 = (char *)malloc(sizeof(char)*(strlen(node->name) + 4));
+	char *temp2 = (char *)malloc(sizeof(char)*(strlen(node->name) + 4));
 
 	sprintf(temp1, "top^%s", CLOCK_PORT_NAME_1);
 	sprintf(temp2, "top^%s", CLOCK_PORT_NAME_2);
@@ -990,8 +990,8 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		case HARD_IP:
 		{
 			int k;
-			int *input_pins = malloc(sizeof(int)*node->num_input_pins);
-			int *output_pins = malloc(sizeof(int)*node->num_output_pins);
+			int *input_pins = (int *)malloc(sizeof(int)*node->num_input_pins);
+			int *output_pins = (int *)malloc(sizeof(int)*node->num_output_pins);
 			
 			oassert(node->input_port_sizes[0] > 0);
 			oassert(node->output_port_sizes[0] > 0);
@@ -1001,7 +1001,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				void *handle;
 				char *error;
 				void (*func_pointer)(int, int, int*, int, int*);
-				char *filename = malloc(sizeof(char)*strlen(node->name));
+				char *filename = (char *)malloc(sizeof(char)*strlen(node->name));
 				
 				if (index(node->name, '.') == NULL)
 					error_message(SIMULATION_ERROR, -1, -1, "Couldn't extract the name of a shared library for hard-block simulation");
@@ -1053,8 +1053,8 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			oassert(node->num_input_port_sizes >= 2);
 			oassert(node->num_output_port_sizes == 1);
 
-			a = malloc(sizeof(int)*node->input_port_sizes[0]);
-			b = malloc(sizeof(int)*node->input_port_sizes[1]);
+			a = (int *)malloc(sizeof(int)*node->input_port_sizes[0]);
+			b = (int *)malloc(sizeof(int)*node->input_port_sizes[1]);
 
 			//get our input arrays ready
 			for (i = 0; i < node->input_port_sizes[0]; i++)
@@ -1332,7 +1332,7 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 	char *tilde;
 
 	//this is larger than we need, but we'll free it later
-	port_name = malloc(sizeof(char)*strlen(node->name));
+	port_name = (char *)malloc(sizeof(char)*strlen(node->name));
 
 	//copy the port name from the node's name, starting at the node's hat character
 	strcpy(port_name, strchr(node->name, '^') + 1);
@@ -1384,7 +1384,7 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 
 		lines[j]->number_of_pins = 1;
 		lines[j]->max_number_of_pins = 1;
-		lines[j]->pins = malloc(sizeof(npin_t *));
+		lines[j]->pins = (npin_t **)malloc(sizeof(npin_t *));
 		lines[j]->pins[0] = node->output_pins[0];
 		lines[j]->type = type;
 #ifdef DEBUG_SIMULATOR
@@ -1417,14 +1417,14 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 	{
 		// this is the first time we've added a pin
 		lines[j]->max_number_of_pins = 8;
-		lines[j]->pins = malloc(sizeof(npin_t*)*lines[j]->max_number_of_pins);
+		lines[j]->pins = (npin_t **)malloc(sizeof(npin_t*)*lines[j]->max_number_of_pins);
 	}
 	if (lines[j]->max_number_of_pins <= pin_number)
 	{
 		//if we run out, then increase them by 64. Why not.
 		while (lines[j]->max_number_of_pins <= pin_number)
 			lines[j]->max_number_of_pins += 64;
-		lines[j]->pins = realloc(lines[j]->pins, sizeof(npin_t*)*lines[j]->max_number_of_pins);
+		lines[j]->pins = (npin_t **)realloc(lines[j]->pins, sizeof(npin_t*)*lines[j]->max_number_of_pins);
 	}
 
 #ifdef DEBUG_SIMULATOR
@@ -1464,7 +1464,7 @@ line_t **create_test_vector_lines(int *lines_size, netlist_t *netlist)
 	//start with no lines
 	current_line = 0;
 	//malloc the absolute largest array possible (each top-level node is one pin)
-	lines = malloc(sizeof(line_t*)*(netlist->num_top_input_nodes + netlist->num_top_output_nodes));
+	lines = (line_t **)malloc(sizeof(line_t*)*(netlist->num_top_input_nodes + netlist->num_top_output_nodes));
 
 	//used when freeing memory
 	port_name = NULL;
@@ -1476,7 +1476,7 @@ line_t **create_test_vector_lines(int *lines_size, netlist_t *netlist)
 			free(port_name);
 
 		//this is larger than we need, but we'll free the rest anyways
-		port_name = malloc(sizeof(char)*strlen(netlist->top_input_nodes[i]->name));
+		port_name = (char *)malloc(sizeof(char)*strlen(netlist->top_input_nodes[i]->name));
 		strcpy(port_name, strchr(netlist->top_input_nodes[i]->name, '^') + 1);
 
 		//look for a ~
@@ -1493,7 +1493,7 @@ line_t **create_test_vector_lines(int *lines_size, netlist_t *netlist)
 			lines[current_line] = create_line(port_name);
 			lines[current_line]->number_of_pins = 1;
 			lines[current_line]->max_number_of_pins = 1;
-			lines[current_line]->pins = malloc(sizeof(npin_t *));
+			lines[current_line]->pins = (npin_t **)malloc(sizeof(npin_t *));
 			lines[current_line]->pins[0] = netlist->top_input_nodes[i]->output_pins[0];
 			lines[current_line]->type = INPUT;
 #ifdef DEBUG_SIMULATOR
@@ -1536,7 +1536,7 @@ line_t **create_test_vector_lines(int *lines_size, netlist_t *netlist)
 		if (lines[j]->max_number_of_pins < 0)
 		{
 			lines[j]->max_number_of_pins = 8;
-			lines[j]->pins = malloc(sizeof(npin_t*)*lines[j]->max_number_of_pins);
+			lines[j]->pins = (npin_t **)malloc(sizeof(npin_t*)*lines[j]->max_number_of_pins);
 		}
 
 		//expand out number of pins in this line_t* if necessary
@@ -1547,7 +1547,7 @@ line_t **create_test_vector_lines(int *lines_size, netlist_t *netlist)
 		{
 			while (lines[j]->max_number_of_pins <= pin_number)
 				lines[j]->max_number_of_pins += 64;
-			lines[j]->pins = realloc(lines[j]->pins, sizeof(npin_t*)*lines[j]->max_number_of_pins);
+			lines[j]->pins = (npin_t **)realloc(lines[j]->pins, sizeof(npin_t*)*lines[j]->max_number_of_pins);
 		}
 
 		//we're going to assume that a node has only one pin
@@ -1567,7 +1567,7 @@ line_t **create_test_vector_lines(int *lines_size, netlist_t *netlist)
 		if (port_name != NULL)
 			free(port_name);
 
-		port_name = malloc(sizeof(char)*strlen(netlist->top_output_nodes[i]->name));
+		port_name = (char *)malloc(sizeof(char)*strlen(netlist->top_output_nodes[i]->name));
 		strcpy(port_name, strchr(netlist->top_output_nodes[i]->name, '^') + 1);
 
 		tilde = strchr(port_name, '~');
@@ -1583,7 +1583,7 @@ line_t **create_test_vector_lines(int *lines_size, netlist_t *netlist)
 			lines[current_line] = create_line(port_name);
 			lines[current_line]->number_of_pins = 1;
 			lines[current_line]->max_number_of_pins = 1;
-			lines[current_line]->pins = malloc(sizeof(npin_t *));
+			lines[current_line]->pins = (npin_t **)malloc(sizeof(npin_t *));
 			lines[current_line]->pins[0] = netlist->top_output_nodes[i]->output_pins[0];
 			lines[current_line]->type = OUTPUT; //difference: a different type of pin
 #ifdef DEBUG_SIMULATOR
@@ -1612,7 +1612,7 @@ line_t **create_test_vector_lines(int *lines_size, netlist_t *netlist)
 		if (lines[j]->max_number_of_pins < 0)
 		{
 			lines[j]->max_number_of_pins = 8;
-			lines[j]->pins = malloc(sizeof(npin_t*)*lines[j]->max_number_of_pins);
+			lines[j]->pins = (npin_t **)malloc(sizeof(npin_t*)*lines[j]->max_number_of_pins);
 		}
 
 		//expand out number of pins in this line_t* if necessary
@@ -1620,7 +1620,7 @@ line_t **create_test_vector_lines(int *lines_size, netlist_t *netlist)
 		{
 			while (lines[j]->max_number_of_pins <= pin_number)
 				lines[j]->max_number_of_pins += 64;
-			lines[j]->pins = realloc(lines[j]->pins, sizeof(npin_t*)*lines[j]->max_number_of_pins);
+			lines[j]->pins = (npin_t **)realloc(lines[j]->pins, sizeof(npin_t*)*lines[j]->max_number_of_pins);
 		}
 
 		//difference:
@@ -1702,7 +1702,7 @@ line_t** read_test_vector_headers(FILE *in, int *lines_size, int max_lines_size)
 	int current_line;
 	line_t **lines;
 
-	lines = malloc(sizeof(line_t*)*max_lines_size);
+	lines = (line_t **)malloc(sizeof(line_t*)*max_lines_size);
 
 	current_line = 0;
 	buffer[0] = '\0';
@@ -1753,12 +1753,12 @@ line_t *create_line(char *name)
 {
 	line_t *line;
 
-	line = malloc(sizeof(line_t));
+	line = (line_t *)malloc(sizeof(line_t));
 	line->number_of_pins = 0;
 	line->max_number_of_pins = -1;
 	line->pins = NULL;
 	line->type = -1;
-	line->name = malloc(sizeof(char)*(strlen(name)+1));
+	line->name = (char *)malloc(sizeof(char)*(strlen(name)+1));
 	strcpy(line->name, name);
 
 	return line;
@@ -2204,7 +2204,7 @@ int *multiply_arrays(int *a, int a_length, int *b, int b_length)
 
 	//initialize our result
 	result_size = a_length + b_length;
-	result = calloc(sizeof(int), result_size);
+	result = (int *)calloc(sizeof(int), result_size);
 
 	//check for 1's in a
 	for (i = 0; i < a_length; i++)
@@ -2297,13 +2297,13 @@ void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_wi
 	long long int max_address;	
 	FILE *mif = NULL;
 	char *filename = node->name;
-	char *input = malloc(sizeof(char)*BUFFER_MAX_SIZE);
+	char *input = (char *)malloc(sizeof(char)*BUFFER_MAX_SIZE);
 	
 	oassert (*memory == NULL);
 
 	max_address = my_power(2, addr_width);
 
-	*memory = malloc (sizeof(int)*max_address*data_width);
+	*memory = (int *)malloc(sizeof(int)*max_address*data_width);
 	memset(*memory, 0, sizeof(int)*max_address*data_width);
 	filename = strrchr(filename, '+') + 1;
 	strcat(filename, ".mif");
@@ -2313,7 +2313,7 @@ void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_wi
 	}
 	if (!(mif = fopen(filename, "r")))
 	{
-		char *msg = malloc(sizeof(char)*100);
+		char *msg = (char *)malloc(sizeof(char)*100);
 		strcat(msg, "Couldn't open MIF file ");
 		strcat(msg, filename);
 		warning_message(SIMULATION_ERROR, -1, -1, msg);
@@ -2330,8 +2330,8 @@ void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_wi
 		long long int addr_val, data_val;
 		char *colon;
 		char *semicolon;
-		char *addr = malloc(sizeof(char)*BUFFER_MAX_SIZE);
-		char *data = malloc(sizeof(char)*BUFFER_MAX_SIZE);
+		char *addr = (char *)malloc(sizeof(char)*BUFFER_MAX_SIZE);
+		char *data = (char *)malloc(sizeof(char)*BUFFER_MAX_SIZE);
 		if (strcmp(input, "Begin\n") == 0) continue;
 		if (strcmp(input, "End;") == 0 ||
 			strcmp(input, "End;\n") == 0) continue;

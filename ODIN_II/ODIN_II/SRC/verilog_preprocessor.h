@@ -2,7 +2,7 @@
 #define verilog_preprocessor_h
 
 #define DefaultSize 20
-#define MaxLine	1024
+#define MaxLine	4096
 
 //#define BLOCK_EMPTY_DEFINES
 
@@ -37,8 +37,8 @@ struct veri_Defines
 } ;
 
 /* Globals */
-struct veri_Includes veri_includes;
-struct veri_Defines veri_defines;
+extern struct veri_Includes veri_includes;
+extern struct veri_Defines veri_defines;
 
 /* Initalization and Cleanup */
 int init_veri_preproc();

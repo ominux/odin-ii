@@ -112,7 +112,7 @@ nnode_t *make_not_gate(nnode_t *node, short mark)
  * (function: make_1port_gate)
  * 	Make a 1 port gate with variable sizes
  *-------------------------------------------------------------------------------------------*/
-nnode_t *make_1port_gate(short type, int width_input, int width_output, nnode_t *node, short mark)
+nnode_t *make_1port_gate(operation_list type, int width_input, int width_output, nnode_t *node, short mark)
 {
 	nnode_t *logic_node;	
 
@@ -135,7 +135,7 @@ nnode_t *make_1port_gate(short type, int width_input, int width_output, nnode_t 
  * (function: make_1port_logic_gate)
  * 	Make a gate with variable sized inputs and 1 output
  *-------------------------------------------------------------------------------------------*/
-nnode_t *make_1port_logic_gate(short type, int width, nnode_t *node, short mark)
+nnode_t *make_1port_logic_gate(operation_list type, int width, nnode_t *node, short mark)
 {
 	nnode_t *logic_node;	
 
@@ -148,7 +148,7 @@ nnode_t *make_1port_logic_gate(short type, int width, nnode_t *node, short mark)
  * (function: make_1port_logic_gate_with_inputs)
  * 	Make a gate with variable sized inputs, 1 output, and connect to the supplied inputs
  *-------------------------------------------------------------------------------------------*/
-nnode_t *make_1port_logic_gate_with_inputs(short type, int width, signal_list_t *pin_list, nnode_t *node, short mark)
+nnode_t *make_1port_logic_gate_with_inputs(operation_list type, int width, signal_list_t *pin_list, nnode_t *node, short mark)
 {
 	nnode_t *logic_node;	
 	int i;
@@ -168,7 +168,7 @@ nnode_t *make_1port_logic_gate_with_inputs(short type, int width, signal_list_t 
  * (function: make_3port_logic_gates)
  * 	Make a 3 port gate all variable port widths. 
  *-------------------------------------------------------------------------------------------*/
-nnode_t *make_3port_gate(short type, int width_port1, int width_port2, int width_port3, int width_output, nnode_t *node, short mark)
+nnode_t *make_3port_gate(operation_list type, int width_port1, int width_port2, int width_port3, int width_output, nnode_t *node, short mark)
 {
 	nnode_t *logic_node = allocate_nnode();
 	logic_node->traverse_visited = mark;
@@ -195,7 +195,7 @@ nnode_t *make_3port_gate(short type, int width_port1, int width_port2, int width
  * (function: make_2port_logic_gates)
  * 	Make a 2 port gate with variable sizes.  The first port will be input_pins index 0..width_port1.
  *-------------------------------------------------------------------------------------------*/
-nnode_t *make_2port_gate(short type, int width_port1, int width_port2, int width_output, nnode_t *node, short mark)
+nnode_t *make_2port_gate(operation_list type, int width_port1, int width_port2, int width_output, nnode_t *node, short mark)
 {
 	nnode_t *logic_node = allocate_nnode();
 	logic_node->traverse_visited = mark;
