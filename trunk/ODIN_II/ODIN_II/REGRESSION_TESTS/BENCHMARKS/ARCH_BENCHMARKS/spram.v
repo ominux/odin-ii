@@ -3,6 +3,7 @@
 `define DEPTH 4         // Bit depth
 
 module  spram(clock,
+		we,
                 reset_n,
                 value_out,
                 value_in
@@ -11,6 +12,7 @@ module  spram(clock,
 // SIGNAL DECLARATIONS
 input   clock;
 input   reset_n;
+input we;
 input  [`WIDTH-1:0] value_in;
 output [`WIDTH-1:0] value_out;
 wire [`WIDTH-1:0]value_out;
@@ -19,7 +21,8 @@ reg [`DEPTH-1:0] address_counter;
 reg [`WIDTH-1:0] temp;
 
 single_port_ram inst1(
-  .we(clock),
+  .we(we),
+  .clk(clock),
   .data(value_in),
   .out(value_out),
   .addr(address_counter));
