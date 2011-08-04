@@ -14,8 +14,11 @@ void add_child_to_node(ast_node_t* node, ast_node_t *child);
 
 int get_range(ast_node_t* first_node);
 
-void make_concat_into_list_of_strings(ast_node_t *concat_top);
-char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit);
+void make_concat_into_list_of_strings(ast_node_t *concat_top, char *instance_name_prefix);
+char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit, char *instance_name_prefix);
 char *get_name_of_var_declare_at_bit(ast_node_t *var_declare, int bit);
-char_list_t *get_name_of_pins(ast_node_t *var_node);
+char_list_t *get_name_of_pins(ast_node_t *var_node, char *instance_name_prefix);
 char_list_t *get_name_of_pins_with_prefix(ast_node_t *var_node, char *instance_name_prefix);
+
+ast_node_t *resolve_node(char *module_name, ast_node_t *node);
+char *make_module_param_name(ast_node_t *module_param_list, char *module_name);

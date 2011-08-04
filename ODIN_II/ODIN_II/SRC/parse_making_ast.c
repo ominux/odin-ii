@@ -74,15 +74,15 @@ void graphVizOutputPreproc(FILE *yyin, char* path, char *file)
 	
 	// strip the path from file
 	tmp = strrchr(file, '/');
-	if (tmp) file = tmp ;
+	if (tmp) file = tmp;
 
-	sprintf( line, "%s/%s_preproc.v", path, file ) ;
-	fp = fopen( line, "w" ) ;
-	oassert( fp ) ;
-	while ( fgets( line, MaxLine, yyin ) )
-		fprintf( fp, "%s", line ) ;
-	fclose( fp ) ;
-	rewind( yyin ) ;
+	sprintf(line, "%s/%s_preproc.v", path, file);
+	fp = fopen(line, "w");
+	oassert(fp);
+	while (fgets(line, MaxLine, yyin))
+		fprintf(fp, "%s", line);
+	fclose(fp);
+	rewind(yyin);
 }
 
 
@@ -121,8 +121,8 @@ void parse_to_ast()
 		cleanup_veri_preproc();
 
 		/* write out the pre-processed file */
-		if ( configuration.output_preproc_source )
-			graphVizOutputPreproc( yyin, configuration.debug_output_path, configuration.list_of_file_names[0] ) ;
+		if (configuration.output_preproc_source)
+			graphVizOutputPreproc(yyin, configuration.debug_output_path, configuration.list_of_file_names[0]) ;
 			
 		/* set the file name */	
 		current_parse_file = 0;
@@ -153,8 +153,8 @@ void parse_to_ast()
 			cleanup_veri_preproc();
 			
 			/* write out the pre-processed file */
-			if ( configuration.output_preproc_source )
-				graphVizOutputPreproc( yyin, configuration.debug_output_path, configuration.list_of_file_names[i] ) ;
+			if (configuration.output_preproc_source)
+				graphVizOutputPreproc(yyin, configuration.debug_output_path, configuration.list_of_file_names[i]) ;
  			
 			/* set the file name */	
 			current_parse_file = i;
@@ -293,7 +293,7 @@ void next_parsed_verilog_file(ast_node_t *file_items_list)
 
 	if (configuration.output_ast_graphs == 1)
 	{
-		/* IF - we want outputs for the graphViz files of each file */
+		/* IF - we want outputs for the graphViz files of each module */
 		for (i = 0; i < file_items_list->num_children; i++)
 		{
 			assert(file_items_list->children[i]);
@@ -328,11 +328,6 @@ ast_node_t *newSymbolNode(char *id, int line_number)
 
 		/* return the number node */
 		return (ast_node_t*)defines_for_file_sc->data[sc_spot];
-	}
-	else if ((sc_spot = sc_lookup_string(defines_for_module_sc[num_modules], id)) != -1)
-        {
-                /* return the number node. Likely, for a parameter definition in a module. */
-                return (ast_node_t*)defines_for_module_sc[num_modules]->data[sc_spot];
 	}
 	else
 	{
@@ -378,7 +373,7 @@ ast_node_t *newList_entry(ast_node_t *list, ast_node_t *child)
 
 /*---------------------------------------------------------------------------------------------
  * (function: newListReplicate)
- * Basically this functions emulates verilog replication: {5{1'b0}} by concatenated that many
+ * Basically this functions emulates verilog replication: {5{1'b0}} by concatenating that many
  * children together -- certainly not the most elegant solution, but was the easiest
  *-------------------------------------------------------------------------------------------*/
 ast_node_t *newListReplicate(ast_node_t *exp, ast_node_t *child )
@@ -391,9 +386,10 @@ ast_node_t *newListReplicate(ast_node_t *exp, ast_node_t *child )
 	/* allocate child nodes to this node */
 	allocate_children_to_node(new_node, 1, child);
 	
-	int i ;
-	for ( i = 1; i < exp->types.number.value; i++ ) {
-		add_child_to_node( new_node, child ) ;
+	int i;
+	for (i = 1; i < exp->types.number.value; i++) 
+	{
+		add_child_to_node(new_node, child);
 	}
 
 	return new_node;
@@ -402,7 +398,7 @@ ast_node_t *newListReplicate(ast_node_t *exp, ast_node_t *child )
 /*---------------------------------------------------------------------------------------------
  * (function: markAndProcessSymbolListWith)
  *-------------------------------------------------------------------------------------------*/
-ast_node_t *markAndProcessSymbolListWith(short id, ast_node_t *symbol_list)
+ast_node_t *markAndProcessSymbolListWith(ids id, ast_node_t *symbol_list)
 {
 	int i;
 	long sc_spot;
@@ -485,15 +481,10 @@ ast_node_t *markAndProcessSymbolListWith(short id, ast_node_t *symbol_list)
 						symbol_list->children[i]->children[0]->types.identifier, 
 						((ast_node_t*)(defines_for_module_sc[num_modules]->data[sc_spot]))->line_number);
 				}
-				/* store the data - which is the number node */
-				if (symbol_list->children[i]->children[5]->types.number.base == DEC)
-				{
-					error_message(PARSE_ERROR, symbol_list->children[i]->children[5]->line_number, current_parse_file, "Odin only accepts parameter %s with defined width\n", symbol_list->children[i]->children[0]->types.identifier);
-				}
+
 				defines_for_module_sc[num_modules]->data[sc_spot] = (void*)symbol_list->children[i]->children[5];
 				/* mark the node as shared so we don't delete it */
 				symbol_list->children[i]->children[5]->shared_node = TRUE;
-				
 				/* now do the mark */
 				symbol_list->children[i]->types.variable.is_parameter = TRUE;
 				break;
@@ -520,7 +511,7 @@ ast_node_t *markAndProcessSymbolListWith(short id, ast_node_t *symbol_list)
 				break;
 			case INOUT:
 				symbol_list->children[i]->types.variable.is_inout = TRUE;
-				error_message(PARSE_ERROR, symbol_list->children[i]->children[0]->line_number, current_parse_file, "Odin does not handle inouts (%s)\n");
+				error_message(PARSE_ERROR, symbol_list->children[i]->children[0]->line_number, current_parse_file, "Odin does not handle inouts (%s)\n", symbol_list->children[i]->children[0]->types.identifier);
 				break;
 			case WIRE:
 				symbol_list->children[i]->types.variable.is_wire = TRUE;
@@ -772,16 +763,50 @@ ast_node_t *newModuleConnection(char* id, ast_node_t *expression, int line_numbe
 }
 
 /*---------------------------------------------------------------------------------------------
+ * (function: newModuleParameter)
+ *-------------------------------------------------------------------------------------------*/
+ast_node_t *newModuleParameter(char* id, ast_node_t *expression, int line_number)
+{
+	ast_node_t *symbol_node;
+	/* create a node for this array reference */
+	ast_node_t* new_node = create_node_w_type(MODULE_PARAMETER, line_number, current_parse_file);
+	if (id != NULL)
+	{
+		error_message(PARSE_ERROR, line_number, current_parse_file, "Specifying parameters by name not currently supported!\n");
+		symbol_node = newSymbolNode(id, line_number);
+	}
+	else
+	{
+		symbol_node = NULL;
+	}
+	
+	if (expression->type != NUMBERS)
+	{
+		error_message(PARSE_ERROR, line_number, current_parse_file, "Parameter value must be of type NUMBERS!\n");
+	}
+
+	/* allocate child nodes to this node */
+	// leave 4 blank nodes so that expression is the 6th node to behave just like  
+	// a default var_declare parameter (see create_symbol_table_for_module)
+	allocate_children_to_node(new_node, 6, symbol_node, NULL, NULL, NULL, NULL, expression);
+
+	// set is_parameter for the same reason
+	new_node->types.variable.is_parameter = TRUE;
+
+	return new_node;
+}
+
+/*---------------------------------------------------------------------------------------------
  * (function: newModuleNamedInstance)
  *-------------------------------------------------------------------------------------------*/
-ast_node_t *newModuleNamedInstance(char* unique_name, ast_node_t *module_connect_list, int line_number)
+ast_node_t *newModuleNamedInstance(char* unique_name, ast_node_t *module_connect_list, ast_node_t *module_parameter_list, int line_number)
 {
 	ast_node_t *symbol_node = newSymbolNode(unique_name, line_number);
 
 	/* create a node for this array reference */
 	ast_node_t* new_node = create_node_w_type(MODULE_NAMED_INSTANCE, line_number, current_parse_file);
 	/* allocate child nodes to this node */
-	allocate_children_to_node(new_node, 2, symbol_node, module_connect_list);
+	allocate_children_to_node(new_node, 3, symbol_node, module_connect_list, module_parameter_list);
 
 	return new_node;
 }
@@ -818,7 +843,30 @@ ast_node_t *newModuleInstance(char* module_ref_name, ast_node_t *module_named_in
 	}
 #endif
 
-	ast_node_t *symbol_node = newSymbolNode(module_ref_name, line_number);
+	// make a unique module name based on its parameter list
+	ast_node_t *module_param_list = module_named_instance->children[2];
+	char *module_param_name = make_module_param_name(module_param_list, module_ref_name);
+	ast_node_t *symbol_node = newSymbolNode(module_param_name, line_number);
+
+	// if this is a parameterised instantiation
+	if (module_param_list)
+	{
+		// which doesn't exist in ast_modules yet
+		long sc_spot;
+		if ((sc_spot = sc_lookup_string(module_names_to_idx, module_param_name)) == -1)
+		{
+			// then add it, but set it to the symbol_node, because the 
+			// module in question may not have been parsed yet
+			// later, we convert this symbol node back into a module node
+			ast_modules = (ast_node_t **)realloc(ast_modules, sizeof(ast_node_t*)*(num_modules+1));
+			ast_modules[num_modules] = symbol_node;
+			num_modules++;
+			sc_spot = sc_add_string(module_names_to_idx, module_param_name);
+			module_names_to_idx->data[sc_spot] = symbol_node;
+			defines_for_module_sc = (STRING_CACHE**)realloc(defines_for_module_sc, sizeof(STRING_CACHE*)*(num_modules+1));
+			defines_for_module_sc[num_modules] = NULL;
+		}
+	}
 
 	/* create a node for this array reference */
 	ast_node_t* new_node = create_node_w_type(MODULE_INSTANCE, line_number, current_parse_file);
@@ -1100,6 +1148,12 @@ void graphVizOutputAst_traverse_node(FILE *fp, ast_node_t *node, ast_node_t *fro
 				break;
 			case MODULE_CONNECT:
 				fprintf(fp, "\t%d [label=\"MODULE_CONNECT\"];\n", my_label);
+				break;
+			case MODULE_PARAMETER_LIST:
+				fprintf(fp, "\t%d [label=\"MODULE_PARAMETER_LIST\"];\n", my_label);
+				break;
+			case MODULE_PARAMETER:
+				fprintf(fp, "\t%d [label=\"MODULE_PARAMETER\"];\n", my_label);
 				break;
 			case MODULE_NAMED_INSTANCE:
 				fprintf(fp, "\t%d [label=\"MODULE_NAMED_INSTANCE\"];\n", my_label);

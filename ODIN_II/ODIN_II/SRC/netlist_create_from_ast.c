@@ -56,6 +56,7 @@ STRING_CACHE *output_nets_sc;
 STRING_CACHE *input_nets_sc;
 
 STRING_CACHE *local_symbol_table_sc;
+STRING_CACHE *global_param_table_sc;
 ast_node_t** local_symbol_table;
 int num_local_symbol_table;
 signal_list_t *local_clock_list;
@@ -91,7 +92,7 @@ nnet_t* define_nodes_and_nets_with_driver(ast_node_t* var_declare, char *instanc
 
 void connect_hard_block_and_alias(ast_node_t* module_instance, char *instance_name_prefix);
 void connect_module_instantiation_and_alias(short PASS, ast_node_t* module_instance, char *instance_name_prefix);
-void create_symbol_table_for_module(ast_node_t* module_items);
+void create_symbol_table_for_module(ast_node_t* module_items, char *module_name);
 
 signal_list_t *create_gate(ast_node_t* gate, char *instance_name_prefix);
 signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix);
@@ -123,12 +124,130 @@ void pad_with_zeros(ast_node_t* node, signal_list_t *list, int pad_size, char *i
 
 void look_for_clocks(netlist_t *netlist);
 
+/*----------------------------------------------------------------------------
+ * (function: create_param_table_for_module)
+ *--------------------------------------------------------------------------*/
+/**
+ * Scan through all VAR_DECLARE_LISTs in MODULE_ITEMS and create a hash table
+ * for all parameters in this instantiation, taking into account if they
+ * are being overridden by their parent
+ */
+void create_param_table_for_module(ast_node_t* parent_parameter_list, ast_node_t *module_items, char *module_name)
+{
+	/* with the top module we need to visit the entire ast tree */
+	int i, j;
+	char *temp_string;
+	long sc_spot;
+	oassert(module_items->type == MODULE_ITEMS);
+	int parameter_idx;
+	STRING_CACHE *local_param_table_sc;
+	parameter_idx = 0;
+
+	sc_spot = sc_add_string(global_param_table_sc, module_name);
+	if (global_param_table_sc->data[sc_spot] != NULL) 
+		return;
+	local_param_table_sc = sc_new_string_cache();
+	global_param_table_sc->data[sc_spot] = local_param_table_sc;
+
+	/* search for VAR_DECLARE_LISTS */
+	if (module_items->num_children > 0)
+	{
+		for (i = 0; i < module_items->num_children; i++)
+		{
+			if (module_items->children[i]->type == VAR_DECLARE_LIST)
+			{
+				/* go through the vars in this declare list */
+				for (j = 0; j < module_items->children[i]->num_children; j++)
+				{	
+					ast_node_t *var_declare = module_items->children[i]->children[j];
+
+					if (	(var_declare->types.variable.is_input) ||
+						(var_declare->types.variable.is_output) ||
+						(var_declare->types.variable.is_reg) ||
+						(var_declare->types.variable.is_wire)) continue;
+
+					oassert(module_items->children[i]->children[j]->type == VAR_DECLARE);
+					oassert(var_declare->types.variable.is_parameter);
+
+					/* make the string to add to the string cache */
+					temp_string = make_full_ref_name(NULL, NULL, NULL, var_declare->children[0]->types.identifier, -1);
+
+					if (var_declare->types.variable.is_parameter)
+					{
+						if (parent_parameter_list)
+						{
+							// Ensure that there are no more parameters in this module than 
+							// there are specified in the parent parameter list
+							if (parameter_idx < parent_parameter_list->num_children)
+							{
+								// Use parent-specified parameter value instead of default
+								// This node looks identical to the default node below, 
+								// as far as get_name_of_pins() is concerned
+								var_declare = parent_parameter_list->children[parameter_idx];
+							}
+							else
+								warning_message(NETLIST_ERROR, parent_parameter_list->line_number, parent_parameter_list->file_number, 
+									"There are more parameters (>%d) in %s than there are specified in the module instantiation (%d)!", 
+									parameter_idx, module_name, parent_parameter_list->num_children);
+							parameter_idx++;
+						}
+						ast_node_t *node = resolve_node(module_name, var_declare->children[5]);
+						oassert(node->type == NUMBERS);
+						//fprintf(stderr, "Parameter instance found: %s:%s = %d\n", module_name, temp_string, node->types.number.value);
+						sc_spot = sc_add_string(local_param_table_sc, temp_string);
+						local_param_table_sc->data[sc_spot] = (void *)node;
+					}
+					free(temp_string);
+				}
+			}
+		}
+	}
+}
+
+
+
 /*---------------------------------------------------------------------------------------------
  * (function: create_netlist)
  *--------------------------------------------------------------------------*/
 void create_netlist()
 {
 	/* just build all the fundamental elements, and then hookup with port definitions...every net has a named net as a variable instance...even modules...the only trick with modules will be instance names.  There are a few implied nets as in Muxes for cases, signals for flip-flops and memories */
+
+	// Alias the symbol nodes in ast_modules to the actual MODULE nodes
+	int i;
+	for (i = 0; i < num_modules; i++)
+	{
+		if (ast_modules[i]->type == IDENTIFIERS)
+		{
+			// double check that it's in modules_names_to_idx
+			long sc_spot;
+			char *module_param_name = ast_modules[i]->types.identifier;
+			sc_spot = sc_lookup_string(module_names_to_idx, module_param_name);
+			oassert(sc_spot > -1);
+			// now isolate the original module name
+			char *underscores = strstr(module_param_name, "___");
+			oassert(underscores);
+			int len = underscores - module_param_name;
+			char *module_name = (char *)malloc((len+1)*sizeof(char));
+			strncpy(module_name, module_param_name, len);
+			module_name[len] = '\0';
+			// verify that it does exist
+			long sc_spot2;
+			sc_spot2 = sc_lookup_string(module_names_to_idx, module_name);
+			oassert(sc_spot2 > -1);
+			free(module_name);
+			// create a new MODULE node with new IDENTIFIER, but keep same ports and module_items
+			ast_node_t *module = (ast_node_t *)module_names_to_idx->data[sc_spot2];
+			ast_node_t *symbol_node = newSymbolNode(module_param_name, module->line_number);
+			ast_node_t* new_node = create_node_w_type(MODULE, module->line_number, module->file_number);
+			allocate_children_to_node(new_node, 3, symbol_node, module->children[1], module->children[2]);
+			new_node->types.module.index = i;
+			// and to the module_names_to_idx for parameterised name
+			module_names_to_idx->data[sc_spot] = new_node;
+			ast_modules[i] = new_node;
+		}
+		oassert(ast_modules[i]->type == MODULE);
+	}
 
 	/* we will find the top module */
 	top_module = find_top_module();
@@ -141,6 +260,9 @@ void create_netlist()
 	input_nets_sc = sc_new_string_cache();
 	/* initialize the storage of the top level drivers.  Assigned in create_top_driver_nets */
 	verilog_netlist = allocate_netlist();
+
+	// create the parameter table for the top module
+	create_param_table_for_module(NULL, top_module->children[2], "top");
 
 	/* now recursively parse the modules by going through the tree of modules starting at top */
 	create_top_driver_nets(top_module, "top");
@@ -190,9 +312,14 @@ ast_node_t *find_top_module()
 #endif
 			{
 				/* get the module index from the string cache */
-				if ((sc_spot = sc_lookup_string(module_names_to_idx, ast_modules[i]->types.module.module_instantiations_instance[j]->children[0]->types.identifier)) == -1)
+				if ((sc_spot = sc_lookup_string(module_names_to_idx, 
+								ast_modules[i]->types.module.module_instantiations_instance[j]->children[0]->types.identifier)) == -1)
 				{
-					error_message(NETLIST_ERROR, ast_modules[i]->line_number, ast_modules[i]->file_number, "Can't find module name (%s)\n", ast_modules[i]->types.module.module_instantiations_instance[j]->types.identifier);
+					error_message(NETLIST_ERROR, 
+							ast_modules[i]->line_number, 
+							ast_modules[i]->file_number, 
+							"Can't find module name (%s)\n", 
+							ast_modules[i]->types.module.module_instantiations_instance[j]->children[0]->types.identifier);
 				}
 
 				/* use that number to mark this module as instantiated */
@@ -233,6 +360,7 @@ void convert_ast_to_netlist_recursing_via_modules(ast_node_t* current_module, ch
 	int i;
 	long sc_spot;
 	signal_list_t *list = NULL;
+	ast_node_t *parent_parameter_list;
 
 	/* BASE CASE is when there are no other instantiations of modules in this module */
 	if (current_module->types.module.size_module_instantiations == 0)
@@ -254,6 +382,13 @@ void convert_ast_to_netlist_recursing_via_modules(ast_node_t* current_module, ch
 				error_message(NETLIST_ERROR, current_module->line_number, current_module->file_number, "Can't find module name %s\n", current_module->types.module.module_instantiations_instance[i]->children[0]->types.identifier);
 			}
 
+			parent_parameter_list = current_module->types.module.module_instantiations_instance[i]->children[1]->children[2];
+			// create the parameter table for the instantiated module
+			create_param_table_for_module(parent_parameter_list,
+				/* module_items */
+				((ast_node_t*)module_names_to_idx->data[sc_spot])->children[2],
+				temp_instance_name);
+
 			/* recursive call point */
 			convert_ast_to_netlist_recursing_via_modules(((ast_node_t*)module_names_to_idx->data[sc_spot]), temp_instance_name, level+1);
 
@@ -262,7 +397,7 @@ void convert_ast_to_netlist_recursing_via_modules(ast_node_t* current_module, ch
 		}
 		
 		/* once we've done everyone lower, we can do this module */
-		netlist_expand_ast_of_module(current_module, instance_name);
+		list = netlist_expand_ast_of_module(current_module, instance_name);
 	}
 
 	if (list != NULL)
@@ -316,7 +451,7 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 				local_symbol_table_sc = sc_new_string_cache();
 				local_symbol_table = NULL;
 				num_local_symbol_table = 0;
-				create_symbol_table_for_module(node);
+				create_symbol_table_for_module(node, instance_name_prefix);
 				local_clock_found = FALSE;
 
 				/* create all the driven nets based on the "reg" registers */		
@@ -335,7 +470,7 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 						else if (node->children[i]->type == MODULE_INSTANCE)
 						{
 							/* ELSE IF - we deal with instantiations of modules twice to alias input and output nets.  In this
- * 							pass we are looking for any drivers emerging from a module */
+							 * pass we are looking for any drivers emerging from a module */
 
 							/* make the aliases for all the drivers as they're passed through modules */
 							connect_module_instantiation_and_alias(INSTANTIATE_DRIVERS, node->children[i], instance_name_prefix);
@@ -723,8 +858,11 @@ void create_top_output_nodes(ast_node_t* module, char *instance_name_prefix)
 						}	
 						else if (var_declare->children[3] == NULL)
 						{
+							ast_node_t *node_max = resolve_node(instance_name_prefix, var_declare->children[1]);
+							ast_node_t *node_min = resolve_node(instance_name_prefix, var_declare->children[2]);
+							oassert(node_min->type == NUMBERS && node_max->type == NUMBERS);
 							/* assume digit 1 is largest */
-							for (k = var_declare->children[2]->types.number.value; k <= var_declare->children[1]->types.number.value; k++)
+							for (k = node_min->types.number.value; k <= node_max->types.number.value; k++)
 							{
 								/* get the name of the pin */
 								full_name = make_full_ref_name(instance_name_prefix, NULL, NULL, var_declare->children[0]->types.identifier, k);
@@ -805,12 +943,15 @@ nnet_t* define_nets_with_driver(ast_node_t* var_declare, char *instance_name_pre
 	}	
 	else if (var_declare->children[3] == NULL)
 	{
+		ast_node_t *node_max = resolve_node(instance_name_prefix, var_declare->children[1]);
+		ast_node_t *node_min = resolve_node(instance_name_prefix, var_declare->children[2]);
+
 		/* FOR array driver  since sport 3 and 4 are NULL */
-		oassert((var_declare->children[1]->type == NUMBERS) && (var_declare->children[2]->type == NUMBERS)) ;
+		oassert((node_max->type == NUMBERS) && (node_min->type == NUMBERS)) ;
 		
 		/* This register declaration is a range as opposed to a single bit so we need to define each element */
 		/* assume digit 1 is largest */
-		for (i = var_declare->children[2]->types.number.value; i <= var_declare->children[1]->types.number.value; i++)
+		for (i = node_min->types.number.value; i <= node_max->types.number.value; i++)
 		{
 			/* create the net */
 			new_net = allocate_nnet();
@@ -831,7 +972,9 @@ nnet_t* define_nets_with_driver(ast_node_t* var_declare, char *instance_name_pre
 	else if (var_declare->children[3] != NULL)
 	{
 		/* FOR memory */
-		oassert(FALSE);
+		temp_string = make_full_ref_name(instance_name_prefix, NULL, NULL, var_declare->children[0]->types.identifier, -1);
+		error_message(NETLIST_ERROR, var_declare->children[0]->line_number, var_declare->children[0]->file_number, 
+			"2D array: %s not supported!\n", temp_string);
 	}
 
 	return new_net;
@@ -892,10 +1035,12 @@ nnet_t* define_nodes_and_nets_with_driver(ast_node_t* var_declare, char *instanc
 	else if (var_declare->children[3] == NULL)
 	{
 		/* FOR array driver  since sport 3 and 4 are NULL */
-		oassert((var_declare->children[1]->type == NUMBERS) && (var_declare->children[2]->type == NUMBERS)) ;
+		ast_node_t *node_max = resolve_node(instance_name_prefix, var_declare->children[1]);
+		ast_node_t *node_min = resolve_node(instance_name_prefix, var_declare->children[2]);
+		oassert((node_max->type == NUMBERS) && (node_min->type == NUMBERS)) ;
 		
 		/* assume digit 1 is largest */
-		for (i = var_declare->children[2]->types.number.value; i <= var_declare->children[1]->types.number.value; i++)
+		for (i = node_min->types.number.value; i <= node_max->types.number.value; i++)
 		{
 			/* create the net */
 			new_net = allocate_nnet();
@@ -947,7 +1092,7 @@ nnet_t* define_nodes_and_nets_with_driver(ast_node_t* var_declare, char *instanc
  * 	Creates a lookup of the variables declared here so that in the analysis we can look
  * 	up the definition of it to decide what to do.
  *-------------------------------------------------------------------------------------------*/
-void create_symbol_table_for_module(ast_node_t* module_items)
+void create_symbol_table_for_module(ast_node_t* module_items, char *module_name)
 {
 	/* with the top module we need to visit the entire ast tree */
 	int i, j;
@@ -1004,15 +1149,19 @@ void create_symbol_table_for_module(ast_node_t* module_items)
 							((ast_node_t*)local_symbol_table_sc->data[sc_spot])->types.variable.is_wire = var_declare->types.variable.is_wire;
 							((ast_node_t*)local_symbol_table_sc->data[sc_spot])->types.variable.is_reg = var_declare->types.variable.is_reg;
 						}
+						else
+						{
+							abort();
+						}
 					}
 					else
 					{
 						/* store the data which is an idx here */
-						local_symbol_table_sc->data[sc_spot] = (void*)var_declare;
+						local_symbol_table_sc->data[sc_spot] = (void *)var_declare;
 
 						/* store the symbol */		
 						local_symbol_table = (ast_node_t **)realloc(local_symbol_table, sizeof(ast_node_t*)*(num_local_symbol_table+1));
-						local_symbol_table[num_local_symbol_table] = var_declare;
+						local_symbol_table[num_local_symbol_table] = (void *)var_declare;
 						num_local_symbol_table ++;
 					}
 					free(temp_string);
@@ -1069,7 +1218,7 @@ void connect_memory_and_alias(ast_node_t* hb_instance, char *instance_name_prefi
 			char *full_name;
 			char *alias_name;
 
-			name_of_hb_input = get_name_of_pin_at_bit(hb_instance_var_node, -1);
+			name_of_hb_input = get_name_of_pin_at_bit(hb_instance_var_node, -1, instance_name_prefix);
 			full_name = make_full_ref_name(instance_name_prefix, NULL, NULL, name_of_hb_input, -1);
 			free(name_of_hb_input);
 			alias_name = make_full_ref_name(instance_name_prefix, hb_instance->children[0]->types.identifier, hb_instance->children[1]->children[0]->types.identifier, hb_connect_list->children[i]->children[0]->types.identifier, -1);
@@ -1088,7 +1237,7 @@ void connect_memory_and_alias(ast_node_t* hb_instance, char *instance_name_prefi
 				 * Make the new string for the alias name */
 				if (port_size > 1)
 				{
-					name_of_hb_input = get_name_of_pin_at_bit(hb_instance_var_node, j);
+					name_of_hb_input = get_name_of_pin_at_bit(hb_instance_var_node, j, instance_name_prefix);
 					full_name = make_full_ref_name(instance_name_prefix, NULL, NULL, name_of_hb_input, -1);
 					free(name_of_hb_input);
 
@@ -1097,7 +1246,7 @@ void connect_memory_and_alias(ast_node_t* hb_instance, char *instance_name_prefi
 				else
 				{
 					oassert(j == 0);
-					name_of_hb_input = get_name_of_pin_at_bit(hb_instance_var_node, -1);
+					name_of_hb_input = get_name_of_pin_at_bit(hb_instance_var_node, -1, instance_name_prefix);
 					full_name = make_full_ref_name(instance_name_prefix, NULL, NULL, name_of_hb_input, -1);
 					free(name_of_hb_input);
 
@@ -1214,7 +1363,7 @@ void connect_hard_block_and_alias(ast_node_t* hb_instance, char *instance_name_p
 				/* make the new string for the alias name */
 				if (port_size > 1)
 				{
-					name_of_hb_input = get_name_of_pin_at_bit(hb_instance_var_node, j);
+					name_of_hb_input = get_name_of_pin_at_bit(hb_instance_var_node, j, instance_name_prefix);
 					full_name = make_full_ref_name(instance_name_prefix, NULL, NULL, name_of_hb_input, -1);
 					free(name_of_hb_input);
 
@@ -1223,7 +1372,7 @@ void connect_hard_block_and_alias(ast_node_t* hb_instance, char *instance_name_p
 				else
 				{
 					oassert(j == 0);
-					name_of_hb_input = get_name_of_pin_at_bit(hb_instance_var_node, -1);
+					name_of_hb_input = get_name_of_pin_at_bit(hb_instance_var_node, -1, instance_name_prefix);
 					full_name = make_full_ref_name(instance_name_prefix, NULL, NULL, name_of_hb_input, -1);
 					free(name_of_hb_input);
 
@@ -1312,11 +1461,17 @@ void connect_module_instantiation_and_alias(short PASS, ast_node_t* module_insta
 	long sc_spot_input_old;
 	long sc_spot_input_new;
 
+	char *module_instance_name = module_instance->children[0]->types.identifier;
+
 	/* lookup the node of the module associated with this instantiated module */
-	if ((sc_spot = sc_add_string(module_names_to_idx, module_instance->children[0]->types.identifier)) == -1)
+	if ((sc_spot = sc_lookup_string(module_names_to_idx, module_instance_name)) == -1)
 	{
-		error_message(NETLIST_ERROR, module_instance->line_number, module_instance->file_number, "Can't find module %s\n", module_instance->children[0]->types.identifier);
+		error_message(NETLIST_ERROR, module_instance->line_number, module_instance->file_number, "Can't find module %s\n", module_instance_name);
 	}
+	
+	if (module_instance_name != module_instance->children[0]->types.identifier)
+		free(module_instance_name);
+
 	module_node = (ast_node_t*)module_names_to_idx->data[sc_spot];
 	module_list = module_node->children[1]; // MODULE->VAR_DECLARE_LIST(child[1])
 
@@ -1347,9 +1502,19 @@ void connect_module_instantiation_and_alias(short PASS, ast_node_t* module_insta
 		}
 		else if (module_var_node->children[3] == NULL)
 		{
+			char *module_name = make_full_ref_name(instance_name_prefix, 
+				// module_name
+				module_instance->children[0]->types.identifier, 
+				// instance name
+				module_instance->children[1]->children[0]->types.identifier, 
+				NULL, -1);
+			ast_node_t *node1 = resolve_node(module_name, module_var_node->children[1]);
+			ast_node_t *node2 = resolve_node(module_name, module_var_node->children[2]);
+			free(module_name);
+			oassert(node2->type == NUMBERS && node1->type == NUMBERS);
 			/* assume all arrays declared [largest:smallest] */
-			oassert(module_var_node->children[2]->types.number.value <= module_var_node->children[1]->types.number.value); 
-			port_size = module_var_node->children[1]->types.number.value - module_var_node->children[2]->types.number.value +1;
+			oassert(node2->types.number.value <= node1->types.number.value); 
+			port_size = node1->types.number.value - node2->types.number.value + 1;
 		}
 		else if (module_var_node->children[3] != NULL)
 		{
@@ -1371,7 +1536,7 @@ void connect_module_instantiation_and_alias(short PASS, ast_node_t* module_insta
 				if (port_size > 1)
 				{		
 					/* Get the name of the module instantiation pin */
-					name_of_module_instance_of_input = get_name_of_pin_at_bit(module_instance_var_node, j);
+					name_of_module_instance_of_input = get_name_of_pin_at_bit(module_instance_var_node, j, instance_name_prefix);
 					full_name = make_full_ref_name(instance_name_prefix, NULL, NULL, name_of_module_instance_of_input, -1); 
 					free(name_of_module_instance_of_input);
 
@@ -1385,7 +1550,7 @@ void connect_module_instantiation_and_alias(short PASS, ast_node_t* module_insta
 					oassert(j == 0);
 
 					/* Get the name of the module instantiation pin */
-					name_of_module_instance_of_input = get_name_of_pin_at_bit(module_instance_var_node, -1);
+					name_of_module_instance_of_input = get_name_of_pin_at_bit(module_instance_var_node, -1, instance_name_prefix);
 					full_name = make_full_ref_name(instance_name_prefix, NULL, NULL, name_of_module_instance_of_input, -1); 
 					free(name_of_module_instance_of_input);
 
@@ -1464,7 +1629,7 @@ void connect_module_instantiation_and_alias(short PASS, ast_node_t* module_insta
 				if (port_size > 1)
 				{		
 					/* Get the name of the module instantiation pin */
-					name_of_module_instance_of_input = get_name_of_pin_at_bit(module_instance_var_node, j);
+					name_of_module_instance_of_input = get_name_of_pin_at_bit(module_instance_var_node, j, instance_name_prefix);
 					full_name = make_full_ref_name(instance_name_prefix, NULL, NULL, name_of_module_instance_of_input, -1); 
 					free(name_of_module_instance_of_input);
 
@@ -1476,7 +1641,7 @@ void connect_module_instantiation_and_alias(short PASS, ast_node_t* module_insta
 				{
 					oassert(j == 0);
 					/* Get the name of the module instantiation pin */
-					name_of_module_instance_of_input = get_name_of_pin_at_bit(module_instance_var_node, -1);
+					name_of_module_instance_of_input = get_name_of_pin_at_bit(module_instance_var_node, -1, instance_name_prefix);
 					full_name = make_full_ref_name(instance_name_prefix, NULL, NULL, name_of_module_instance_of_input, -1); 
 					free(name_of_module_instance_of_input);
 
@@ -1620,7 +1785,7 @@ signal_list_t *create_output_pin(ast_node_t* var_declare, char *instance_name_pr
 	npin_t *new_pin;
 	
 	/* get the name of the pin */
-	name_of_pin = get_name_of_pin_at_bit(var_declare, -1);
+	name_of_pin = get_name_of_pin_at_bit(var_declare, -1, instance_name_prefix);
 	full_name = make_full_ref_name(instance_name_prefix, NULL, NULL, name_of_pin, -1); 
 	free(name_of_pin);
 
@@ -2061,7 +2226,11 @@ signal_list_t *create_operation_node(ast_node_t *op, signal_list_t **input_lists
 			break;
 		}
 		case DIVIDE: // /
+			error_message(NETLIST_ERROR,  op->line_number, op->file_number, "Divide operation not supported by Odin\n");
+			break;
 		case MODULO: // %
+			error_message(NETLIST_ERROR,  op->line_number, op->file_number, "Modulo operation not supported by Odin\n");
+			break;
 		default:
 			error_message(NETLIST_ERROR,  op->line_number, op->file_number, "Operation not supported by Odin\n");
 			break;

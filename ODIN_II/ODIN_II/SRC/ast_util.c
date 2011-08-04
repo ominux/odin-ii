@@ -34,6 +34,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "ast_util.h"
 #include "odin_util.h"
 #include "util.h"
+#include "ast_optimizations.h"
 
 /*---------------------------------------------------------------------------
  * (function: create_node_w_type)
@@ -41,8 +42,6 @@ OTHER DEALINGS IN THE SOFTWARE.
 ast_node_t* create_node_w_type(ids id, int line_number, int file_number)
 {
 	static long unique_count = 0;
-
-//	oassert(unique_count != 198);
 
 	ast_node_t* new_node;
 
@@ -182,6 +181,8 @@ ast_node_t *create_tree_node_long_long_number(long long number, int line_number,
 	ast_node_t* new_node = create_node_w_type(NUMBERS, line_number, current_parse_file);
 	new_node->types.number.base = LONG_LONG;
 	new_node->types.number.value = number;
+	new_node->types.number.binary_size = ceil((log(new_node->types.number.value+1))/log(2));
+	new_node->types.number.binary_string = convert_long_to_bit_string(new_node->types.number.value, new_node->types.number.binary_size);
 
 	return new_node;
 }
@@ -337,7 +338,7 @@ int get_range(ast_node_t* first_node)
 {
 	long temp_value;
 	/* look at the first item to see if it has a range */
-	if (first_node->children[1] != NULL)
+	if (first_node->children[1] != NULL && first_node->children[1]->type == NUMBERS)
 	{
 		/* IF the first element in the list has a second element...that is the range */
 		oassert(first_node->children[2] != NULL); // the third element should be a value
@@ -359,9 +360,10 @@ int get_range(ast_node_t* first_node)
  * (function: make_concat_into_list_of_strings)
  * 	0th idx will be the MSbit
  *-------------------------------------------------------------------------------------------*/
-void make_concat_into_list_of_strings(ast_node_t *concat_top)
+void make_concat_into_list_of_strings(ast_node_t *concat_top, char *instance_name_prefix)
 {
 	int i, j; 
+	ast_node_t *rnode[3];
 
 	concat_top->types.concat.num_bit_strings = 0;
 	concat_top->types.concat.bit_strings = NULL;
@@ -371,7 +373,7 @@ void make_concat_into_list_of_strings(ast_node_t *concat_top)
 	{
 		if (concat_top->children[i]->type == CONCATENATE)
 		{
-			make_concat_into_list_of_strings(concat_top->children[i]);
+			make_concat_into_list_of_strings(concat_top->children[i], instance_name_prefix);
 		}
 	}
 		
@@ -392,16 +394,19 @@ void make_concat_into_list_of_strings(ast_node_t *concat_top)
 			{
 				concat_top->types.concat.num_bit_strings ++;
 				concat_top->types.concat.bit_strings = (char**)realloc(concat_top->types.concat.bit_strings, sizeof(char*)*(concat_top->types.concat.num_bit_strings));
-				concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], -1);
+				concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], -1, instance_name_prefix);
 			}
 			else if (((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[3] == NULL)
 			{
 				/* reverse thorugh the range since highest bit in index will be lower in the string indx */
-				for (j = ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[1]->types.number.value - ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[2]->types.number.value; j >= 0; j--)
+				rnode[1] = ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[1];
+				rnode[2] = ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[2];
+				oassert(rnode[1]->type == NUMBERS && rnode[2]->type == NUMBERS);
+				for (j = rnode[1]->types.number.value - rnode[2]->types.number.value; j >= 0; j--)
 				{
 					concat_top->types.concat.num_bit_strings ++;
 					concat_top->types.concat.bit_strings = (char**)realloc(concat_top->types.concat.bit_strings, sizeof(char*)*(concat_top->types.concat.num_bit_strings));
-					concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], j);
+					concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], j, instance_name_prefix);
 				}
 			}
 			else if (((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[3] != NULL)
@@ -414,17 +419,21 @@ void make_concat_into_list_of_strings(ast_node_t *concat_top)
 		{
 			concat_top->types.concat.num_bit_strings ++;
 			concat_top->types.concat.bit_strings = (char**)realloc(concat_top->types.concat.bit_strings, sizeof(char*)*(concat_top->types.concat.num_bit_strings));
-			concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], 0);
+			concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], 0, instance_name_prefix);
 		}
 		else if (concat_top->children[i]->type == RANGE_REF)
 		{
-			oassert(concat_top->children[i]->children[1]->types.number.value >= concat_top->children[i]->children[2]->types.number.value);
+			rnode[1] = resolve_node(instance_name_prefix, concat_top->children[i]->children[1]);
+			rnode[2] = resolve_node(instance_name_prefix, concat_top->children[i]->children[2]);
+			oassert(rnode[1]->type == NUMBERS && rnode[2]->type == NUMBERS);
+			oassert(rnode[1]->types.number.value >= rnode[2]->types.number.value);
 			/* reverse thorugh the range since highest bit in index will be lower in the string indx */
-			for (j = concat_top->children[i]->children[1]->types.number.value - concat_top->children[i]->children[2]->types.number.value; j >= 0; j--)
+			for (j = rnode[1]->types.number.value - rnode[2]->types.number.value; j >= 0; j--)
 			{
 				concat_top->types.concat.num_bit_strings ++;
 				concat_top->types.concat.bit_strings = (char**)realloc(concat_top->types.concat.bit_strings, sizeof(char*)*(concat_top->types.concat.num_bit_strings));
-				concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], ((concat_top->children[i]->children[1]->types.number.value - concat_top->children[i]->children[2]->types.number.value))-j);
+				concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = 
+					get_name_of_pin_at_bit(concat_top->children[i], ((rnode[1]->types.number.value - rnode[2]->types.number.value))-j, instance_name_prefix);
 			}
 		}
 		else if (concat_top->children[i]->type == NUMBERS)
@@ -439,7 +448,7 @@ void make_concat_into_list_of_strings(ast_node_t *concat_top)
 			{
 				concat_top->types.concat.num_bit_strings ++;
 				concat_top->types.concat.bit_strings = (char**)realloc(concat_top->types.concat.bit_strings, sizeof(char*)*(concat_top->types.concat.num_bit_strings));
-				concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], j);
+				concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], j, instance_name_prefix);
 			}
 		}
 		else if (concat_top->children[i]->type == CONCATENATE)
@@ -449,7 +458,7 @@ void make_concat_into_list_of_strings(ast_node_t *concat_top)
 			{
 				concat_top->types.concat.num_bit_strings ++;
 				concat_top->types.concat.bit_strings = (char**)realloc(concat_top->types.concat.bit_strings, sizeof(char*)*(concat_top->types.concat.num_bit_strings));
-				concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], j);
+				concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], j, instance_name_prefix);
 			}
 		}
 	}
@@ -471,6 +480,7 @@ char *get_name_of_var_declare_at_bit(ast_node_t *var_declare, int bit)
 	}
 	else if (var_declare->children[3] == NULL)
 	{
+		oassert(var_declare->children[2]->type == NUMBERS);
 		return_string = make_full_ref_name(NULL, NULL, NULL, var_declare->children[0]->types.identifier, var_declare->children[2]->types.number.value+bit);
 	}
 	else if (var_declare->children[3] != NULL)
@@ -486,18 +496,25 @@ char *get_name_of_var_declare_at_bit(ast_node_t *var_declare, int bit)
  * (function: get_name of_port_at_bit)
  * 	Assume module connections can be one of: Array entry, Concat, Signal, Array range reference
  *-------------------------------------------------------------------------------------------*/
-char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit)
+char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit, char *instance_name_prefix)
 {
 	char *return_string; 
+	ast_node_t *rnode[3];
 
 	if (var_node->type == ARRAY_REF)
 	{
+		oassert(var_node->children[0]->type == IDENTIFIERS);
+		oassert(var_node->children[1]->type == NUMBERS);
 		return_string = make_full_ref_name(NULL, NULL, NULL, var_node->children[0]->types.identifier, (int)var_node->children[1]->types.number.value);
 	}
 	else if (var_node->type == RANGE_REF)
 	{
-		oassert((var_node->children[2]->types.number.value+bit <= var_node->children[1]->types.number.value) && (var_node->children[2]->types.number.value+bit >= var_node->children[2]->types.number.value));
-		return_string = make_full_ref_name(NULL, NULL, NULL, var_node->children[0]->types.identifier, var_node->children[2]->types.number.value+bit);
+		rnode[1] = resolve_node(instance_name_prefix, var_node->children[1]);
+		rnode[2] = resolve_node(instance_name_prefix, var_node->children[2]);
+		oassert(var_node->children[0]->type == IDENTIFIERS);
+		oassert(rnode[1]->type == NUMBERS && rnode[2]->type == NUMBERS);
+		oassert((rnode[1]->types.number.value >= rnode[2]->types.number.value+bit) && bit >= 0);
+		return_string = make_full_ref_name(NULL, NULL, NULL, var_node->children[0]->types.identifier, rnode[2]->types.number.value+bit);
 	}
 	else if ((var_node->type == IDENTIFIERS) && (bit == -1))
 	{
@@ -519,6 +536,7 @@ char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit)
 		}
 		else if (((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[3] == NULL)
 		{
+			oassert(((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[2]->type == NUMBERS);
 			pin_index = ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[2]->types.number.value + bit; 
 		}
 		else
@@ -558,7 +576,7 @@ char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit)
 			if (var_node->types.concat.num_bit_strings == -1)
 			{
 				/* If this hasn't been made into a string list then do it */
-				make_concat_into_list_of_strings(var_node);
+				make_concat_into_list_of_strings(var_node, instance_name_prefix);
 			}
 
 			return_string = (char*)malloc(sizeof(char)*strlen(var_node->types.concat.bit_strings[bit])+1);
@@ -573,15 +591,43 @@ char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit)
 	return return_string;
 }
 
+char **get_name_of_pins_number(ast_node_t *var_node, int start, int width)
+{
+	char **return_string; 
+	oassert(var_node->type == NUMBERS);
+
+	return_string = (char**)malloc(sizeof(char*)*width);
+	int i, j;
+	for (i = 0, j = var_node->types.number.binary_size-1; i < width; i++, j--)
+	{
+		/* strings are msb is 0th index in string, reverse access */
+		if (j >= 0)
+		{
+			char c = var_node->types.number.binary_string[j];
+			switch(c)
+			{
+			case '1': return_string[i] = strdup("ONE_VCC_CNS"); break;
+			case '0': return_string[i] = strdup("ZERO_GND_ZERO"); break;
+			default: error_message(NETLIST_ERROR, var_node->line_number, var_node->file_number, "Unrecognised character %c in binary string!\n", c);
+			}
+		}
+		else
+			// if the index is too big for the number pad with zero
+			return_string[i] = strdup("ZERO_GND_ZERO");
+	}	
+	return return_string;
+}
+
 /*---------------------------------------------------------------------------------------------
  * (function: get_name_of_pins
  * 	Assume module connections can be one of: Array entry, Concat, Signal, Array range reference
  * 	Return a list of strings
  *-------------------------------------------------------------------------------------------*/
-char_list_t *get_name_of_pins(ast_node_t *var_node)
+char_list_t *get_name_of_pins(ast_node_t *var_node, char *instance_name_prefix)
 {
 	char **return_string; 
 	char_list_t *return_list = (char_list_t*)malloc(sizeof(char_list_t));
+	ast_node_t *rnode[3];
 
 	int i;
 	int width;
@@ -590,74 +636,90 @@ char_list_t *get_name_of_pins(ast_node_t *var_node)
 	{
 		width = 1;
 		return_string = (char**)malloc(sizeof(char*));
-		return_string[0] = make_full_ref_name(NULL, NULL, NULL, var_node->children[0]->types.identifier, (int)var_node->children[1]->types.number.value);
+		rnode[1] = resolve_node(instance_name_prefix, var_node->children[1]);
+		oassert(rnode[1]->type == NUMBERS);
+		oassert(var_node->children[0]->type == IDENTIFIERS);
+		return_string[0] = make_full_ref_name(NULL, NULL, NULL, var_node->children[0]->types.identifier, rnode[1]->types.number.value);
 	}
 	else if (var_node->type == RANGE_REF)
 	{
-		width = (var_node->children[1]->types.number.value - var_node->children[2]->types.number.value+1);
-		return_string = (char**)malloc(sizeof(char*)*width);
-		for (i = 0; i < width; i++)
+		rnode[0] = resolve_node(instance_name_prefix, var_node->children[0]);
+		rnode[1] = resolve_node(instance_name_prefix, var_node->children[1]);
+		rnode[2] = resolve_node(instance_name_prefix, var_node->children[2]);
+		oassert(rnode[1]->type == NUMBERS && rnode[2]->type == NUMBERS);
+		width = (rnode[1]->types.number.value - rnode[2]->types.number.value + 1);
+		if (rnode[0]->type == IDENTIFIERS)
 		{
-			return_string[i] = make_full_ref_name(NULL, NULL, NULL, var_node->children[0]->types.identifier, var_node->children[2]->types.number.value+i);
+			return_string = (char**)malloc(sizeof(char*)*width);
+			for (i = 0; i < width; i++)
+			{
+				return_string[i] = make_full_ref_name(NULL, NULL, NULL, rnode[0]->types.identifier, rnode[2]->types.number.value+i);
+			}
+		}
+		else
+		{
+			oassert(rnode[0]->type == NUMBERS);
+			return_string = get_name_of_pins_number(rnode[0], rnode[2]->types.number.value, width);
 		}
 	}
 	else if (var_node->type == IDENTIFIERS)
 	{
 		/* need to look in the symbol table for details about this identifier (i.e. is it a port) */
 		long sc_spot;
-		char *temp_string = make_full_ref_name(NULL, NULL, NULL, var_node->types.identifier, -1);
+		ast_node_t *sym_node;
+		
+		// try and resolve var_node
+		sym_node = resolve_node(instance_name_prefix, var_node);
 
-		if ((sc_spot = sc_lookup_string(local_symbol_table_sc, temp_string)) == -1)
+		if (sym_node == var_node)
 		{
-			error_message(NETLIST_ERROR, var_node->line_number, var_node->file_number, "Missing declaration of this symbol %s\n", temp_string);
-		}
-		free(temp_string);
+			char *temp_string = make_full_ref_name(NULL, NULL, NULL, var_node->types.identifier, -1);
 
-		if (((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[1] == NULL)
-		{
-			width = 1;
-			return_string = (char**)malloc(sizeof(char*)*width);
-			return_string[0] = make_full_ref_name(NULL, NULL, NULL, var_node->types.identifier, -1);
-		}
-		else if (((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[3] == NULL)
-		{
-			int index = 0;
-			width = ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[1]->types.number.value - ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[2]->types.number.value + 1;
-			return_string = (char**)malloc(sizeof(char*)*width);
-			for (i = 0; i < width; i++)
-//			for (i = 0; i < ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[2]->types.number.value; i < ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[1]->types.number.value+1; i++)
+			if ((sc_spot = sc_lookup_string(local_symbol_table_sc, temp_string)) == -1)
 			{
-				return_string[index] = make_full_ref_name(NULL, NULL, NULL, var_node->types.identifier, i+((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[2]->types.number.value);
-				index++;
+				error_message(NETLIST_ERROR, var_node->line_number, var_node->file_number, "Missing declaration of this symbol %s\n", temp_string);
+			}
+			free(temp_string);
+
+			sym_node = (ast_node_t*)local_symbol_table_sc->data[sc_spot];
+
+			if (sym_node->children[1] == NULL)
+			{
+				width = 1;
+				return_string = (char**)malloc(sizeof(char*)*width);
+				return_string[0] = make_full_ref_name(NULL, NULL, NULL, var_node->types.identifier, -1);
+			}
+			else if (sym_node->children[3] == NULL)
+			{
+				int index = 0;
+				rnode[1] = resolve_node(instance_name_prefix, sym_node->children[1]);
+				rnode[2] = resolve_node(instance_name_prefix, sym_node->children[2]);
+				oassert(rnode[1]->type == NUMBERS && rnode[2]->type == NUMBERS);
+				width = (rnode[1]->types.number.value - rnode[2]->types.number.value + 1);
+				return_string = (char**)malloc(sizeof(char*)*width);
+				for (i = 0; i < width; i++)
+				{
+					return_string[index] = make_full_ref_name(NULL, NULL, NULL, var_node->types.identifier, 
+						i+rnode[2]->types.number.value);
+					index++;
+				}
+			}
+			else if (sym_node->children[3] != NULL)
+			{
+				oassert(FALSE);	
 			}
 		}
-		else if (((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[3] != NULL)
+		else
 		{
-			oassert(FALSE);	
+			oassert(sym_node->type == NUMBERS);
+			width = sym_node->types.number.binary_size;
+			return_string = get_name_of_pins_number(sym_node, 0, width);
 		}
 	}
 	else if (var_node->type == NUMBERS)
 	{
 		width = var_node->types.number.binary_size;
-		return_string = (char**)malloc(sizeof(char*)*width);
-		for (i = 0; i < width; i++)
-		{
-			/* strings are msb is 0th index in string, reverse access */
-			if (var_node->types.number.binary_string[var_node->types.number.binary_size-i-1] == '1')
-			{
-				return_string[i] = (char*)malloc(sizeof(char)*11+1); // ONE_VCC_CNS	
-				sprintf(return_string[i], "ONE_VCC_CNS");
-			}
-			else if (var_node->types.number.binary_string[var_node->types.number.binary_size-i-1] == '0')
-			{
-				return_string[i] = (char*)malloc(sizeof(char)*13+1); // ZERO_GND_ZERO	
-				sprintf(return_string[i], "ZERO_GND_ZERO");
-			}
-			else
-			{
-				oassert(FALSE);
-			}
-		}
+		return_string = get_name_of_pins_number(var_node, 0, width);
 	}
 	else if (var_node->type == CONCATENATE)
 	{
@@ -670,7 +732,7 @@ char_list_t *get_name_of_pins(ast_node_t *var_node)
 			if (var_node->types.concat.num_bit_strings == -1)
 			{
 				/* If this hasn't been made into a string list then do it */
-				make_concat_into_list_of_strings(var_node);
+				make_concat_into_list_of_strings(var_node, instance_name_prefix);
 			}
 
 			width = var_node->types.concat.num_bit_strings;
@@ -702,7 +764,7 @@ char_list_t *get_name_of_pins_with_prefix(ast_node_t *var_node, char *instance_n
 	char_list_t *return_list;
 
 	/* get the list */
-	return_list = get_name_of_pins(var_node);
+	return_list = get_name_of_pins(var_node, instance_name_prefix);
 
 	for (i = 0; i < return_list->num_strings; i++)
 	{
@@ -711,3 +773,94 @@ char_list_t *get_name_of_pins_with_prefix(ast_node_t *var_node, char *instance_n
 
 	return return_list;
 }
+
+/*----------------------------------------------------------------------------
+ * (function: resolve_node)
+ *--------------------------------------------------------------------------*/
+/**
+ * Recursively resolves an IDENTIFIER to a parameter into its actual value, 
+ * by looking it up in the global_param_table_sc
+ * Also try and fold any BINARY_OPERATIONs now that an IDENTIFIER has been
+ * resolved
+ */
+ast_node_t *resolve_node(char *module_name, ast_node_t *node)
+{
+	if (node)
+	{
+		long sc_spot;
+		int i;
+		info_ast_visit_t *node_details;
+		STRING_CACHE *local_param_table_sc;
+
+		ast_node_t *node_copy;
+		node_copy = (ast_node_t *)malloc(sizeof(ast_node_t));
+		memcpy(node_copy, node, sizeof(ast_node_t));
+		node_copy->children = malloc(sizeof(ast_node_t*) * node_copy->num_children);
+
+		for (i = 0; i < node->num_children; i++)
+		{
+			node_copy->children[i] = resolve_node(module_name, node->children[i]);
+		}
+
+		switch (node->type)
+		{
+			case IDENTIFIERS:
+			oassert(module_name);
+			sc_spot = sc_lookup_string(global_param_table_sc, module_name);
+			oassert(sc_spot != -1);
+			local_param_table_sc = (STRING_CACHE *)global_param_table_sc->data[sc_spot];
+			sc_spot = sc_lookup_string(local_param_table_sc, node->types.identifier);
+			if (sc_spot != -1)
+			{
+				node = ((ast_node_t *)local_param_table_sc->data[sc_spot]);
+				oassert(node->type == NUMBERS);
+			}
+			break;
+
+			case BINARY_OPERATION:
+			node_details = constantFold(node_copy);
+			if (node_details && node_details->is_constant_folded == TRUE)
+			{
+				node = node_details->from;
+				free(node_details);
+				oassert(node->type == NUMBERS);
+			}
+			break;
+
+			default:
+			break;
+		}
+
+		free(node_copy->children);
+		free(node_copy);
+	}
+	return node;
+}
+
+/*----------------------------------------------------------------------------
+ * (function: make_module_param_name)
+ *--------------------------------------------------------------------------*/
+/**
+ * Make a unique name for a module based on its parameter list
+ * e.g. for a "mod #(0,1,2,3) a(b,c,d)" instantiation you get name___0_1_2_3
+ */
+char *make_module_param_name(ast_node_t *module_param_list, char *module_name)
+{
+	char *module_param_name = (char*)malloc((strlen(module_name)+1024) * sizeof(char));
+	strcpy(module_param_name, module_name);
+	
+	if (module_param_list)
+	{
+		int i;
+		oassert(module_param_list->num_children > 0);
+		strcat(module_param_name, "___");
+		for (i = 0; i < module_param_list->num_children; i++)
+		{
+			oassert(module_param_list->children[i]->children[5]->type == NUMBERS);
+			sprintf(module_param_name, "%s_%lld", module_param_name, module_param_list->children[i]->children[5]->types.number.value);
+		}
+	}
+	
+	return module_param_name;
+}
+

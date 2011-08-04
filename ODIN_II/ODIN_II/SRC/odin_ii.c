@@ -237,6 +237,7 @@ void do_high_level_synthesis()
 	find_hard_multipliers();
 	register_hard_blocks();
 #endif
+	global_param_table_sc = sc_new_string_cache();
 
 	/* parse to abstract syntax tree */
 	printf("Parser starting - we'll create an abstract syntax tree.  Note this tree can be viewed using GraphViz (see dosumentation)\n");
@@ -279,6 +280,9 @@ void do_high_level_synthesis()
 
 	printf("Successful High-level synthesis by Odin\n");
 	printf("--------------------------------------------------------------------\n");
+
+	// FIXME: free contents?
+	sc_free_string_cache(global_param_table_sc);
 }
 
 /*---------------------------------------------------------------------------------------------

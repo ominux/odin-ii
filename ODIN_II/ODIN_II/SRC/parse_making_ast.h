@@ -15,7 +15,7 @@ ast_node_t *newNumberNode(char *num, int line_number);
 ast_node_t *newList(ids type_id, ast_node_t *expression);
 ast_node_t *newList_entry(ast_node_t *concat_node, ast_node_t *expression);
 ast_node_t *newListReplicate(ast_node_t *exp, ast_node_t *child );
-ast_node_t *markAndProcessSymbolListWith(short id, ast_node_t *symbol_list);
+ast_node_t *markAndProcessSymbolListWith(ids id, ast_node_t *symbol_list);
 
 /* EXPRESSIONS */
 ast_node_t *newArrayRef(char *id, ast_node_t *expression, int line_number);
@@ -39,8 +39,9 @@ ast_node_t *newAlways(ast_node_t *delay_control, ast_node_t *statements, int lin
 
 /* MODULE INSTANCES FUNCTIONS */
 ast_node_t *newModuleConnection(char* id, ast_node_t *expression, int line_number);
-ast_node_t *newModuleNamedInstance(char* unique_name, ast_node_t *module_connect_list, int line_number);
+ast_node_t *newModuleNamedInstance(char* unique_name, ast_node_t *module_connect_list, ast_node_t *module_parameter_list, int line_number);
 ast_node_t *newModuleInstance(char* module_ref_name, ast_node_t *module_named_instance, int line_number);
+ast_node_t *newModuleParameter(char* id, ast_node_t *expression, int line_number);
 
 /* GATE INSTANCE */
 ast_node_t *newGateInstance(char* gate_instance_name, ast_node_t *expression1, ast_node_t *expression2, ast_node_t *expression3, int line_number);
