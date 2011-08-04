@@ -67,9 +67,11 @@ int yywrap()
 %token <id_name> vSYMBOL_ID 
 %token <num_value> vNUMBER_ID
 %token <num_value> vDELAY_ID
-%token vALWAYS vAND vASSIGN vBEGIN vCASE vDEFAULT vDEFINE vELSE vEND vENDCASE vENDMODULE vIF vINOUT vINPUT vMODULE vNAND vNEGEDGE vNOR vNOT vOR vOUTPUT vPARAMETER vPOSEDGE vREG vWIRE vXNOR vXOR vDEFPARAM
-%token voANDAND voOROR voLTE voGTE voSLEFT voSRIGHT voEQUAL voNOTEQUAL voCASEEQUAL voCASENOTEQUAL voXNOR voNAND voNOR
-%token vNOT_SUPPORT
+%token vALWAYS vAND vASSIGN vBEGIN vCASE vDEFAULT vDEFINE vELSE vEND vENDCASE 
+%token vENDMODULE vIF vINOUT vINPUT vMODULE vNAND vNEGEDGE vNOR vNOT vOR 
+%token vOUTPUT vPARAMETER vPOSEDGE vREG vWIRE vXNOR vXOR vDEFPARAM voANDAND 
+%token voOROR voLTE voGTE voSLEFT voSRIGHT voEQUAL voNOTEQUAL voCASEEQUAL 
+%token voCASENOTEQUAL voXNOR voNAND voNOR vNOT_SUPPORT
 %token '?' ':' '|' '^' '&' '<' '>' '+' '-' '*' '/' '%' '(' ')' '{' '}' '[' ']'
 
 %right '?' ':'  
@@ -89,7 +91,16 @@ int yywrap()
 %nonassoc LOWER_THAN_ELSE
 %nonassoc vELSE
 
-%type <node> source_text items define module list_of_module_items module_item parameter_declaration input_declaration output_declaration inout_declaration variable_list variable net_declaration continuous_assign gate_declaration gate_instance module_instantiation module_instance list_of_module_connections module_connection always statement blocking_assignment non_blocking_assignment case_item_list case_items seq_block stmt_list delay_control event_expression_list event_expression expression primary expression_list
+%type <node> source_text items define module list_of_module_items module_item 
+%type <node> parameter_declaration input_declaration output_declaration 
+%type <node> inout_declaration variable_list variable net_declaration 
+%type <node> continuous_assign gate_declaration gate_instance 
+%type <node> module_instantiation module_instance list_of_module_connections 
+%type <node> module_connection always statement blocking_assignment 
+%type <node> non_blocking_assignment case_item_list case_items seq_block 
+%type <node> stmt_list delay_control event_expression_list event_expression 
+%type <node> expression primary expression_list module_parameter
+%type <node> list_of_module_parameters
 
 %%
 
@@ -186,9 +197,11 @@ gate_instance: vSYMBOL_ID '(' expression ',' expression ',' expression ')'	{$$ =
 module_instantiation: vSYMBOL_ID module_instance				{$$ = newModuleInstance($1, $2, yylineno);}
 	;
 
-module_instance: vSYMBOL_ID '(' list_of_module_connections ')' ';'		{$$ = newModuleNamedInstance($1, $3, yylineno);}
-	| vSYMBOL_ID '(' ')' ';'						{$$ = newModuleNamedInstance($1, NULL, yylineno);}
-	;
+module_instance: vSYMBOL_ID '(' list_of_module_connections ')' ';'		{$$ = newModuleNamedInstance($1, $3, NULL, yylineno);}
+	| '#' '(' list_of_module_parameters ')' vSYMBOL_ID '(' list_of_module_connections ')' ';'	{$$ = newModuleNamedInstance($5, $7, $3, yylineno); }
+	| vSYMBOL_ID '(' ')' ';'						{$$ = newModuleNamedInstance($1, NULL, NULL, yylineno);}
+	| '#' '(' list_of_module_parameters ')' vSYMBOL_ID '(' ')' ';'		{$$ = newModuleNamedInstance($5, NULL, $3, yylineno);}
+ 	;
 
 list_of_module_connections: list_of_module_connections ',' module_connection	{$$ = newList_entry($1, $3);}
 	| module_connection							{$$ = newList(MODULE_CONNECT_LIST, $1);}
@@ -196,6 +209,14 @@ list_of_module_connections: list_of_module_connections ',' module_connection	{$$
 
 module_connection: '.' vSYMBOL_ID '(' expression ')'				{$$ = newModuleConnection($2, $4, yylineno);}
 	| expression								{$$ = newModuleConnection(NULL, $1, yylineno);}
+	;
+
+list_of_module_parameters: list_of_module_parameters ',' module_parameter	{$$ = newList_entry($1, $3);}
+	| module_parameter							{$$ = newList(MODULE_PARAMETER_LIST, $1);}
+	;
+
+module_parameter: '.' vSYMBOL_ID '(' expression ')'				{$$ = newModuleParameter($2, $4, yylineno);}
+	| expression								{$$ = newModuleParameter(NULL, $1, yylineno);}
 	;
 
 // 5 Behavioral Statements	{$$ = NULL;}
