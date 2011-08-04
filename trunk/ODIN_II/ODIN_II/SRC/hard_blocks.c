@@ -137,12 +137,7 @@ void define_hard_block(nnode_t *node, short type, FILE *out)
 		if (node->input_port_sizes[port] == 1)
 			j = sprintf(buffer, " %s=%s", node->input_pins[i]->mapping, node->input_pins[i]->net->driver_pin->node->name);
 		else
-		{
-			if (node->input_pins[i]->net->driver_pin->name != NULL)
-				j = sprintf(buffer, " %s[%d]=%s", node->input_pins[i]->mapping, index, node->input_pins[i]->net->driver_pin->name);
-			else
-				j = sprintf(buffer, " %s[%d]=%s", node->input_pins[i]->mapping, index, node->input_pins[i]->net->driver_pin->node->name);
-		}
+			j = sprintf(buffer, " %s[%d]=%s", node->input_pins[i]->mapping, index, node->input_pins[i]->net->driver_pin->node->name);
 
 		if (count + j > 79)
 		{
