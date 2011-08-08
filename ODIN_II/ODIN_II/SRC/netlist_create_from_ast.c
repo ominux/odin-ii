@@ -626,7 +626,7 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 				return_sig_list = combine_lists(children_signal_list, node->num_children);
 				break;
 #ifdef VPR6
-			case MEMORY: 
+			case RAM: 
 				connect_memory_and_alias(node, instance_name_prefix);
 				break;
 			case HARD_BLOCK: 
