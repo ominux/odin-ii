@@ -607,13 +607,7 @@ void define_ff(nnode_t *node, FILE *out)
 	if (global_args.high_level_block != NULL)
 		fprintf(out, ".latch %s^^%i-%i %s^^%i-%i re %s^^%i-%i 0", node->input_pins[0]->net->driver_pin->node->name, node->input_pins[0]->net->driver_pin->node->related_ast_node->far_tag, node->input_pins[0]->net->driver_pin->node->related_ast_node->high_number, node->name, node->related_ast_node->far_tag, node->related_ast_node->high_number, node->input_pins[1]->net->driver_pin->node->name, node->input_pins[1]->net->driver_pin->node->related_ast_node->far_tag, node->input_pins[1]->net->driver_pin->node->related_ast_node->high_number);
 	else
-	{
-		if (node->input_pins[1]->net->driver_pin != NULL)
-			fprintf(out, ".latch %s %s re %s 0\n", node->input_pins[0]->net->driver_pin->name, node->name, node->input_pins[1]->net->driver_pin->node->name);
-		else
-			fprintf(out, ".latch %s %s re %s 0\n", node->input_pins[0]->net->driver_pin->node->name, node->name, node->input_pins[1]->net->driver_pin->node->name);
-	}
-	fprintf(out, ".latch %s %s re %s 0\n", node->input_pins[0]->net->driver_pin->node->name, node->name, node->input_pins[1]->net->driver_pin->node->name);
+		fprintf(out, ".latch %s %s re %s 0\n", node->input_pins[0]->net->driver_pin->node->name, node->name, node->input_pins[1]->net->driver_pin->node->name);
 
 	fprintf(out, "\n");
 }
