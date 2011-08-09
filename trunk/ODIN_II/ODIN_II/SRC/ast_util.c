@@ -178,11 +178,19 @@ ast_node_t* create_tree_node_id(char* string, int line_number, int file_number)
  *-------------------------------------------------------------------------------------------*/
 ast_node_t *create_tree_node_long_long_number(long long number, int line_number, int file_number)
 {
+	int flag = 0;
 	ast_node_t* new_node = create_node_w_type(NUMBERS, line_number, current_parse_file);
 	new_node->types.number.base = LONG_LONG;
 	new_node->types.number.value = number;
-	new_node->types.number.binary_size = ceil((log(new_node->types.number.value+1))/log(2));
+	if (number < 0)
+	{
+		flag = 1;
+		number = number * -1;
+	}
+	new_node->types.number.binary_size = ceil((log(number+1))/log(2));
 	new_node->types.number.binary_string = convert_long_to_bit_string(new_node->types.number.value, new_node->types.number.binary_size);
+	if (flag == 1)
+		twos_complement(new_node->types.number.binary_string);
 
 	return new_node;
 }

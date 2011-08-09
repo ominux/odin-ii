@@ -92,6 +92,28 @@ char *make_full_ref_name(char *previous, char *module_name, char *module_instanc
 }
 
 /*---------------------------------------------------------------------------------------------
+ * (function: twos_complement)
+ * Changes a bit string to its twos complement value
+ *-------------------------------------------------------------------------------------------*/
+char *twos_complement(char *str)
+{
+	int length = strlen(str) - 1;
+	int i;
+	int flag = 0;
+
+	for (i = length; i >= 0; i--)
+	{
+		if (flag == 0)
+			str[i] = str[i];
+		else
+			str[i] = (str[i] == '1') ? '0' : '1';
+		if ((str[i] == '1') && (flag == 0))
+			flag = 1;
+	}
+	return str;
+}
+
+/*---------------------------------------------------------------------------------------------
  * (function: convert_int_to_bit_string)
  * Outputs a string msb to lsb.  For example, 3 becomes "011"
  *-------------------------------------------------------------------------------------------*/

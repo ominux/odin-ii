@@ -7,6 +7,7 @@
 char *make_signal_name(char *signal_name, int bit);
 char *make_full_ref_name(char *previous, char *module_name, char *module_instance_name, char *signal_name, int bit);
 
+char *twos_complement(char *str);
 char *convert_long_to_bit_string(long long orig_long, int num_bits);
 long long convert_dec_string_of_size_to_long(char *orig_string, int size);
 long long convert_hex_string_of_size_to_long(char *orig_string, int size);
