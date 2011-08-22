@@ -407,8 +407,8 @@ void make_concat_into_list_of_strings(ast_node_t *concat_top, char *instance_nam
 			else if (((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[3] == NULL)
 			{
 				/* reverse thorugh the range since highest bit in index will be lower in the string indx */
-				rnode[1] = ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[1];
-				rnode[2] = ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[2];
+				rnode[1] = resolve_node(instance_name_prefix, ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[1]);
+				rnode[2] = resolve_node(instance_name_prefix, ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[2]);
 				oassert(rnode[1]->type == NUMBERS && rnode[2]->type == NUMBERS);
 				for (j = rnode[1]->types.number.value - rnode[2]->types.number.value; j >= 0; j--)
 				{
@@ -826,7 +826,9 @@ ast_node_t *resolve_node(char *module_name, ast_node_t *node)
 			break;
 
 			case BINARY_OPERATION:
+			node_copy->shared_node = TRUE;
 			node_details = constantFold(node_copy);
+			node_copy->shared_node = FALSE;
 			if (node_details && node_details->is_constant_folded == TRUE)
 			{
 				node = node_details->from;
