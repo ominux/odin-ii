@@ -69,6 +69,11 @@ report_memory_distribution()
 	printf("============================\n");
 
 	temp = sp_memory_list;
+	
+	int total_memory_block_counter = 0;
+	int memory_max_width = 0;
+	int memory_max_depth = 0;
+	
 	while (temp != NULL)
 	{
 		node = (nnode_t *)temp->data_vptr;
@@ -91,6 +96,15 @@ report_memory_distribution()
 		}
 
 		printf("SPRAM: %d width %d depth\n", width, depth);
+		
+		total_memory_block_counter++;
+		if (width > memory_max_width) {
+			memory_max_width = width;
+		}
+		if (depth > memory_max_depth) {
+			memory_max_depth = depth;
+		}
+		
 		temp = temp->next;
 	}
 
@@ -120,8 +134,21 @@ report_memory_distribution()
 		}
 
 		printf("DPRAM: %d width %d depth\n", width, depth);
+		
+		total_memory_block_counter++;
+		if (width > memory_max_width) {
+			memory_max_width = width;
+		}
+		if (depth > memory_max_depth) {
+			memory_max_depth = depth;
+		}
+		
 		temp = temp->next;
 	}
+	
+	printf("\nTotal Logical Memory Blocks = %d \n", total_memory_block_counter);
+	printf("Max Memory Width = %d \n", memory_max_width);
+	printf("Max Memory Depth = %d \n", memory_max_depth);
 	
 	printf("\n");
 	return;
