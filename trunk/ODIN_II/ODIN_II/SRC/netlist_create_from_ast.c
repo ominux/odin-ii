@@ -2243,7 +2243,13 @@ signal_list_t *create_operation_node(ast_node_t *op, signal_list_t **input_lists
 	{
 		if ((operation_node->type == SR) || (operation_node->type == SL))
 		{
-			/* for shift left or right, it's actually a one port operation.  Assume the 2nd port is constant */
+			/* Need to check that 2nd operand is constant */
+			ast_node_t *second = resolve_node(instance_name_prefix, op->children[1]);
+			if (second->type != NUMBERS)
+				error_message(NETLIST_ERROR, op->line_number, op->file_number, "Odin only supports constant shifts at present\n");
+			oassert(second->type == NUMBERS);
+
+			/* for shift left or right, it's actually a one port operation. The 2nd port is constant */
 			if (i == 0)
 			{
 				/* allocate the pins needed */
