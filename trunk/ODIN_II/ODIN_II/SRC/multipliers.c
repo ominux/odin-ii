@@ -1106,28 +1106,27 @@ void iterate_multipliers(netlist_t *netlist)
 			a0 = mula - sizea;
 			b1 = sizeb;
 			b0 = mulb - sizeb;
-			printf("KEN: splitting into %d %d | %d %d\n", a0, a1, b0, b1);
 			split_multiplier(node, a0, b0, a1, b1);
 		}
 		else if (mula > sizea) /* split multiplier on a input? */
 		{
 			a1 = sizea;
 			a0 = mula - sizea;
-			printf("KEN: splitting into %d %d | %d\n", a0, a1, mulb);
 			split_multiplier_a(node, a0, a1, mulb);
 		}
 		else if (mulb > sizeb) /* split multiplier on b input? */
 		{
 			b1 = sizeb;
 			b0 = mulb - sizeb;
-			printf("KEN: splitting into %d | %d %d\n", mula, b0, b1);
 			split_multiplier_b(node, mula, b0, b1);
 		}
-		else if ((sizea >= min_mult) && (sizeb >= min_mult) && 
-			(configuration.fixed_hard_multiplier != 0))
+		else if ((sizea >= min_mult) && (sizeb >= min_mult))
 		{
 			/* Check to ensure IF mult needs to be exact size */
-			pad_multiplier(node, netlist); 
+			if(configuration.fixed_hard_multiplier != 0)
+				pad_multiplier(node, netlist); 
+			else
+				unconn_multiplier(node, netlist); 
 		}
 	}
 	return;
@@ -1145,4 +1144,97 @@ void clean_multipliers()
 		mult_list = delete_in_vptr_list(mult_list);
 	return;
 }
+
+/*-------------------------------------------------------------------------
+ * (function: unconn_multiplier)
+ *
+ * Fill out a multiplier with unconn pins. Size is retrieved from global
+ *	hard_multipliers data.
+ *-----------------------------------------------------------------------*/
+void unconn_multiplier(nnode_t *node, netlist_t *netlist)
+{
+	int diffa, diffb, diffout, i;
+	int sizea, sizeb, sizeout;
+	struct s_linked_vptr *plist = NULL;
+	t_pb_type *physical = NULL;
+	int testa, testb;
+
+	oassert(node->type == MULTIPLY);
+	oassert(hard_multipliers != NULL);
+
+	sizea = node->input_port_sizes[0];
+	sizeb = node->input_port_sizes[1];
+	sizeout = node->output_port_sizes[0];
+	record_mult_distribution(node);
+
+	/* Calculate the BEST fit hard multiplier to use */
+	diffa = hard_multipliers->inputs->size - sizea;
+	diffb = hard_multipliers->inputs->next->size - sizeb;
+	diffout = hard_multipliers->outputs->size - sizeout;
+
+	if (configuration.fracture_hard_multiplier == 1)
+	{
+		plist = hard_multipliers->pb_types;
+		while ((diffa + diffb != 0) && (plist != NULL))
+		{
+			physical = (t_pb_type *)(plist->data_vptr);
+			plist = plist->next;
+			testa = physical->ports[0].num_pins;
+			testb = physical->ports[1].num_pins;
+			if ((testa >= sizea) && (testb >= sizeb) &&
+				((testa - sizea + testb - sizeb) < (diffa + diffb)))
+			{
+				diffa = testa - sizea;
+				diffb = testb - sizeb;
+				diffout = physical->ports[2].num_pins - sizeout;
+			}
+		}
+	}
+
+	/* Expand the inputs */
+	if ((diffa != 0) || (diffb != 0))
+	{
+		allocate_more_node_input_pins(node, diffa + diffb);
+
+		/* Shift pins for expansion of first input pins */
+		if (diffa != 0)
+		{
+			for (i = 1; i <= sizeb; i++)
+			{
+				move_a_input_pin(node, sizea + sizeb - i, node->num_input_pins - diffb - i);
+			}
+
+			/* Connect unused first input pins to unconn pin */
+			for (i = 0; i < diffa; i++)
+			{
+				add_a_input_pin_to_node_spot_idx(node, get_a_pad_pin(netlist), i + sizea);
+			}
+
+			node->input_port_sizes[0] = sizea + diffa;
+		}
+
+		if (diffb != 0)
+		{
+			/* Connect unused second input pins to unconn pin */
+			for (i = 1; i <= diffb; i++)
+			{
+				add_a_input_pin_to_node_spot_idx(node, get_a_pad_pin(netlist), node->num_input_pins - i);
+			}
+
+			node->input_port_sizes[1] = sizeb + diffb;
+		}
+	}
+
+	/* Expand the outputs */
+	if (diffout != 0)
+	{
+		allocate_more_node_output_pins(node, diffout);
+		for (i = 0; i < diffout; i++)
+			add_a_output_pin_to_node_spot_idx(node, copy_output_npin(node->output_pins[0]), i + sizeout);
+		node->output_port_sizes[0] = sizeout + diffout;
+	}
+
+	return;
+}
+
 #endif
