@@ -959,7 +959,7 @@ void split_multiplier_b(nnode_t *node, int a, int b1, int b0)
  * Fill out a multiplier to a fixed size. Size is retrieved from global
  *	hard_multipliers data.
  *
- * NOTE: THE INPUTS ARE NOT SIGN EXTENDED! THEY ARE ZERO EXTENDED!!!
+ * NOTE: The inputs are extended based on multiplier padding setting.
  *-----------------------------------------------------------------------*/
 void pad_multiplier(nnode_t *node, netlist_t *netlist)
 {
@@ -1017,7 +1017,10 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 			/* Connect unused first input pins to zero pin */
 			for (i = 0; i < diffa; i++)
 			{
-				add_a_input_pin_to_node_spot_idx(node, get_a_zero_pin(netlist), i + sizea);
+				if (configuration.mult_padding == 0)
+					add_a_input_pin_to_node_spot_idx(node, get_a_zero_pin(netlist), i + sizea);
+				else
+					add_a_input_pin_to_node_spot_idx(node, get_a_pad_pin(netlist), i + sizea);
 			}
 
 			node->input_port_sizes[0] = sizea + diffa;
@@ -1028,7 +1031,10 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 			/* Connect unused second input pins to zero pin */
 			for (i = 1; i <= diffb; i++)
 			{
-				add_a_input_pin_to_node_spot_idx(node, get_a_zero_pin(netlist), node->num_input_pins - i);
+				if (configuration.mult_padding == 0)
+					add_a_input_pin_to_node_spot_idx(node, get_a_zero_pin(netlist), node->num_input_pins - i);
+				else
+					add_a_input_pin_to_node_spot_idx(node, get_a_pad_pin(netlist), node->num_input_pins - i);
 			}
 
 			node->input_port_sizes[1] = sizeb + diffb;
@@ -1125,8 +1131,6 @@ void iterate_multipliers(netlist_t *netlist)
 			/* Check to ensure IF mult needs to be exact size */
 			if(configuration.fixed_hard_multiplier != 0)
 				pad_multiplier(node, netlist); 
-			else
-				unconn_multiplier(node, netlist); 
 		}
 	}
 	return;
@@ -1142,98 +1146,6 @@ void clean_multipliers()
 {
 	while (mult_list != NULL)
 		mult_list = delete_in_vptr_list(mult_list);
-	return;
-}
-
-/*-------------------------------------------------------------------------
- * (function: unconn_multiplier)
- *
- * Fill out a multiplier with unconn pins. Size is retrieved from global
- *	hard_multipliers data.
- *-----------------------------------------------------------------------*/
-void unconn_multiplier(nnode_t *node, netlist_t *netlist)
-{
-	int diffa, diffb, diffout, i;
-	int sizea, sizeb, sizeout;
-	struct s_linked_vptr *plist = NULL;
-	t_pb_type *physical = NULL;
-	int testa, testb;
-
-	oassert(node->type == MULTIPLY);
-	oassert(hard_multipliers != NULL);
-
-	sizea = node->input_port_sizes[0];
-	sizeb = node->input_port_sizes[1];
-	sizeout = node->output_port_sizes[0];
-	record_mult_distribution(node);
-
-	/* Calculate the BEST fit hard multiplier to use */
-	diffa = hard_multipliers->inputs->size - sizea;
-	diffb = hard_multipliers->inputs->next->size - sizeb;
-	diffout = hard_multipliers->outputs->size - sizeout;
-
-	if (configuration.fracture_hard_multiplier == 1)
-	{
-		plist = hard_multipliers->pb_types;
-		while ((diffa + diffb != 0) && (plist != NULL))
-		{
-			physical = (t_pb_type *)(plist->data_vptr);
-			plist = plist->next;
-			testa = physical->ports[0].num_pins;
-			testb = physical->ports[1].num_pins;
-			if ((testa >= sizea) && (testb >= sizeb) &&
-				((testa - sizea + testb - sizeb) < (diffa + diffb)))
-			{
-				diffa = testa - sizea;
-				diffb = testb - sizeb;
-				diffout = physical->ports[2].num_pins - sizeout;
-			}
-		}
-	}
-
-	/* Expand the inputs */
-	if ((diffa != 0) || (diffb != 0))
-	{
-		allocate_more_node_input_pins(node, diffa + diffb);
-
-		/* Shift pins for expansion of first input pins */
-		if (diffa != 0)
-		{
-			for (i = 1; i <= sizeb; i++)
-			{
-				move_a_input_pin(node, sizea + sizeb - i, node->num_input_pins - diffb - i);
-			}
-
-			/* Connect unused first input pins to unconn pin */
-			for (i = 0; i < diffa; i++)
-			{
-				add_a_input_pin_to_node_spot_idx(node, get_a_pad_pin(netlist), i + sizea);
-			}
-
-			node->input_port_sizes[0] = sizea + diffa;
-		}
-
-		if (diffb != 0)
-		{
-			/* Connect unused second input pins to unconn pin */
-			for (i = 1; i <= diffb; i++)
-			{
-				add_a_input_pin_to_node_spot_idx(node, get_a_pad_pin(netlist), node->num_input_pins - i);
-			}
-
-			node->input_port_sizes[1] = sizeb + diffb;
-		}
-	}
-
-	/* Expand the outputs */
-	if (diffout != 0)
-	{
-		allocate_more_node_output_pins(node, diffout);
-		for (i = 0; i < diffout; i++)
-			add_a_output_pin_to_node_spot_idx(node, copy_output_npin(node->output_pins[0]), i + sizeout);
-		node->output_port_sizes[0] = sizeout + diffout;
-	}
-
 	return;
 }
 

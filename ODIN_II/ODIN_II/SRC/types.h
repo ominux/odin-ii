@@ -98,6 +98,7 @@ struct config_t_t
 	short print_parse_tokens; // switch that controls whether or not each token is printed during parsing
 	short output_preproc_source; // switch that outputs the pre-processed source
 	int min_hard_multiplier; // threshold from hard to soft logic
+	int mult_padding; // setting how multipliers are padded to fit fixed size
 	int fixed_hard_multiplier; // flag for fixed or variable hard mult
 	int fracture_hard_multiplier; // flag for fractured hard multipliers
 	short split_memory_width;

@@ -218,6 +218,7 @@ void set_default_optimization_settings(config_t *config)
 {
 	config->min_hard_multiplier = 0;
 	config->fixed_hard_multiplier = 0;
+	config->mult_padding = -1; /* unconn */
 	config->fracture_hard_multiplier = 1;
 	config->split_memory_width = FALSE;
 	config->split_memory_depth = FALSE;
@@ -244,6 +245,15 @@ void read_optimizations(ezxml_t a_node, config_t *config)
 		else /* Default: No minimum hard multiply size */
 			config->min_hard_multiplier = 0;
 		
+		prop = FindProperty(child, "padding", (boolean)FALSE);
+		if (prop != NULL)
+		{
+			config->mult_padding = atoi(prop);
+			ezxml_set_attr(child, "padding", NULL);
+		}
+		else /* Default: Pad to unconn pins */
+			config->mult_padding = -1;
+
 		prop = FindProperty(child, "fixed", (boolean)FALSE);
 		if (prop != NULL)
 		{
