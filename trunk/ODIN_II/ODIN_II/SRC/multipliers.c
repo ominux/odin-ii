@@ -1014,7 +1014,7 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 				move_a_input_pin(node, sizea + sizeb - i, node->num_input_pins - diffb - i);
 			}
 
-			/* Connect unused first input pins to zero pin */
+			/* Connect unused first input pins to zero/pad pin */
 			for (i = 0; i < diffa; i++)
 			{
 				if (configuration.mult_padding == 0)
@@ -1028,7 +1028,7 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 
 		if (diffb != 0)
 		{
-			/* Connect unused second input pins to zero pin */
+			/* Connect unused second input pins to zero/pad pin */
 			for (i = 1; i <= diffb; i++)
 			{
 				if (configuration.mult_padding == 0)
