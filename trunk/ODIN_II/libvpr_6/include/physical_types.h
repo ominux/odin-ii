@@ -330,6 +330,7 @@ struct s_pb_type
 	int depth; /* depth of pb_type */
 
 	float area;
+	float fmax;
 	t_pin_to_pin_annotation *annotations;	/* [0..num_annotations-1] */
 	int num_annotations;
 
@@ -369,6 +370,7 @@ struct s_type_descriptor  /* TODO rename this.  maybe physical type descriptor o
     int height;
 
     int ***pinloc;		/* [0..height-1][0..3][0..num_pins-1] */
+	int *pin_height; /* [0..num_pins-1] */
 	int **num_pin_loc_assignments; /* [0..height-1][0..3] */
 	char ****pin_loc_assignments; /* [0..height-1][0..3][0..num_tokens-1][0..string_name] */
 	enum e_pin_location_distr pin_location_distribution;

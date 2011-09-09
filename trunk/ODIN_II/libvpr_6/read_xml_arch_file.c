@@ -179,6 +179,7 @@ SetupPinLocationsAndPinClasses(ezxml_t Locations, t_type_descriptor * Type)
     
 	/* Alloc and clear pin locations */ 
 	Type->pinloc = (int ***)my_malloc(Type->height * sizeof(int **));
+	Type->pin_height = (int *)my_calloc(Type->num_pins, sizeof(int));
     for(i = 0; i < Type->height; ++i)
 	{
 	    Type->pinloc[i] = (int **)my_malloc(4 * sizeof(int *));
@@ -736,6 +737,14 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 		}
 	}
 
+	/* set fmax if exist */
+	pb_type->fmax = UNDEFINED;
+	Cur = FindElement(Parent, "fmax", FALSE);
+	if(Cur) {
+		pb_type->fmax = GetFloatProperty(Cur, "value", TRUE, UNDEFINED);
+		FreeNode(Cur);
+	}
+	
 	pb_type->annotations = NULL;
 	pb_type->num_annotations = 0;
 	pb_type->area = 0;
@@ -1385,6 +1394,7 @@ static void alloc_and_load_default_child_for_pb_type(INOUTP t_pb_type *pb_type, 
 		copy->ports[i].port_class = my_strdup(pb_type->ports[i].port_class);
 	}
 
+	copy->fmax = pb_type->fmax;
 	copy->annotations = my_calloc(pb_type->num_annotations, sizeof(t_pin_to_pin_annotation));
 	copy->num_annotations = pb_type->num_annotations;
 	for(i = 0; i < copy->num_annotations; i++) {
