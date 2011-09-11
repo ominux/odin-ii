@@ -311,9 +311,9 @@
                 <delay_constant max="2.03e-13" min="1.89e-13" in_port="mult_36.a" out_port="divisible_mult_18x18[1:0].a"/>
                 <C_constant C="1.89e-13" in_port="mult_36.a" out_port="divisible_mult_18x18[1:0].a"/>
               </direct>
-              <direct name="b2b" input="mult_36.b" output="divisible_mult_18x18[1:0].a">
-                <delay_constant max="2.03e-13" min="1.89e-13" in_port="mult_36.b" out_port="divisible_mult_18x18[1:0].a"/>
-                <C_constant C="1.89e-13" in_port="mult_36.b" out_port="divisible_mult_18x18[1:0].a"/>
+              <direct name="b2b" input="mult_36.b" output="divisible_mult_18x18[1:0].b">
+                <delay_constant max="2.03e-13" min="1.89e-13" in_port="mult_36.b" out_port="divisible_mult_18x18[1:0].b"/>
+                <C_constant C="1.89e-13" in_port="mult_36.b" out_port="divisible_mult_18x18[1:0].b"/>
               </direct>
               <direct name="out2out" input="divisible_mult_18x18[1:0].out" output="mult_36.out">
                 <delay_constant max="2.03e-13" min="1.89e-13" in_port="divisible_mult_18x18[1:0].out" out_port ="mult_36.out"/>
