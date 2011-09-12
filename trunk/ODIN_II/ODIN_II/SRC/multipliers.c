@@ -427,7 +427,7 @@ void instantiate_hard_multiplier(nnode_t *node, short mark, netlist_t *netlist)
 		node->output_pins[i]->name = new_name;
 	}
 	free(node->name);
-	node->name = new_name;
+	// node->name = new_name;
 	node->traverse_visited = mark;
 	return;
 }
