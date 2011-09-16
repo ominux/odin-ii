@@ -32,11 +32,11 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "odin_util.h"
 #include "util.h"
 
+global_args_t global_args;
 /*---------------------------------------------------------------------------------------------
  * (function: allocate_nnode)
  *-------------------------------------------------------------------------------------------*/
-nnode_t* allocate_nnode()
-{
+nnode_t* allocate_nnode() {
 	nnode_t *new_node;
 
 	new_node = (nnode_t *)my_malloc_struct(sizeof(nnode_t));
@@ -74,13 +74,15 @@ nnode_t* allocate_nnode()
 	new_node->bit_map= NULL;
 	new_node->bit_map_line_count=0;
 
+	new_node->in_queue = FALSE;
+
 	return new_node;
 }
 
 /*---------------------------------------------------------------------------------------------
  * (function: free_nnode)
  *-------------------------------------------------------------------------------------------*/
-void free_nnode(nnode_t *to_free)
+void free_nnode(nnode_t *to_free) 
 {
 	int i;
 
@@ -120,7 +122,7 @@ void free_nnode(nnode_t *to_free)
 			free(to_free->input_port_sizes);
 		if (to_free->output_port_sizes != NULL)
 			free(to_free->output_port_sizes);
-	
+
 		/* now free the node */
 		free(to_free);
 	}	
@@ -134,7 +136,7 @@ void allocate_more_node_input_pins(nnode_t *node, int width)
 {
 	int i;
 
-	if (width <= 0)
+	if (width <= 0) 
 	{
 		warning_message(NETLIST_ERROR, -1, -1, "tried adding output pins for with <= 0 %s\n", node->name);
 		return;
@@ -193,8 +195,7 @@ void add_input_port_information(nnode_t *node, int port_width)
 /*---------------------------------------------------------------------------------------------
  * (function: allocate_npin)
  *-------------------------------------------------------------------------------------------*/
-npin_t* allocate_npin()
-{
+npin_t* allocate_npin() {
 	npin_t *new_pin;
 
 	new_pin = (npin_t *)my_malloc_struct(sizeof(npin_t));
@@ -206,13 +207,27 @@ npin_t* allocate_npin()
 	new_pin->node = NULL;
 	new_pin->pin_node_idx = -1;
 	new_pin->mapping = NULL;
-
-	new_pin->sim_state = (sim_state_t *)malloc(sizeof(sim_state_t));
-	new_pin->sim_state->cycle = -1;
-	new_pin->sim_state->value = -1;
-	new_pin->sim_state->prev_value = -1;
+	
+	new_pin->sim_state = allocate_sim_state(); 
 
 	return new_pin;
+}
+
+/*
+ * Allocates the sim_state strut for a pin.
+ */
+sim_state_t* allocate_sim_state() {	
+ 	sim_state_t *sim_state = malloc(sizeof(sim_state_t));
+	sim_state->cycle  = -1;
+	sim_state->values = malloc(sizeof(signed char)*(SIM_WAVE_LENGTH));
+
+	// Initialise sim values to -1.
+	int i; 
+	for (i = 0; i < SIM_WAVE_LENGTH; i++) {
+		sim_state->values[i] = -1; 
+	}
+
+	return sim_state; 
 }
 
 /*-------------------------------------------------------------------------
@@ -257,8 +272,11 @@ npin_t* copy_input_npin(npin_t* copy_pin)
  *-------------------------------------------------------------------------------------------*/
 void free_npin(npin_t *to_free)
 {
-	if (to_free != NULL)
-	{
+	if (to_free) {
+		if (to_free->sim_state->values) {
+			to_free->sim_state->values--;
+			free(to_free->sim_state->values);
+		}
 		free(to_free->sim_state);
 		free(to_free);
 	}
@@ -491,15 +509,13 @@ void remap_pin_to_new_net(npin_t *pin, nnet_t *new_net)
  *-----------------------------------------------------------------------*/
 void remap_pin_to_new_node(npin_t *pin, nnode_t *new_node, int pin_idx)
 {
-	if (pin->type == INPUT)
-	{
+	if (pin->type == INPUT) {
 		/* clean out the entry in the old net */
 		pin->node->input_pins[pin->pin_node_idx] = NULL;
 		/* do the new addition */
 		add_a_input_pin_to_node_spot_idx(new_node, pin, pin_idx);
 	}
-	else if (pin->type == OUTPUT)
-	{
+	else if (pin->type == OUTPUT) {
 		/* clean out the entry in the old net */
 		pin->node->output_pins[pin->pin_node_idx] = NULL;	
 		/* do the new addition */
@@ -771,15 +787,13 @@ int count_nodes_in_netlist(netlist_t *netlist)
 	int count = 0;
 
 	/* now traverse the ground and vcc pins */
-	depth_traverse_count(netlist->gnd_node, &count,  COUNT_NODES);
+	depth_traverse_count(netlist->gnd_node, &count, COUNT_NODES);
 	depth_traverse_count(netlist->vcc_node, &count, COUNT_NODES);
 	depth_traverse_count(netlist->pad_node, &count, COUNT_NODES);
 
 	/* start with the primary input list */
-	for (i = 0; i < netlist->num_top_input_nodes; i++)
-	{
-		if (netlist->top_input_nodes[i] != NULL)
-		{
+	for (i = 0; i < netlist->num_top_input_nodes; i++) {
+		if (netlist->top_input_nodes[i] != NULL) {
 			depth_traverse_count(netlist->top_input_nodes[i], &count,  COUNT_NODES);
 		}
 	}
@@ -899,8 +913,7 @@ void add_node_to_netlist(netlist_t *netlist, nnode_t *node, short special_node)
 	{
 		/* add the node to the list */
 		sc_spot = sc_add_string(netlist->nodes_sc, node->name);
-		if (netlist->nodes_sc->data[sc_spot] != NULL)
-		{
+		if (netlist->nodes_sc->data[sc_spot] != NULL) {
 			error_message(NETLIST_ERROR, linenum, -1, "Two nodes with the same name (%s)\n", node->name);
 		}
 		netlist->nodes_sc->data[sc_spot] = (void*)node;
