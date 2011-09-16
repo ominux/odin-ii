@@ -37,22 +37,22 @@ void error_message(short error_type, int line_number, int file, char *message, .
 {
 	va_list ap;
 
-	printf("--------------\nOdin has decided you have failed ;)\n\n");
+	fprintf(stderr,"--------------\nOdin has decided you have failed ;)\n\n");
 
-	printf("ERROR:");
+	fprintf(stderr,"ERROR:");
 	if (file != -1)
-		printf(" (File: %s)", configuration.list_of_file_names[file]);
+		fprintf(stderr," (File: %s)", configuration.list_of_file_names[file]);
 	if (line_number != 0)
-		printf(" (Line number: %d)", line_number);
+		fprintf(stderr," (Line number: %d)", line_number);
 	if (message != NULL)
 	{
-		printf(" ");
+		fprintf(stderr," ");
 		va_start(ap, message);
-		vprintf(message, ap);	
+		vfprintf(stderr,message, ap);	
 		va_end(ap); 
 	}
 
-	printf("\n");
+	if (message[strlen(message)-1] != '\n') fprintf(stderr,"\n");
 
 	exit(error_type);
 }
@@ -67,25 +67,23 @@ void warning_message(short error_type, int line_number, int file, char *message,
 	static long warning_count = 0;
 	warning_count++;
 
-	if (is_warned == FALSE)
-	{
-		printf("-------------------------\nOdin has decided you may fail ... WARNINGS:\n\n");
+	if (is_warned == FALSE) {
+		fprintf(stderr,"-------------------------\nOdin has decided you may fail ... WARNINGS:\n\n");
 		is_warned = TRUE;
 	}
 
-	printf("WARNING (%ld):", warning_count);
+	fprintf(stderr,"WARNING (%ld):", warning_count);
 	if (file != -1)
-		printf(" (File: %s)", configuration.list_of_file_names[file]);
+		fprintf(stderr," (File: %s)", configuration.list_of_file_names[file]);
 	if (line_number != 0)
-		printf(" (Line number: %d)", line_number);
-	if (message != NULL)
-	{
-		printf(" ");
+		fprintf(stderr," (Line number: %d)", line_number);
+	if (message != NULL) {
+		fprintf(stderr," ");
 
 		va_start(ap, message);
-		vprintf(message, ap);	
+		vfprintf(stderr,message, ap);	
 		va_end(ap); 
 	}
 
-	printf("\n");
+	if (message[strlen(message)-1] != '\n') fprintf(stderr,"\n");
 }
