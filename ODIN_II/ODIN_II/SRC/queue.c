@@ -20,7 +20,6 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 */
-
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,71 +31,20 @@ OTHER DEALINGS IN THE SOFTWARE.
  * behaves like a linked list, enqueuing at the head and dequeuing
  * at the tail.
  */
-queue_t* create_queue()
-{
+queue_t* create_queue() {
 	queue_t *q = (queue_t *)malloc(sizeof(queue_t));
+
 	q->head = NULL;
 	q->tail = NULL;
 	q->count = 0;
 
+	q->add        = ___queue_add; 
+	q->remove     = ___queue_remove; 
+	q->remove_all = ___queue_remove_all; 
+	q->is_empty   = ___queue_is_empty; 
+	q->destroy    = ___queue_destroy; 
+
 	return q;
-}
-
-/*
- * Enqueues an item onto the queue
- */
-void enqueue_item(queue_t *q, void *item)
-{
-	queue_node_t *node;
-	
-//	node = q->head;
-//	while (node != NULL)
-//	{
-//		if (node->item == item)
-//			return;
-//		node = node->next;
-//	}
-	oassert(item != NULL);
-	oassert(q != NULL);
-	node = (queue_node_t *)malloc(sizeof(queue_node_t));
-	node->next = NULL;
-	node->item = item;
-
-	q->count++;
-
-	/* add the new node to the end */
-	if (q->tail == NULL)
-		q->tail = node;
-	else
-		q->tail->next = node;
-	q->tail = node;
-
-	if (q->head == NULL)
-		q->head = node;
-}
-
-/*
- * dequeues an item from the queue
- */
-void* dequeue_item(queue_t *q)
-{
-	void *item;
-	queue_node_t *node;
-
-	oassert(q != NULL);
-	oassert(q->head != NULL);
-
-	q->count--;
-
-	node = q->head;
-	item = node->item;
-	q->head = q->head->next;
-	if (q->head == NULL)
-		q->tail = NULL;
-
-	free(node);
-
-	return item;
 }
 
 /*
@@ -104,17 +52,67 @@ void* dequeue_item(queue_t *q)
  * in the queue. It DOES NOT free memory of the things encapsulated
  * in the queue.
  */
-void destroy_queue(queue_t *q)
-{
-	while (!is_empty(q))
-		dequeue_item(q);
+void ___queue_destroy(queue_t *q) {
+	while (q->remove(q)); 
 	free(q);
+}
+
+/*
+ * Enqueues an item onto the queue
+ */
+void ___queue_add(queue_t *q, void *item) {
+	queue_node_t *node = (queue_node_t *)malloc(sizeof(queue_node_t));
+
+	node->next = NULL;
+	node->item = item;
+
+	if (q->tail) q->tail->next = node;
+	q->tail = node;
+
+	if (!q->head) q->head = node;
+
+	q->count++;
+}
+
+/*
+ * dequeues an item from the queue
+ */
+void* ___queue_remove(queue_t *q) {
+	void *item = NULL; 
+	if (!q->is_empty(q)) {
+		queue_node_t *node = q->head;
+		item = node->item;
+		q->head = node->next;
+		free(node);
+		q->count--;	
+
+		if (!q->count) {
+			q->head = NULL; 
+			q->tail = NULL; 
+		}
+	}	
+	return item;
+}
+
+/* 
+ * Dequeues all items in the queue and returns them as an array. 
+ */ 
+void **___queue_remove_all(queue_t *q) {
+	void **items = NULL; 
+	if (!q->is_empty(q)) {
+		items = malloc(q->count * sizeof(void *)); 
+		int count = 0; 
+		void *item; 
+		while ((item = q->remove(q))) { 
+			items[count++] = item; 
+		}
+	}
+	return items; 
 }
 
 /*
  * returns true iff the queue has no remaining items to be dequeued.
  */
-int is_empty (queue_t *q)
-{
-	return q->head == NULL;
+int ___queue_is_empty (queue_t *q) {
+	return !q->head;
 }
