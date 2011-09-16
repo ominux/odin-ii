@@ -1,7 +1,6 @@
 CC = gcc
 
 BUILD = VPR6
-#BUILD = VPR5
 
 PARSER1 = flex 
 PARSER2 = bison
@@ -14,19 +13,20 @@ EXEO = odin_II.exe
 EXEV= verify_blif.exe
 
 DEBUG_FLAGS = -g
-OPT_FLAGS = -O2
+
+OPT_FLAGS = -O2 
 
 ifeq "$(BUILD)" "VPR5"
-INC_FLAGS =  -I../libvpr_5/include
-LIB = -L../libvpr_5 -lvpr_5 -lm -ldl
-C_DIRECTIVE = -DVPR5 -DUSING_BISON
+	INC_FLAGS =  -I../libvpr_5/include
+	LIB = -L../libvpr_5 -lvpr_5 -lm -ldl
+	C_DIRECTIVE = -DVPR5 -DUSING_BISON
 else
-INC_FLAGS =  -I../libvpr_6/include 
-LIB = -L../libvpr_6 -lvpr_6 -lm -ldl
-C_DIRECTIVE = -DVPR6 -DUSING_BISON
+	INC_FLAGS =  -I../libvpr_6/include 
+	LIB = -L../libvpr_6 -lvpr_6 -lm -ldl
+	C_DIRECTIVE = -DVPR6 -DUSING_BISON
 endif
 
-FLAGS = $(DEBUG_FLAGS) $(WARN_FLAGS)  $(INC_FLAGS)
+FLAGS = $(DEBUG_FLAGS) $(WARN_FLAGS) $(OPT_FLAGS) $(INC_FLAGS)
 C_FLAGS = $(C_DIRECTIVE)
 
 OBJS = \
@@ -36,14 +36,15 @@ OBJ/partial_map.o \
 OBJ/errors.o \
 OBJ/node_creation_library.o \
 OBJ/netlist_utils.o \
+OBJ/netlist_stats.o \
 OBJ/odin_util.o \
 OBJ/string_cache.o \
 OBJ/hard_blocks.o \
 OBJ/memories.o \
 OBJ/queue.o \
+OBJ/hashtable.o \
 OBJ/simulate_blif.o\
 OBJ/print_netlist.o 
-
 
 OBJO = \
 OBJ/read_xml_config_file.o \
@@ -59,7 +60,6 @@ OBJ/netlist_check.o \
 OBJ/activity_estimation.o \
 OBJ/read_netlist.o \
 OBJ/output_graphcrunch_format.o \
-OBJ/netlist_stats.o \
 OBJ/verilog_preprocessor.o \
 OBJ/verilog_bison.o \
 OBJ/verilog_flex.o \
@@ -68,7 +68,6 @@ OBJ/odin_ii.o
 OBJV = OBJ/read_blif.o \
 OBJ/verify_blif.o
 
-
 SRC = \
 SRC/netlist_visualizer.c \
 SRC/multipliers.c \
@@ -76,14 +75,15 @@ SRC/partial_map.c \
 SRC/errors.c \
 SRC/node_creation_library.c \
 SRC/netlist_utils.c \
+SRC/netlist_stats.c \
 SRC/odin_util.c \
 SRC/string_cache.c \
 SRC/hard_blocks.c \
 SRC/memories.c \
 SRC/queue.c \
+SRC/hashtable.c \
 SRC/simulate_blif.c \
 SRC/print_netlist.c
-
 
 SRCO = \
 SRC/read_xml_config_file.c \
@@ -99,7 +99,6 @@ SRC/netlist_check.c \
 SRC/activity_estimation.c \
 SRC/read_netlist.c \
 SRC/output_graphcrunch_format.c \
-SRC/netlist_stats.c \
 SRC/verilog_preprocessor.c \
 SRC/odin_ii.c
 
@@ -135,10 +134,10 @@ SRC/hard_blocks.h \
 SRC/memories.h \
 SRC/verilog_preprocessor.h \
 SRC/queue.h \
+SRC/hashtable.h \
 SRC/simulate_blif.h \
 SRC/globals.h \
 SRC/print_netlist.h
-
 
 all: $(EXEO) $(EXEV)
 
