@@ -32,18 +32,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "netlist_stats.h"
 #include "multipliers.h"
 
-void depth_first_traverse_stats(FILE *out, short marker_value, netlist_t *netlist);
-void depth_first_traversal_graphcrunch_stats(nnode_t *node, FILE *fp, int traverse_mark_number);
 
-void display_per_node_stats(FILE *fp, netlist_t *netlist);
-void display_node_stats(FILE *fp, nnode_t* node);
-
-void calculate_avg_fanout(netlist_t *netlist);
-void calculate_avg_fanin(netlist_t *netlist);
-
-int num_fanouts_on_output_pin(nnode_t *node, int output_pin_idx);
-void add_to_distribution(int **distrib_ptr, int *distrib_size, int new_element);
-void calculate_combinational_shapes(netlist_t *netlist);
 /*------------------------------------------------------------------------
  * (function: netlist_stats)
  *----------------------------------------------------------------------*/
