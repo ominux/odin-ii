@@ -24,6 +24,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "string_cache.h"
 #include "odin_util.h"
 #include "read_xml_arch_file.h"
+//#include "simulate_blif.h"
 
 #ifndef TRUE
 #define TRUE 1
@@ -65,6 +66,9 @@ typedef struct netlist_stats_t_t netlist_stats_t;
 /* for errors in the netlist simulation */
 #define SIMULATION_ERROR -8
 
+// Number of cycles to compute in each wave.
+#define SIM_WAVE_LENGTH 16
+
 /* unique numbers to mark the nodes as we DFS traverse the netlist */
 #define PARTIAL_MAP_TRAVERSE_VALUE 10
 #define OUTPUT_TRAVERSE_VALUE 12
@@ -85,8 +89,7 @@ typedef struct netlist_stats_t_t netlist_stats_t;
 // bitvector library (PETER_LIB) defines it, so we don't
 
 /* This is the data structure that holds config file details */
-struct config_t_t
-{
+struct config_t_t {
 	char **list_of_file_names;
 	int num_list_of_file_names;
 
@@ -98,7 +101,6 @@ struct config_t_t
 	short print_parse_tokens; // switch that controls whether or not each token is printed during parsing
 	short output_preproc_source; // switch that outputs the pre-processed source
 	int min_hard_multiplier; // threshold from hard to soft logic
-	int mult_padding; // setting how multipliers are padded to fit fixed size
 	int fixed_hard_multiplier; // flag for fixed or variable hard mult
 	int fracture_hard_multiplier; // flag for fractured hard multipliers
 	short split_memory_width;
@@ -344,17 +346,14 @@ struct info_ast_visit_t_t
 #ifndef NETLIST_UTILS_H
 #define NETLIST_UTILS_H
 
-struct sim_state_t_t
-{
-	int cycle;
-	int value;
-	int prev_value;
+struct sim_state_t_t {
+	int  cycle;          // The last cycle the pin was computed for. 
+	signed char* values; // The values of all cycles including -1. (values[-1] is valid) 
 };
 
 /* DEFINTIONS for all the different types of nodes there are.  This is also used cross-referenced in utils.c so that I can get a string version 
  * of these names, so if you add new tpyes in here, be sure to add those same types in utils.c */
-struct nnode_t_t
-{
+struct nnode_t_t {
 	long unique_id;
 	char *name; // unique name of a node
 	operation_list type; // the type of node
@@ -390,6 +389,9 @@ struct nnode_t_t
 
 	char** bit_map; /*storing the bit map */
 	int bit_map_line_count;
+
+	// Flag used by the simulator to avoid double queueing.
+	int in_queue;
 };
 
 struct npin_t_t
@@ -508,4 +510,4 @@ struct netlist_stats_t_t
 	int *num_combinational_shape_for_sequential_level;
 };
 
-#endif // NET_TYPES_H 
+#endif // NET_TYPES_H
