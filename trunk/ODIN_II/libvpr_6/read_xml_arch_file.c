@@ -737,11 +737,11 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 		}
 	}
 
-	/* set fmax if exist */
-	pb_type->fmax = UNDEFINED;
-	Cur = FindElement(Parent, "fmax", FALSE);
+	/* set max_internal_delay if exist */
+	pb_type->max_internal_delay = UNDEFINED;
+	Cur = FindElement(Parent, "max_internal_delay", FALSE);
 	if(Cur) {
-		pb_type->fmax = GetFloatProperty(Cur, "value", TRUE, UNDEFINED);
+		pb_type->max_internal_delay = GetFloatProperty(Cur, "value", TRUE, UNDEFINED);
 		FreeNode(Cur);
 	}
 	
@@ -1394,7 +1394,7 @@ static void alloc_and_load_default_child_for_pb_type(INOUTP t_pb_type *pb_type, 
 		copy->ports[i].port_class = my_strdup(pb_type->ports[i].port_class);
 	}
 
-	copy->fmax = pb_type->fmax;
+	copy->max_internal_delay = pb_type->max_internal_delay;
 	copy->annotations = my_calloc(pb_type->num_annotations, sizeof(t_pin_to_pin_annotation));
 	copy->num_annotations = pb_type->num_annotations;
 	for(i = 0; i < copy->num_annotations; i++) {
