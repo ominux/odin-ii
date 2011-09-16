@@ -14,7 +14,7 @@ EXEV= verify_blif.exe
 
 DEBUG_FLAGS = -g
 
-OPT_FLAGS = -O2 
+OPT_FLAGS = 
 
 ifeq "$(BUILD)" "VPR5"
 	INC_FLAGS =  -I../libvpr_5/include

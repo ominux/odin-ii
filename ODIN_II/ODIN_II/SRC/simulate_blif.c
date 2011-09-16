@@ -285,21 +285,6 @@ nnode_t **get_children_of(nnode_t *node, int *num_children) {
 }
 
 /*
- * Updates the value of a pin and its cycle. Pins should be updated using 
- * only this function. 
- */
-void update_pin_value(npin_t *pin, int value, int cycle) {
-	set_pin(pin,value,cycle); 
-	if (pin->net) {		
-		int i;
-		for (i = 0; i < pin->net->num_fanout_pins; i++) {
-			npin_t *fanout_pin = pin->net->fanout_pins[i];
-			if (fanout_pin) set_pin(fanout_pin,value,cycle); 
-		}
-	}
-}
-
-/*
  * Sets the pin to the given value for the given cycle. Does not
  * propogate the value to the connected net. 
  * 
@@ -309,6 +294,24 @@ void update_pin_value(npin_t *pin, int value, int cycle) {
 inline void set_pin(npin_t *pin, int value, int cycle) {
 	pin->sim_state->values[get_values_offset(cycle)] = value;
 	pin->sim_state->cycle = cycle;
+}
+
+/*
+ * Updates the value of a pin and its cycle. Pins should be updated using 
+ * only this function. 
+ */
+void update_pin_value(npin_t *pin, int value, int cycle)
+{
+	set_pin(pin,value,cycle); 
+	if (pin->net)
+	{		
+		int i;
+		for (i = 0; i < pin->net->num_fanout_pins; i++)
+		{
+			npin_t *fanout_pin = pin->net->fanout_pins[i];
+			if (fanout_pin) set_pin(fanout_pin,value,cycle); 
+		}
+	}
 }
 
 /*
