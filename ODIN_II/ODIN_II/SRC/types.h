@@ -89,7 +89,8 @@ typedef struct netlist_stats_t_t netlist_stats_t;
 // bitvector library (PETER_LIB) defines it, so we don't
 
 /* This is the data structure that holds config file details */
-struct config_t_t {
+struct config_t_t
+{
 	char **list_of_file_names;
 	int num_list_of_file_names;
 
@@ -101,6 +102,7 @@ struct config_t_t {
 	short print_parse_tokens; // switch that controls whether or not each token is printed during parsing
 	short output_preproc_source; // switch that outputs the pre-processed source
 	int min_hard_multiplier; // threshold from hard to soft logic
+	int mult_padding; // setting how multipliers are padded to fit fixed size
 	int fixed_hard_multiplier; // flag for fixed or variable hard mult
 	int fracture_hard_multiplier; // flag for fractured hard multipliers
 	short split_memory_width;
