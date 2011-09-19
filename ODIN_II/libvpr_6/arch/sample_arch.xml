@@ -400,7 +400,7 @@
               <T_setup value="1.33e-12" port="mem_4096x64_sp.data" clock="clk"/>
               <T_setup value="1.43e-12" port="mem_4096x64_sp.we" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_4096x64_sp.out" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[11:0]" output="mem_4096x64_sp.addr">
@@ -434,7 +434,7 @@
               <T_setup value="1.83e-12" port="mem_8192x32_dp.we2" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_8192x32_dp.out1" clock="clk"/>
               <T_clock_to_Q max="2.34e-12" min="1.24e-12" port="mem_8192x32_dp.out2" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[12:0]" output="mem_8192x32_dp.addr1">
@@ -469,7 +469,7 @@
               <T_setup value="1.33e-12" port="mem_8192x32_sp.data" clock="clk"/>
               <T_setup value="1.43e-12" port="mem_8192x32_sp.we" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_8192x32_sp.out" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[12:0]" output="mem_8192x32_sp.addr">
@@ -503,7 +503,7 @@
               <T_setup value="1.83e-12" port="mem_16384x16_dp.we2" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_16384x16_dp.out1" clock="clk"/>
               <T_clock_to_Q max="2.34e-12" min="1.24e-12" port="mem_16384x16_dp.out2" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[13:0]" output="mem_16384x16_dp.addr1">
@@ -538,7 +538,7 @@
               <T_setup value="1.33e-12" port="mem_16384x16_sp.data" clock="clk"/>
               <T_setup value="1.43e-12" port="mem_16384x16_sp.we" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_16384x16_sp.out" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[13:0]" output="mem_16384x16_sp.addr">
@@ -572,7 +572,7 @@
               <T_setup value="1.83e-12" port="mem_32768x8_dp.we2" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_32768x8_dp.out1" clock="clk"/>
               <T_clock_to_Q max="2.34e-12" min="1.24e-12" port="mem_32768x8_dp.out2" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[14:0]" output="mem_32768x8_dp.addr1">
@@ -607,7 +607,7 @@
               <T_setup value="1.33e-12" port="mem_32768x8_sp.data" clock="clk"/>
               <T_setup value="1.43e-12" port="mem_32768x8_sp.we" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_32768x8_sp.out" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[14:0]" output="mem_32768x8_sp.addr">
@@ -641,7 +641,7 @@
               <T_setup value="1.83e-12" port="mem_65536x4_dp.we2" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_65536x4_dp.out1" clock="clk"/>
               <T_clock_to_Q max="2.34e-12" min="1.24e-12" port="mem_65536x4_dp.out2" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[15:0]" output="mem_65536x4_dp.addr1">
@@ -676,7 +676,7 @@
               <T_setup value="1.33e-12" port="mem_65536x4_sp.data" clock="clk"/>
               <T_setup value="1.43e-12" port="mem_65536x4_sp.we" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_65536x4_sp.out" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[15:0]" output="mem_65536x4_sp.addr">
@@ -710,7 +710,7 @@
               <T_setup value="1.83e-12" port="mem_131072x2_dp.we2" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_131072x2_dp.out1" clock="clk"/>
               <T_clock_to_Q max="2.34e-12" min="1.24e-12" port="mem_131072x2_dp.out2" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[16:0]" output="mem_131072x2_dp.addr1">
@@ -745,7 +745,7 @@
               <T_setup value="1.33e-12" port="mem_131072x2_sp.data" clock="clk"/>
               <T_setup value="1.43e-12" port="mem_131072x2_sp.we" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_131072x2_sp.out" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[16:0]" output="mem_131072x2_sp.addr">
@@ -779,7 +779,7 @@
               <T_setup value="1.83e-12" port="mem_262144x1_dp.we2" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_262144x1_dp.out1" clock="clk"/>
               <T_clock_to_Q max="2.34e-12" min="1.24e-12" port="mem_262144x1_dp.out2" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[17:0]" output="mem_262144x1_dp.addr1">
@@ -814,7 +814,7 @@
               <T_setup value="1.33e-12" port="mem_262144x1_sp.data" clock="clk"/>
               <T_setup value="1.43e-12" port="mem_262144x1_sp.we" clock="clk"/>
               <T_clock_to_Q max="2.24e-12" min="1.24e-12" port="mem_262144x1_sp.out" clock="clk"/>
-              <fmax value="2e-9"/>
+              <max_internal_delay value="2e-9"/>
             </pb_type>
             <interconnect>
               <direct name="address1" input="memory.addr1[17:0]" output="mem_262144x1_sp.addr">
