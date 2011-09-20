@@ -208,28 +208,15 @@ npin_t* allocate_npin() {
 	new_pin->pin_node_idx = -1;
 	new_pin->mapping = NULL;
 	
-	new_pin->sim_state = allocate_sim_state(); 
+	new_pin->cycle  = -1;
+
+	int i; 
+	for (i = 0; i < SIM_WAVE_LENGTH; i++) {
+		new_pin->values[i] = -1;
+	}
 
 	return new_pin;
 }
-
-/*
- * Allocates the sim_state strut for a pin.
- */
-sim_state_t* allocate_sim_state() {	
- 	sim_state_t *sim_state = malloc(sizeof(sim_state_t));
-	sim_state->cycle  = -1;
-	sim_state->values = malloc(sizeof(signed char)*(SIM_WAVE_LENGTH));
-
-	// Initialise sim values to -1.
-	int i; 
-	for (i = 0; i < SIM_WAVE_LENGTH; i++) {
-		sim_state->values[i] = -1; 
-	}
-
-	return sim_state; 
-}
-
 /*-------------------------------------------------------------------------
  * (function: copy_output_npin)
  * 	Copies an output pin 
@@ -273,11 +260,6 @@ npin_t* copy_input_npin(npin_t* copy_pin)
 void free_npin(npin_t *to_free)
 {
 	if (to_free) {
-		if (to_free->sim_state->values) {
-			to_free->sim_state->values--;
-			free(to_free->sim_state->values);
-		}
-		free(to_free->sim_state);
 		free(to_free);
 	}
 }
