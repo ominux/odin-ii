@@ -348,14 +348,11 @@ struct info_ast_visit_t_t
 #ifndef NETLIST_UTILS_H
 #define NETLIST_UTILS_H
 
-struct sim_state_t_t {
-	int  cycle;          // The last cycle the pin was computed for. 
-	signed char* values; // The values of all cycles including -1. (values[-1] is valid) 
-};
 
 /* DEFINTIONS for all the different types of nodes there are.  This is also used cross-referenced in utils.c so that I can get a string version 
  * of these names, so if you add new tpyes in here, be sure to add those same types in utils.c */
-struct nnode_t_t {
+struct nnode_t_t
+{
 	long unique_id;
 	char *name; // unique name of a node
 	operation_list type; // the type of node
@@ -409,7 +406,8 @@ struct npin_t_t
 	int pin_node_idx; // pin on the node where we're located
 	char *mapping; // name of mapped port from hard block
 
-	sim_state_t *sim_state;
+	int  cycle;          // The last cycle the pin was computed for.
+	signed char values[SIM_WAVE_LENGTH]; // The values of all cycles including -1. (values[-1] is valid)
 };
 
 struct nnet_t_t

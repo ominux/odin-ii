@@ -238,7 +238,7 @@ int enqueue_node_if_ready(queue_t* queue, nnode_t* node, int cycle) {
 inline int is_node_complete(nnode_t* node, int cycle) {
 	int i;
 	for (i = 0; i < node->num_output_pins; i++) {
-		if (node->output_pins[i] && node->output_pins[i]->sim_state->cycle < cycle) {
+		if (node->output_pins[i] && node->output_pins[i]->cycle < cycle) {
 			return FALSE;			
 		}
 	}
@@ -253,7 +253,7 @@ inline int is_node_ready(nnode_t* node, int cycle) {
 		cycle--; 
 	int i;
 	for (i = 0; i < node->num_input_pins; i++) {
-		if (node->input_pins[i]->sim_state->cycle < cycle) 
+		if (node->input_pins[i]->cycle < cycle)
 			return FALSE;
 	}
 	return TRUE;
@@ -292,8 +292,8 @@ nnode_t **get_children_of(nnode_t *node, int *num_children) {
  *          the connected net. 
  */
 inline void set_pin(npin_t *pin, int value, int cycle) {
-	pin->sim_state->values[get_values_offset(cycle)] = value;
-	pin->sim_state->cycle = cycle;
+	pin->values[get_values_offset(cycle)] = value;
+	pin->cycle = cycle;
 }
 
 /*
@@ -319,7 +319,7 @@ void update_pin_value(npin_t *pin, int value, int cycle)
  */ 
 inline signed char get_pin_value(npin_t *pin, int cycle) {
 	if (cycle < 0) return -1; 
-	return pin->sim_state->values[get_values_offset(cycle)];
+	return pin->values[get_values_offset(cycle)];
 }
 
 /*
@@ -1451,11 +1451,11 @@ int verify_output_vectors(netlist_t *netlist, line_t **lines, int lines_size, in
 					problems = TRUE;
 				}
 
-				if (input_pin->sim_state->cycle != output_pin->sim_state->cycle || input_pin->sim_state->cycle != cycle) {
+				if (input_pin->cycle != output_pin->cycle || input_pin->cycle != cycle) {
 					fprintf(stderr, "Simulation cycle mismatch at node %s. Expected cycle %d but encountered cycle %d on actual cycle %d.\n",
 							output_pin->node->name,
-							output_pin->sim_state->cycle,
-							input_pin->sim_state->cycle,
+							output_pin->cycle,
+							input_pin->cycle,
 							cycle);
 					problems = TRUE;
 				}
