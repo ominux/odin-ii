@@ -100,11 +100,9 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 line_t** read_test_vector_headers(FILE *out, int *lines_size, int max_lines_size);
 
 void write_vector_headers(FILE *file, line_t **lines, int lines_size);
-void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, int type, int cycle);
-void write_all_vectors_to_file(line_t **lines, int lines_size, FILE* file, int type, int wave, int wave_length);
+void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *modelsim_out, int type, int cycle);
+void write_all_vectors_to_file(line_t **lines, int lines_size, FILE* file, FILE *modelsim_out, int type, int cycle_offset, int wave_length);
 int verify_output_vectors(netlist_t *netlist, line_t **lines, int lines_size, int cycle);
-
-void free_blocks();
 
 #endif
 

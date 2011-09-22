@@ -22,9 +22,6 @@ OTHER DEALINGS IN THE SOFTWARE.
 */
 #include "simulate_blif.h"
 
-FILE *modelsim_out;
-queue_t *blocks;
-
 /* 
  * Simulates the netlist with the test_vector_file_name as input.
  * This simulates the input values in the test vector file, and
@@ -60,13 +57,10 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 
 	FILE *in;
 	FILE *out = NULL;
-
-	blocks = create_queue();
+	FILE *modelsim_out = NULL;
 
 	if (test_vector_file_name)
 	{
-		modelsim_out = NULL; 
-		
 		in = fopen(test_vector_file_name, "r");
 		if (!in) error_message(SIMULATION_ERROR, -1, -1, "Could not open vector input file: %s", test_vector_file_name);
 
@@ -137,7 +131,7 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 				for (i = 0; i < wave_length; i++)
 					assign_random_vector_to_input_lines(input_lines, input_lines_size, cycle_offset+i);
 
-				write_all_vectors_to_file(input_lines, input_lines_size, in, INPUT, wave, wave_length);
+				write_all_vectors_to_file(input_lines, input_lines_size, in, modelsim_out, INPUT, cycle_offset, wave_length);
 			}
 
 			printf("%6d/%d",wave+1,num_waves);
@@ -146,7 +140,6 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 			for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
 			{
 				simulate_cycle(netlist, cycle, &ordered_nodes, &num_ordered_nodes);
-				if (modelsim_out) fprintf(modelsim_out, "run %d\n", cycle*101);
 				printf("."); fflush(stdout);
 			}
 
@@ -168,7 +161,7 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 				if (!((wave+1) % (display_cols/wave_cols))) 
 					printf("\n");
 
-				write_all_vectors_to_file(output_lines, output_lines_size, out, OUTPUT, wave, wave_length);
+				write_all_vectors_to_file(output_lines, output_lines_size, out, modelsim_out, OUTPUT, cycle_offset, wave_length);
 			}
 		}
 		free(ordered_nodes);
@@ -184,7 +177,6 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 	}
 	free_lines(input_lines, input_lines_size);
 	fclose(in);
-	free_blocks();
 }
 
 /*
@@ -895,7 +887,6 @@ void compute_and_store_value(nnode_t *node, int cycle)
 
 				node->simulate_block_cycle = func_pointer;
 
-				blocks->add(blocks, handle);
 				free(filename);
 			}
 			
@@ -1545,13 +1536,14 @@ void assign_random_vector_to_input_lines(line_t **lines, int lines_size, int cyc
 /*
  * Writes a wave of vectors to the given file. 
  */ 
-void write_all_vectors_to_file(line_t **lines, int lines_size, FILE* file, int type, int wave, int wave_length)
+void write_all_vectors_to_file(line_t **lines, int lines_size, FILE* file, FILE *modelsim_out, int type, int cycle_offset, int wave_length)
 {
-	if (!wave) write_vector_headers(file, lines, lines_size);
+	if (!cycle_offset)
+		write_vector_headers(file, lines, lines_size);
 
 	int cycle;
-	for (cycle = 0; cycle < wave_length; cycle++)
-		write_vectors_to_file(lines, lines_size, file, type, cycle);
+	for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle++)
+		write_vectors_to_file(lines, lines_size, file, modelsim_out, type, cycle);
 }
 
 
@@ -1559,9 +1551,12 @@ void write_all_vectors_to_file(line_t **lines, int lines_size, FILE* file, int t
  * Writes all line values in lines[] such that line->type == type to the
  * file specified by the file parameter.
  */
-void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, int type, int cycle)
+void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *modelsim_out, int type, int cycle)
 {
 	int first = TRUE;
+
+	if (type == INPUT && modelsim_out)
+		fprintf(modelsim_out, "run %d\n", cycle*101);
 
 	int i; 
 	for (i = 0; i < lines_size; i++)
@@ -1837,18 +1832,3 @@ void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_wi
 	}
 	fclose(mif);
 }
-
-/*
- * Frees blocks. 
- */
-void free_blocks()
-{
-	while (!blocks->is_empty(blocks))
-	{
-		void *handle = blocks->remove(blocks);
-		dlclose(handle);
-	}
-
-	blocks->destroy(blocks); 
-}
-
