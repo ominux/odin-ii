@@ -389,25 +389,26 @@ struct nnode_t_t
 	char** bit_map; /*storing the bit map */
 	int bit_map_line_count;
 
-	// Flag used by the simulator to avoid double queueing.
-	int in_queue;
+	// For simulation
+	int in_queue; // Flag used by the simulator to avoid double queueing.
 };
 
 struct npin_t_t
 {
 	long unique_id;
-	ids type; // INPUT or OUTPUT
+	ids type;         // INPUT or OUTPUT
 	char *name;
 
-	nnet_t *net; // related net
+	nnet_t *net;      // related net
 	int pin_net_idx;
 
-	nnode_t *node; // related node
+	nnode_t *node;    // related node
 	int pin_node_idx; // pin on the node where we're located
-	char *mapping; // name of mapped port from hard block
+	char *mapping;    // name of mapped port from hard block
 
-	int  cycle;          // The last cycle the pin was computed for.
-	signed char values[SIM_WAVE_LENGTH]; // The values of all cycles including -1. (values[-1] is valid)
+	// For simulation
+	int  cycle;       // The last cycle the pin was computed for.
+	signed char values[SIM_WAVE_LENGTH]; // The values for the current wave.
 };
 
 struct nnet_t_t

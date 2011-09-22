@@ -68,7 +68,7 @@ void simulate_blif (char *test_vector_file_name, netlist_t *netlist);
 void simulate_new_vectors (int num_test_vectors, netlist_t *netlist);
 
 void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist_t *netlist);
-void simulate_cycle(netlist_t *netlist, int cycle, int num_test_vectors, nnode_t ***ordered_nodes, int *num_ordered_nodes);
+void simulate_cycle(netlist_t *netlist, int cycle, nnode_t ***ordered_nodes, int *num_ordered_nodes);
 
 nnode_t **get_children_of(nnode_t *node, int *count);
 
@@ -77,8 +77,9 @@ inline int is_node_complete(nnode_t* node, int cycle);
 int enqueue_node_if_ready(queue_t* queue, nnode_t* node, int cycle);
 
 void compute_and_store_value(nnode_t *node, int cycle);
-void update_pin_value(npin_t *pin, int value, int cycle);
-signed char get_pin_value(npin_t *pin, int cycle);
+inline void set_pin(npin_t *pin, int value, int cycle);
+inline void update_pin_value(npin_t *pin, int value, int cycle);
+inline signed char get_pin_value(npin_t *pin, int cycle);
 inline int get_values_offset(int cycle); 
 
 int *multiply_arrays(int *a, int a_length, int *b, int b_length);
