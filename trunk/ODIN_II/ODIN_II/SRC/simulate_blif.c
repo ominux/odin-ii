@@ -90,8 +90,8 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 	else
 	{
 		modelsim_out = fopen("test.do", "w");
-
 		if (!modelsim_out) error_message(SIMULATION_ERROR, -1, -1, "Could not open modelsim output file.");
+
 		fprintf(modelsim_out, "force clock 1 0, 0 50 -repeat 100\n");
 
 		out = fopen(OUTPUT_VECTOR_FILE_NAME, "w");
@@ -171,6 +171,8 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 
 	if (!test_vector_file_name)
 	{
+		fprintf(modelsim_out, "run %d\n", num_test_vectors*101);
+
 		fclose(out);
 		fclose(modelsim_out);		
 		free_lines(output_lines, output_lines_size);		
@@ -1554,9 +1556,6 @@ void write_all_vectors_to_file(line_t **lines, int lines_size, FILE* file, FILE 
 void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *modelsim_out, int type, int cycle)
 {
 	int first = TRUE;
-
-	if (type == INPUT && modelsim_out)
-		fprintf(modelsim_out, "run %d\n", cycle*101);
 
 	int i; 
 	for (i = 0; i < lines_size; i++)
