@@ -697,9 +697,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			for (i = 0; i < node->input_port_sizes[0]; i++)
 			{
 				if (get_pin_value(node->input_pins[i],cycle) < 0)
-				{
 					unknown = TRUE;
-				}
 
 				if (
 					   get_pin_value(node->input_pins[i],cycle) == 1 
@@ -725,139 +723,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		}
 		case MEMORY:
 		{
-			char *clock_name = "clk";
-
-			char *we_name = "we";
-			char *addr_name = "addr";
-			char *data_name = "data";
-
-			char *we_name1 = "we1";
-			char *addr_name1 = "addr1";
-			char *data_name1 = "data1";
-			char *we_name2 = "we2";
-			char *addr_name2 = "addr2";
-			char *data_name2 = "data2";
-			char *out_name1 = "out1";
-			char *out_name2 = "out2";
-
-			oassert(strcmp(node->related_ast_node->children[0]->types.identifier, SINGLE_PORT_MEMORY_NAME) == 0
-				|| strcmp(node->related_ast_node->children[0]->types.identifier, DUAL_PORT_MEMORY_NAME) == 0);
-			
-			if (strcmp(node->related_ast_node->children[0]->types.identifier, SINGLE_PORT_MEMORY_NAME) == 0)
-			{
-				int we = 0;
-				int clock = 0;
-				int data_width = 0;
-				int addr_width = 0;
-				npin_t **addr = NULL;
-				npin_t **data = NULL;
-				npin_t **out = NULL;
-
-				for (i = 0; i < node->num_input_pins; i++)
-				{
-					if (strcmp(node->input_pins[i]->mapping, we_name) == 0)
-					{
-						we = get_pin_value(node->input_pins[i],cycle);
-					}
-					else if (strcmp(node->input_pins[i]->mapping, addr_name) == 0)
-					{
-						if (!addr) addr = &node->input_pins[i];
-						addr_width++;
-					}
-					else if (strcmp(node->input_pins[i]->mapping, data_name) == 0)
-					{
-						if (!data) data = &node->input_pins[i];
-						data_width++;
-					}
-					else if (strcmp(node->input_pins[i]->mapping, clock_name) == 0)
-					{
-						clock = get_pin_value(node->input_pins[i],cycle);
-					}
-				}
-				out = node->output_pins;
-
-				if (node->type == MEMORY && !node->memory_data)
-				{
-					instantiate_memory(node, &(node->memory_data), data_width, addr_width);
-				}
-
-				compute_memory(data, out, data_width, addr, addr_width, we, clock, cycle, node->memory_data);
-			}
-			else
-			{
-				int clock = 0;
-
-				int we1 = 0;
-				int data_width1 = 0;
-				int addr_width1 = 0;
-				int we2 = 0;
-				int data_width2 = 0;
-				int addr_width2 = 0;
-				
-				npin_t **addr1 = NULL;
-				npin_t **data1 = NULL;
-				npin_t **out1 = NULL;
-				npin_t **addr2 = NULL;
-				npin_t **data2 = NULL;
-				npin_t **out2 = NULL;
-
-
-				for (i = 0; i < node->num_input_pins; i++)
-				{
-					if (strcmp(node->input_pins[i]->mapping, we_name1) == 0)
-					{
-						we1 = get_pin_value(node->input_pins[i],cycle);
-					}
-					else if (strcmp(node->input_pins[i]->mapping, we_name2) == 0)
-					{
-						we2 = get_pin_value(node->input_pins[i],cycle);
-					}
-					else if (strcmp(node->input_pins[i]->mapping, addr_name1) == 0)
-					{
-						if (!addr1) addr1 = &node->input_pins[i];
-						addr_width1++;
-					}
-					else if (strcmp(node->input_pins[i]->mapping, addr_name2) == 0)
-					{
-						if (!addr2) addr2 = &node->input_pins[i];
-						addr_width2++;
-					}
-					else if (strcmp(node->input_pins[i]->mapping, data_name1) == 0)
-					{
-						if (!data1) data1 = &node->input_pins[i];
-						data_width1++;
-					}
-					else if (strcmp(node->input_pins[i]->mapping, data_name2) == 0)
-					{
-						if (!data2) data2 = &node->input_pins[i];
-						data_width2++;
-					}
-					else if (strcmp(node->input_pins[i]->mapping, clock_name) == 0)
-					{
-						clock = get_pin_value(node->input_pins[i],cycle);
-					}
-				}
-
-				for (i = 0; i < node->num_output_pins; i++)
-				{
-					if (strcmp(node->output_pins[i]->mapping, out_name1) == 0)
-					{
-						if (!out1) out1 = &node->output_pins[i];
-					}
-					else if (strcmp(node->output_pins[i]->mapping, out_name2) == 0)
-					{
-						if (!out2) out2 = &node->output_pins[i];
-					}
-				}			 
-
-				if (!node->memory_data)
-				{
-					instantiate_memory(node, &(node->memory_data), data_width2, addr_width2);
-				}
-
-				compute_memory(data1, out1, data_width1, addr1, addr_width1, we1, clock, cycle, node->memory_data);
-				compute_memory(data2, out2, data_width2, addr2, addr_width2, we2, clock, cycle, node->memory_data);
-			}
+			compute_memory_node(node,cycle);
 			return;
 		}
 		case HARD_IP:
@@ -865,47 +731,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			oassert(node->input_port_sizes[0] > 0);
 			oassert(node->output_port_sizes[0] > 0);
 			
-			int *input_pins = malloc(sizeof(int)*node->num_input_pins);
-			int *output_pins = malloc(sizeof(int)*node->num_output_pins);
-			
-			if (!node->simulate_block_cycle)
-			{
-				char *filename = malloc(sizeof(char)*strlen(node->name));
-				
-				if (!index(node->name, '.')) error_message(SIMULATION_ERROR, -1, -1, "Couldn't extract the name of a shared library for hard-block simulation");
-								
-				snprintf(filename, sizeof(char)*strlen(node->name), "%s.so", index(node->name, '.')+1);
-				
-				void *handle = dlopen(filename, RTLD_LAZY);
-				
-				if (!handle) error_message(SIMULATION_ERROR, -1, -1, "Couldn't open a shared library for hard-block simulation: %s", dlerror());
-				
-				dlerror();
-
-				void (*func_pointer)(int, int, int*, int, int*) = (void(*)(int, int, int*, int, int*))dlsym(handle, "simulate_block_cycle");
-
-				char *error = dlerror();
-				if (error) error_message(SIMULATION_ERROR, -1, -1, "Couldn't load a shared library method for hard-block simulation: %s", error);				
-
-				node->simulate_block_cycle = func_pointer;
-
-				free(filename);
-			}
-			
-			for (i = 0; i < node->num_input_pins; i++)
-			{
-				input_pins[i] = get_pin_value(node->input_pins[i],cycle);
-			}
-			
-			(node->simulate_block_cycle)(cycle, node->num_input_pins, input_pins, node->num_output_pins, output_pins);
-						
-			for (i = 0; i < node->num_output_pins; i++)
-			{
-				update_pin_value(node->output_pins[i], output_pins[i], cycle);
-			}
-			
-			free(input_pins);
-			free(output_pins);
+			compute_hard_ip_node(node,cycle);
 			return;
 		}
 		case MULTIPLY:
@@ -913,72 +739,12 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			oassert(node->num_input_port_sizes >= 2);
 			oassert(node->num_output_port_sizes == 1);
 				
-			int *a = malloc(sizeof(int)*node->input_port_sizes[0]);
-			int *b = malloc(sizeof(int)*node->input_port_sizes[1]);
-
-			for (i = 0; i < node->input_port_sizes[0]; i++)
-			{
-				a[i] = get_pin_value(node->input_pins[i],cycle);	
-				if (a[i] < 0) unknown = TRUE;
-			}
-
-			for (i = 0; i < node->input_port_sizes[1]; i++)
-			{
-				b[i] = get_pin_value(node->input_pins[node->input_port_sizes[0] + i],cycle);
-				if (b[i] < 0) unknown = TRUE;
-			}
-
-			if (unknown)
-			{
-				for (i = 0; i < node->num_output_pins; i++)
-				{
-					update_pin_value(node->output_pins[i], -1, cycle);
-				}
-			}
-
-			int *result = multiply_arrays(a, node->input_port_sizes[0], b, node->input_port_sizes[1]);
-			
-			for (i = 0; i < node->num_output_pins; i++)
-			{
-				update_pin_value(node->output_pins[i], result[i], cycle);
-			}			
-			free(result);
-			free(a);
-			free(b);
+			compute_multiply_node(node,cycle);
 			return;
 		}
 		case GENERIC :
 		{
-			int line_count_bitmap = node->bit_map_line_count;
-			char **bit_map = node->bit_map;
-
-			int lut_size  = 0;
-			while (bit_map[0][lut_size] != 0)
-				lut_size++;
-
-			int found = 0;
-			for (i = 0; i < line_count_bitmap && (!found); i++)
-			{
-				int j;
-				for (j = 0; j < lut_size; j++)
-				{
-					if (get_pin_value(node->input_pins[j],cycle) < 0)
-					{
-						update_pin_value(node->output_pins[0], -1, cycle);
-						return;
-					}
-
-					if ((bit_map[i][j] != '-') && (bit_map[i][j]-'0' != get_pin_value(node->input_pins[j],cycle)))
-					{
-						break;
-					}
-				}
-
-				if (j == lut_size) found = TRUE;
-			}	
-					
-			if (found) update_pin_value(node->output_pins[0], 1, cycle);
-			else       update_pin_value(node->output_pins[0], 0, cycle);
+			compute_generic_node(node,cycle);
 			return;
 		}
 		case INPUT_NODE:  return; 
@@ -986,9 +752,8 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		case PAD_NODE:
 		{
 			for (i = 0; i < node->num_output_pins; i++)
-			{
 				update_pin_value(node->output_pins[i], 0, cycle);
-			}
+
 			return;
 		}
 		case CLOCK_NODE:  return;
@@ -1029,6 +794,250 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		}
 	}
 }
+
+void compute_memory_node(nnode_t *node, int cycle) {
+	char *clock_name = "clk";
+
+	char *we_name = "we";
+	char *addr_name = "addr";
+	char *data_name = "data";
+
+	char *we_name1 = "we1";
+	char *addr_name1 = "addr1";
+	char *data_name1 = "data1";
+	char *we_name2 = "we2";
+	char *addr_name2 = "addr2";
+	char *data_name2 = "data2";
+	char *out_name1 = "out1";
+	char *out_name2 = "out2";
+
+	oassert(strcmp(node->related_ast_node->children[0]->types.identifier, SINGLE_PORT_MEMORY_NAME) == 0
+		|| strcmp(node->related_ast_node->children[0]->types.identifier, DUAL_PORT_MEMORY_NAME) == 0);
+
+	if (strcmp(node->related_ast_node->children[0]->types.identifier, SINGLE_PORT_MEMORY_NAME) == 0)
+	{
+		int we = 0;
+		int clock = 0;
+		int data_width = 0;
+		int addr_width = 0;
+		npin_t **addr = NULL;
+		npin_t **data = NULL;
+		npin_t **out = NULL;
+
+		int i;
+		for (i = 0; i < node->num_input_pins; i++)
+		{
+			if (strcmp(node->input_pins[i]->mapping, we_name) == 0)
+			{
+				we = get_pin_value(node->input_pins[i],cycle);
+			}
+			else if (strcmp(node->input_pins[i]->mapping, addr_name) == 0)
+			{
+				if (!addr) addr = &node->input_pins[i];
+				addr_width++;
+			}
+			else if (strcmp(node->input_pins[i]->mapping, data_name) == 0)
+			{
+				if (!data) data = &node->input_pins[i];
+				data_width++;
+			}
+			else if (strcmp(node->input_pins[i]->mapping, clock_name) == 0)
+			{
+				clock = get_pin_value(node->input_pins[i],cycle);
+			}
+		}
+		out = node->output_pins;
+
+		if (node->type == MEMORY && !node->memory_data)
+			instantiate_memory(node, &(node->memory_data), data_width, addr_width);
+
+		compute_memory(data, out, data_width, addr, addr_width, we, clock, cycle, node->memory_data);
+	}
+	else
+	{
+		int clock = 0;
+
+		int we1 = 0;
+		int data_width1 = 0;
+		int addr_width1 = 0;
+		int we2 = 0;
+		int data_width2 = 0;
+		int addr_width2 = 0;
+
+		npin_t **addr1 = NULL;
+		npin_t **data1 = NULL;
+		npin_t **out1 = NULL;
+		npin_t **addr2 = NULL;
+		npin_t **data2 = NULL;
+		npin_t **out2 = NULL;
+
+		int i;
+		for (i = 0; i < node->num_input_pins; i++)
+		{
+			if (strcmp(node->input_pins[i]->mapping, we_name1) == 0)
+			{
+				we1 = get_pin_value(node->input_pins[i],cycle);
+			}
+			else if (strcmp(node->input_pins[i]->mapping, we_name2) == 0)
+			{
+				we2 = get_pin_value(node->input_pins[i],cycle);
+			}
+			else if (strcmp(node->input_pins[i]->mapping, addr_name1) == 0)
+			{
+				if (!addr1) addr1 = &node->input_pins[i];
+				addr_width1++;
+			}
+			else if (strcmp(node->input_pins[i]->mapping, addr_name2) == 0)
+			{
+				if (!addr2) addr2 = &node->input_pins[i];
+				addr_width2++;
+			}
+			else if (strcmp(node->input_pins[i]->mapping, data_name1) == 0)
+			{
+				if (!data1) data1 = &node->input_pins[i];
+				data_width1++;
+			}
+			else if (strcmp(node->input_pins[i]->mapping, data_name2) == 0)
+			{
+				if (!data2) data2 = &node->input_pins[i];
+				data_width2++;
+			}
+			else if (strcmp(node->input_pins[i]->mapping, clock_name) == 0)
+			{
+				clock = get_pin_value(node->input_pins[i],cycle);
+			}
+		}
+
+		for (i = 0; i < node->num_output_pins; i++)
+		{
+			if (strcmp(node->output_pins[i]->mapping, out_name1) == 0)
+			{
+				if (!out1) out1 = &node->output_pins[i];
+			}
+			else if (strcmp(node->output_pins[i]->mapping, out_name2) == 0)
+			{
+				if (!out2) out2 = &node->output_pins[i];
+			}
+		}
+
+		if (!node->memory_data)
+			instantiate_memory(node, &(node->memory_data), data_width2, addr_width2);
+
+		compute_memory(data1, out1, data_width1, addr1, addr_width1, we1, clock, cycle, node->memory_data);
+		compute_memory(data2, out2, data_width2, addr2, addr_width2, we2, clock, cycle, node->memory_data);
+	}
+}
+
+void compute_hard_ip_node(nnode_t *node, int cycle) {
+	int *input_pins = malloc(sizeof(int)*node->num_input_pins);
+	int *output_pins = malloc(sizeof(int)*node->num_output_pins);
+
+	if (!node->simulate_block_cycle)
+	{
+		char *filename = malloc(sizeof(char)*strlen(node->name));
+
+		if (!index(node->name, '.')) error_message(SIMULATION_ERROR, -1, -1, "Couldn't extract the name of a shared library for hard-block simulation");
+
+		snprintf(filename, sizeof(char)*strlen(node->name), "%s.so", index(node->name, '.')+1);
+
+		void *handle = dlopen(filename, RTLD_LAZY);
+
+		if (!handle) error_message(SIMULATION_ERROR, -1, -1, "Couldn't open a shared library for hard-block simulation: %s", dlerror());
+
+		dlerror();
+
+		void (*func_pointer)(int, int, int*, int, int*) = (void(*)(int, int, int*, int, int*))dlsym(handle, "simulate_block_cycle");
+
+		char *error = dlerror();
+		if (error) error_message(SIMULATION_ERROR, -1, -1, "Couldn't load a shared library method for hard-block simulation: %s", error);
+
+		node->simulate_block_cycle = func_pointer;
+
+		free(filename);
+	}
+
+	int i;
+	for (i = 0; i < node->num_input_pins; i++)
+		input_pins[i] = get_pin_value(node->input_pins[i],cycle);
+
+	(node->simulate_block_cycle)(cycle, node->num_input_pins, input_pins, node->num_output_pins, output_pins);
+
+	for (i = 0; i < node->num_output_pins; i++)
+		update_pin_value(node->output_pins[i], output_pins[i], cycle);
+
+	free(input_pins);
+	free(output_pins);
+}
+
+
+void compute_multiply_node(nnode_t *node, int cycle) {
+	int *a = malloc(sizeof(int)*node->input_port_sizes[0]);
+	int *b = malloc(sizeof(int)*node->input_port_sizes[1]);
+
+	int i;
+	int unknown = FALSE;
+
+	for (i = 0; i < node->input_port_sizes[0]; i++)
+	{
+		a[i] = get_pin_value(node->input_pins[i],cycle);
+		if (a[i] < 0) unknown = TRUE;
+	}
+
+	for (i = 0; i < node->input_port_sizes[1]; i++)
+	{
+		b[i] = get_pin_value(node->input_pins[node->input_port_sizes[0] + i],cycle);
+		if (b[i] < 0) unknown = TRUE;
+	}
+
+	if (unknown)
+	{
+		for (i = 0; i < node->num_output_pins; i++)
+			update_pin_value(node->output_pins[i], -1, cycle);
+	}
+
+	int *result = multiply_arrays(a, node->input_port_sizes[0], b, node->input_port_sizes[1]);
+
+	for (i = 0; i < node->num_output_pins; i++)
+		update_pin_value(node->output_pins[i], result[i], cycle);
+
+	free(result);
+	free(a);
+	free(b);
+}
+
+
+void compute_generic_node(nnode_t *node, int cycle) {
+	int line_count_bitmap = node->bit_map_line_count;
+	char **bit_map = node->bit_map;
+
+	int lut_size  = 0;
+	while (bit_map[0][lut_size] != 0)
+		lut_size++;
+
+	int found = 0;
+	int i;
+	for (i = 0; i < line_count_bitmap && (!found); i++)
+	{
+		int j;
+		for (j = 0; j < lut_size; j++)
+		{
+			if (get_pin_value(node->input_pins[j],cycle) < 0)
+			{
+				update_pin_value(node->output_pins[0], -1, cycle);
+				return;
+			}
+
+			if ((bit_map[i][j] != '-') && (bit_map[i][j]-'0' != get_pin_value(node->input_pins[j],cycle)))
+				break;
+		}
+
+		if (j == lut_size) found = TRUE;
+	}
+
+	if (found) update_pin_value(node->output_pins[0], 1, cycle);
+	else       update_pin_value(node->output_pins[0], 0, cycle);
+}
+
 
 /*
  * Given a line_t* reference and a string token, this will update the
@@ -1114,10 +1123,8 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 	{
 		int found = FALSE;		
 		int j;
-		for (j = 0; j < lines_size; j++)
-		{
-			if (strcmp(lines[j]->name, port_name) == 0)
-			{
+		for (j = 0; j < lines_size; j++) {
+			if (!strcmp(lines[j]->name, port_name)) {
 				found = TRUE;
 				break;
 			}
@@ -1156,10 +1163,8 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 
 		int found = FALSE;
 		int j;
-		for (j = 0; j < lines_size; j++)
-		{
-			if (!strcmp(lines[j]->name, port_name))
-			{
+		for (j = 0; j < lines_size; j++) {
+			if (!strcmp(lines[j]->name, port_name)) {
 				found = TRUE;
 				break;
 			}
@@ -1240,12 +1245,10 @@ line_t **create_input_test_vector_lines(int *lines_size, netlist_t *netlist)
 			{
 				int found = FALSE;
 				int j; 
-				for (j = 0; j < current_line && !found; j++)
-				{
-					if (strcmp(lines[j]->name, port_name) == 0)
-					{
+				for (j = 0; j < current_line; j++) {
+					if (!strcmp(lines[j]->name, port_name)) {
 						found = TRUE;
-						break; 
+						break;
 					}
 				}
 
@@ -1313,12 +1316,10 @@ line_t **create_output_test_vector_lines(int *lines_size, netlist_t *netlist)
 			int found = FALSE;
 
 			int j; 
-			for (j = 0; j < current_line && !found; j++)
-			{
-				if (strcmp(lines[j]->name, port_name) == 0)
-				{
+			for (j = 0; j < current_line; j++) {
+				if (!strcmp(lines[j]->name, port_name)) {
 					found = TRUE;
-					break; 
+					break;
 				}
 			}
 
@@ -1364,7 +1365,6 @@ line_t **create_output_test_vector_lines(int *lines_size, netlist_t *netlist)
 void write_vector_headers(FILE *file, line_t **lines, int lines_size)
 {
 	int first = TRUE;
-
 	int i;
 	for (i = 0; i < lines_size; i++)
 	{
@@ -1621,7 +1621,6 @@ void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *mod
 					for (j = lines[i]->number_of_pins - 1; j >= 0; j--)
 					{
 						npin_t *pin;
-
 						if (type == INPUT) pin = lines[i]->pins[j];
 						else               pin = lines[i]->pins[j]->node->input_pins[lines[i]->pins[j]->pin_node_idx];
 
@@ -1715,7 +1714,8 @@ int *multiply_arrays(int *a, int a_length, int *b, int b_length)
 	}
 	for (i = 0; i < result_size; i++)
 	{
-		while (result[i] > 1) {
+		while (result[i] > 1)
+		{
 			result[i] -= 2;
 			result[i+1]++;
 		}
@@ -1747,7 +1747,6 @@ void compute_memory(
 	else
 	{
 		int address = 0;
-
 		int i;
 		for (i = 0; i < addr_width; i++) 
 			address += 1 << (addr_width - 1 - i); 
