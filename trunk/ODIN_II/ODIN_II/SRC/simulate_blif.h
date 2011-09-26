@@ -77,6 +77,12 @@ inline int is_node_complete(nnode_t* node, int cycle);
 int enqueue_node_if_ready(queue_t* queue, nnode_t* node, int cycle);
 
 void compute_and_store_value(nnode_t *node, int cycle);
+void compute_memory_node(nnode_t *node, int cycle);
+void compute_hard_ip_node(nnode_t *node, int cycle);
+void compute_multiply_node(nnode_t *node, int cycle);
+void compute_generic_node(nnode_t *node, int cycle);
+
+
 inline void set_pin(npin_t *pin, int value, int cycle);
 inline void update_pin_value(npin_t *pin, int value, int cycle);
 inline signed char get_pin_value(npin_t *pin, int cycle);
