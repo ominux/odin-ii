@@ -12,9 +12,11 @@ SRC_DIR = SRC
 EXEO = odin_II.exe
 EXEV= verify_blif.exe
 
-DEBUG_FLAGS = -g
+DEBUG_FLAGS = -g 
 
-OPT_FLAGS = 
+OPT_FLAGS =
+# Use this value of OPT_FLAGS to simulate in parallel (requires GCC >= 4.2)
+#OPT_FLAGS = -fopenmp
 
 ifeq "$(BUILD)" "VPR5"
 	INC_FLAGS =  -I../libvpr_5/include
@@ -42,6 +44,7 @@ OBJ/string_cache.o \
 OBJ/hard_blocks.o \
 OBJ/memories.o \
 OBJ/queue.o \
+OBJ/hashtable.o \
 OBJ/simulate_blif.o\
 OBJ/print_netlist.o 
 
@@ -80,6 +83,7 @@ SRC/string_cache.c \
 SRC/hard_blocks.c \
 SRC/memories.c \
 SRC/queue.c \
+SRC/hashtable.c \
 SRC/simulate_blif.c \
 SRC/print_netlist.c
 
@@ -132,6 +136,7 @@ SRC/hard_blocks.h \
 SRC/memories.h \
 SRC/verilog_preprocessor.h \
 SRC/queue.h \
+SRC/hashtable.h \
 SRC/simulate_blif.h \
 SRC/globals.h \
 SRC/print_netlist.h

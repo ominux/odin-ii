@@ -31,6 +31,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include <sys/time.h>
 
 #include "queue.h"
+#include "hashtable.h"
 #include "sim_block.h"
 #include "types.h"
 #include "globals.h"
@@ -64,11 +65,20 @@ line_t {
 	int type;
 };
 
+typedef struct {
+	nnode_t ***stages; // Stages.
+	int       *counts; // Number of nodes in each stage.
+	int 	   count;  // Number of stages.
+} stages;
+
 void simulate_blif (char *test_vector_file_name, netlist_t *netlist);
 void simulate_new_vectors (int num_test_vectors, netlist_t *netlist);
 
 void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist_t *netlist);
-void simulate_cycle(netlist_t *netlist, int cycle, nnode_t ***ordered_nodes, int *num_ordered_nodes);
+void simulate_cycle(netlist_t *netlist, int cycle, stages **s);
+
+stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes);
+void free_stages(stages *s);
 
 nnode_t **get_children_of(nnode_t *node, int *count);
 
@@ -81,7 +91,6 @@ void compute_memory_node(nnode_t *node, int cycle);
 void compute_hard_ip_node(nnode_t *node, int cycle);
 void compute_multiply_node(nnode_t *node, int cycle);
 void compute_generic_node(nnode_t *node, int cycle);
-
 
 inline void set_pin(npin_t *pin, int value, int cycle);
 inline void update_pin_value(npin_t *pin, int value, int cycle);
