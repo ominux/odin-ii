@@ -22,6 +22,12 @@ OTHER DEALINGS IN THE SOFTWARE.
 */
 #include "simulate_blif.h"
 
+double wall_time() {
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return (1000000*tv.tv_sec+tv.tv_usec)/1.0e6;
+}
+
 /* 
  * Simulates the netlist with the test_vector_file_name as input.
  * This simulates the input values in the test vector file, and
@@ -107,12 +113,13 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 		if (!lines_ok) error_message(SIMULATION_ERROR, -1, -1, "Lines could not be assigned.");
 	}
 	
+	double simulation_time = 0;
+
 	if (num_test_vectors)
 	{
-		nnode_t **ordered_nodes = 0;
-		int   num_ordered_nodes = 0;
-		int   num_waves         = ceil(num_test_vectors / (double)SIM_WAVE_LENGTH);		
-		int wave;
+		stages *stages = 0;
+		int  num_waves = ceil(num_test_vectors / (double)SIM_WAVE_LENGTH);
+		int  wave;
 		for (wave = 0; wave < num_waves; wave++)
 		{
 			int cycle_offset = SIM_WAVE_LENGTH * wave;
@@ -135,13 +142,14 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 			}
 
 			printf("%6d/%d",wave+1,num_waves);
-			
+
+			double time = wall_time();
+
 			int cycle;
 			for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
-			{
-				simulate_cycle(netlist, cycle, &ordered_nodes, &num_ordered_nodes);
-				printf("."); fflush(stdout);
-			}
+				simulate_cycle(netlist, cycle, &stages);
+
+			simulation_time += wall_time() - time;
 
 			if (test_vector_file_name)
 			{
@@ -164,10 +172,10 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 				write_all_vectors_to_file(output_lines, output_lines_size, out, modelsim_out, OUTPUT, cycle_offset, wave_length);
 			}
 		}
-		free(ordered_nodes);
-		ordered_nodes = 0;
-		num_ordered_nodes = 0;
+		free_stages(stages);
 	}
+
+	printf("\n\nSimulation time: %fs\n", simulation_time);
 
 	if (!test_vector_file_name)
 	{
@@ -184,14 +192,33 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 /*
  * This simulates a single cycle. 
  */
-void simulate_cycle(netlist_t *netlist, int cycle, nnode_t ***ordered_nodes, int *num_ordered_nodes)
+void simulate_cycle(netlist_t *netlist, int cycle, stages **s)
 {
 	if (cycle)
 	{
 		int i; 				
-		for(i = 0; i < *num_ordered_nodes; i++)
-			compute_and_store_value((*ordered_nodes)[i], cycle);
+		for(i = 0; i < (*s)->count; i++)
+		{
+			int j;
+			#ifdef _OPENMP
+			if ((*s)->counts[i] < 150)
+			#endif
+			{
+				for (j = 0; j < (*s)->counts[i]; j++)
+					compute_and_store_value((*s)->stages[i][j], cycle);
 
+			}
+			#ifdef _OPENMP
+			else
+			{
+				#pragma omp parallel for
+				for (j = 0; j < (*s)->counts[i]; j++)
+					compute_and_store_value((*s)->stages[i][j], cycle);
+			}
+			#endif
+		}
+
+		printf("."); fflush(stdout);
 	}
 	else
 	{
@@ -204,6 +231,9 @@ void simulate_cycle(netlist_t *netlist, int cycle, nnode_t ***ordered_nodes, int
 		int num_constant_nodes = 3;
 		for (i = 0; i < num_constant_nodes; i++)
 			enqueue_node_if_ready(queue,constant_nodes[i],cycle);
+
+		nnode_t **ordered_nodes = 0;
+		int   num_ordered_nodes = 0;
 		
 		nnode_t *node;
 		while ((node = queue->remove(queue)))
@@ -230,11 +260,88 @@ void simulate_cycle(netlist_t *netlist, int cycle, nnode_t ***ordered_nodes, int
 			node->in_queue = FALSE;
 
 			// Add the node to the ordered nodes array.
-			*ordered_nodes = realloc(*ordered_nodes, sizeof(nnode_t *) * ((*num_ordered_nodes) + 1));
-			(*ordered_nodes)[(*num_ordered_nodes)++] = node;
+			ordered_nodes = realloc(ordered_nodes, sizeof(nnode_t *) * (num_ordered_nodes + 1));
+			ordered_nodes[num_ordered_nodes++] = node;
 		}
 		queue->destroy(queue);
+
+		(*s) = stage_ordered_nodes(ordered_nodes, num_ordered_nodes);
+		free(ordered_nodes);
+
+		printf("*"); fflush(stdout);
 	}	
+}
+
+/*
+ * Puts the ordered nodes in stages which can be computed in parallel.
+ */
+stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
+	stages *s = malloc(sizeof(s));
+	s->stages = calloc(1,sizeof(nnode_t**));
+	s->counts = calloc(1,sizeof(int));
+	s->count  = 1;
+
+	const int index_table_size = (num_ordered_nodes/100)+10;
+
+	hashtable_t *stage_children = create_hashtable(index_table_size);
+	hashtable_t *stage_nodes    = create_hashtable(index_table_size);
+
+	int i;
+	for (i = 0; i < num_ordered_nodes; i++)
+	{
+		nnode_t* node = ordered_nodes[i];
+		int stage = s->count-1;
+
+		int num_children;
+		nnode_t **children = get_children_of(node, &num_children);
+
+		int is_child_of_stage = stage_children->get(stage_children, node, sizeof(nnode_t*))?1:0;
+		int is_stage_child_of = FALSE;
+		int j;
+		if (!is_child_of_stage)
+			for (j = 0; j < num_children; j++)
+				if ((is_stage_child_of = stage_nodes->get(stage_nodes, children[j], sizeof(nnode_t*))?1:0))
+					break;
+
+		// Start a new stage if this node is related to any node in the current stage.
+		if (is_child_of_stage || is_stage_child_of)
+		{
+			s->stages = realloc(s->stages, sizeof(nnode_t**) * (s->count+1));
+			s->counts = realloc(s->counts, sizeof(int)       * (s->count+1));
+			stage = s->count++;
+			s->stages[stage] = 0;
+			s->counts[stage] = 0;
+
+			stage_children->destroy(stage_children);
+			stage_nodes   ->destroy(stage_nodes);
+
+			stage_children = create_hashtable(index_table_size);
+			stage_nodes    = create_hashtable(index_table_size);
+		}
+
+		s->stages[stage] = realloc(s->stages[stage],sizeof(nnode_t*) * (s->counts[stage]+1));
+		s->stages[stage][s->counts[stage]++] = node;
+
+		stage_nodes->add(stage_nodes, node, sizeof(nnode_t*), node);
+
+		for (j = 0; j < num_children; j++)
+			stage_children->add(stage_children, children[j], sizeof(nnode_t*), children[j]);
+
+		free(children);
+	}
+	stage_children->destroy(stage_children);
+	stage_nodes   ->destroy(stage_nodes);
+
+	return s;
+}
+
+void free_stages(stages *s)
+{
+	while (s->count--)
+		free(s->stages[s->count]);
+
+	free(s->counts);
+	free(s);
 }
 
 /*
@@ -261,11 +368,9 @@ inline int is_node_complete(nnode_t* node, int cycle)
 {
 	int i;
 	for (i = 0; i < node->num_output_pins; i++)
-	{
 		if (node->output_pins[i] && node->output_pins[i]->cycle < cycle)
 			return FALSE;			
 
-	}
 	return TRUE;
 }
 
@@ -274,14 +379,14 @@ inline int is_node_complete(nnode_t* node, int cycle)
  */
 inline int is_node_ready(nnode_t* node, int cycle)
 {
-	if (node->type == FF_NODE) cycle--;
+	if (node->type == FF_NODE)
+		cycle--;
 
 	int i;
 	for (i = 0; i < node->num_input_pins; i++)
-	{
 		if (node->input_pins[i]->cycle < cycle)
 			return FALSE;
-	}
+
 	return TRUE;
 }
 
@@ -290,7 +395,8 @@ inline int is_node_ready(nnode_t* node, int cycle)
  */ 
 nnode_t **get_children_of(nnode_t *node, int *num_children)
 {
-	queue_t *queue = create_queue(); 	
+	nnode_t **children = 0;
+	int count = 0;
 	int i; 
 	for (i = 0; i < node->num_output_pins; i++)
 	{
@@ -302,20 +408,20 @@ nnode_t **get_children_of(nnode_t *node, int *num_children)
 			{
 				npin_t *fanout_pin = net->fanout_pins[j];
 				if (fanout_pin && fanout_pin->type == INPUT && fanout_pin->node)
-					queue->add(queue,fanout_pin->node);
+				{
+					children = realloc(children, sizeof(nnode_t*) * (count + 1));
+					children[count++] = fanout_pin->node;
+				}
 			}
 		}
 	}
-
-	*num_children = queue->count; 
-	nnode_t **children = (nnode_t **)queue->remove_all(queue); 
-	queue->destroy(queue); 
+	*num_children = count;
 	return children; 
 }
 
 /*
  * Sets the pin to the given value for the given cycle. Does not
- * propogate the value to the connected net. 
+ * propagate the value to the connected net.
  * 
  * CAUTION: Use update_pin_value to update pins. This function will not update
  *          the connected net. 
@@ -795,7 +901,8 @@ void compute_and_store_value(nnode_t *node, int cycle)
 	}
 }
 
-void compute_memory_node(nnode_t *node, int cycle) {
+void compute_memory_node(nnode_t *node, int cycle)
+{
 	char *clock_name = "clk";
 
 	char *we_name = "we";
@@ -928,7 +1035,8 @@ void compute_memory_node(nnode_t *node, int cycle) {
 	}
 }
 
-void compute_hard_ip_node(nnode_t *node, int cycle) {
+void compute_hard_ip_node(nnode_t *node, int cycle)
+{
 	int *input_pins = malloc(sizeof(int)*node->num_input_pins);
 	int *output_pins = malloc(sizeof(int)*node->num_output_pins);
 
@@ -970,7 +1078,8 @@ void compute_hard_ip_node(nnode_t *node, int cycle) {
 }
 
 
-void compute_multiply_node(nnode_t *node, int cycle) {
+void compute_multiply_node(nnode_t *node, int cycle)
+{
 	int *a = malloc(sizeof(int)*node->input_port_sizes[0]);
 	int *b = malloc(sizeof(int)*node->input_port_sizes[1]);
 
@@ -1006,7 +1115,8 @@ void compute_multiply_node(nnode_t *node, int cycle) {
 }
 
 
-void compute_generic_node(nnode_t *node, int cycle) {
+void compute_generic_node(nnode_t *node, int cycle)
+{
 	int line_count_bitmap = node->bit_map_line_count;
 	char **bit_map = node->bit_map;
 
@@ -1124,7 +1234,8 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 		int found = FALSE;		
 		int j;
 		for (j = 0; j < lines_size; j++) {
-			if (!strcmp(lines[j]->name, port_name)) {
+			if (!strcmp(lines[j]->name, port_name))
+			{
 				found = TRUE;
 				break;
 			}
@@ -1163,8 +1274,10 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 
 		int found = FALSE;
 		int j;
-		for (j = 0; j < lines_size; j++) {
-			if (!strcmp(lines[j]->name, port_name)) {
+		for (j = 0; j < lines_size; j++)
+		{
+			if (!strcmp(lines[j]->name, port_name))
+			{
 				found = TRUE;
 				break;
 			}
@@ -1245,8 +1358,10 @@ line_t **create_input_test_vector_lines(int *lines_size, netlist_t *netlist)
 			{
 				int found = FALSE;
 				int j; 
-				for (j = 0; j < current_line; j++) {
-					if (!strcmp(lines[j]->name, port_name)) {
+				for (j = 0; j < current_line; j++)
+				{
+					if (!strcmp(lines[j]->name, port_name))
+					{
 						found = TRUE;
 						break;
 					}
@@ -1316,8 +1431,10 @@ line_t **create_output_test_vector_lines(int *lines_size, netlist_t *netlist)
 			int found = FALSE;
 
 			int j; 
-			for (j = 0; j < current_line; j++) {
-				if (!strcmp(lines[j]->name, port_name)) {
+			for (j = 0; j < current_line; j++)
+			{
+				if (!strcmp(lines[j]->name, port_name))
+				{
 					found = TRUE;
 					break;
 				}
