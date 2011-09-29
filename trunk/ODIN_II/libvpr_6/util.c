@@ -794,9 +794,14 @@ my_irand(int imax)
 #ifdef CHECK_RAND
     if((ival < 0) || (ival > imax))
 	{
-	    printf("Bad value in my_irand, imax = %d  ival = %d\n", imax,
-		   ival);
-	    exit(1);
+		if(ival == imax + 1) {
+			/* Due to random floating point rounding, sometimes above calculation gives number greater than ival by 1 */
+			ival = imax;
+		} else {
+			printf("Bad value in my_irand, imax = %d  ival = %d\n", imax,
+			   ival);
+			exit(1);
+		}
 	}
 #endif
 
