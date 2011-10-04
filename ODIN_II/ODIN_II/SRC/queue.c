@@ -26,12 +26,14 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "queue.h"
 #include "types.h"
 
-/*
- * Creates a queue_t struct and instantiates tail. The struct
- * behaves like a linked list, enqueuing at the head and dequeuing
- * at the tail.
- */
-queue_t* create_queue() {
+void   ___queue_add(queue_t *q, void *item);
+void  *___queue_remove(queue_t *q);
+void **___queue_remove_all(queue_t *q);
+int    ___queue_is_empty (queue_t *q);
+void   ___queue_destroy(queue_t *q);
+
+queue_t* create_queue()
+{
 	queue_t *q = (queue_t *)malloc(sizeof(queue_t));
 
 	q->head = NULL;
@@ -47,46 +49,43 @@ queue_t* create_queue() {
 	return q;
 }
 
-/*
- * frees any memory used by the queue, including at nodes left
- * in the queue. It DOES NOT free memory of the things encapsulated
- * in the queue.
- */
-void ___queue_destroy(queue_t *q) {
+void ___queue_destroy(queue_t *q)
+{
 	while (q->remove(q)); 
 	free(q);
 }
 
-/*
- * Enqueues an item onto the queue
- */
-void ___queue_add(queue_t *q, void *item) {
+void ___queue_add(queue_t *q, void *item)
+{
 	queue_node_t *node = (queue_node_t *)malloc(sizeof(queue_node_t));
 
 	node->next = NULL;
 	node->item = item;
 
-	if (q->tail) q->tail->next = node;
+	if (q->tail)
+		q->tail->next = node;
+
 	q->tail = node;
 
-	if (!q->head) q->head = node;
+	if (!q->head)
+		q->head = node;
 
 	q->count++;
 }
 
-/*
- * dequeues an item from the queue
- */
-void* ___queue_remove(queue_t *q) {
+void* ___queue_remove(queue_t *q)
+{
 	void *item = NULL; 
-	if (!q->is_empty(q)) {
+	if (!q->is_empty(q))
+	{
 		queue_node_t *node = q->head;
 		item = node->item;
 		q->head = node->next;
 		free(node);
 		q->count--;	
 
-		if (!q->count) {
+		if (!q->count)
+		{
 			q->head = NULL; 
 			q->tail = NULL; 
 		}
@@ -94,25 +93,21 @@ void* ___queue_remove(queue_t *q) {
 	return item;
 }
 
-/* 
- * Dequeues all items in the queue and returns them as an array. 
- */ 
-void **___queue_remove_all(queue_t *q) {
+void **___queue_remove_all(queue_t *q)
+{
 	void **items = NULL; 
-	if (!q->is_empty(q)) {
+	if (!q->is_empty(q))
+	{
 		items = malloc(q->count * sizeof(void *)); 
 		int count = 0; 
-		void *item; 
-		while ((item = q->remove(q))) { 
+		void *item;
+		while ((item = q->remove(q)))
 			items[count++] = item; 
-		}
 	}
 	return items; 
 }
 
-/*
- * returns true iff the queue has no remaining items to be dequeued.
- */
-int ___queue_is_empty (queue_t *q) {
+int ___queue_is_empty (queue_t *q)
+{
 	return !q->head;
 }

@@ -28,28 +28,28 @@ OTHER DEALINGS IN THE SOFTWARE.
 // Constructor 
 queue_t* create_queue();
 
-struct queue_t_t {
+struct queue_t_t
+{
 	queue_node_t *head;
 	queue_node_t *tail;
 	int count;
 
-	void   (*add)        (queue_t *q, void *item); 
-	void  *(*remove)     (queue_t *q); 
-	void **(*remove_all) (queue_t *q); 
-	int    (*is_empty)   (queue_t *q); 
-	void   (*destroy)    (queue_t *q); 	
+	// Adds an item to the queue.
+	void   (*add)        (queue_t *q, void *item);
+	// Removes an item from the queue.
+	void  *(*remove)     (queue_t *q);
+	// Removes an array of all items from the queue.
+	void **(*remove_all) (queue_t *q);
+	// Checks to see if the queue is empty.
+	int    (*is_empty)   (queue_t *q);
+	// Destroys the queue, but does not free the items added to it.
+	void   (*destroy)    (queue_t *q);
 };
 
-struct queue_node_t_t {
+struct queue_node_t_t
+{
 	queue_node_t *next;
 	void *item;
 };
-
-// Private
-void   ___queue_add(queue_t *q, void *item);
-void  *___queue_remove(queue_t *q);
-void **___queue_remove_all(queue_t *q);
-int    ___queue_is_empty (queue_t *q);
-void   ___queue_destroy(queue_t *q);
 
 #endif

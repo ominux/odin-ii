@@ -30,22 +30,30 @@ OTHER DEALINGS IN THE SOFTWARE.
 // Constructor 
 hashtable_t* create_hashtable(int store_size);
 
-struct hashtable_t_t {
+struct hashtable_t_t
+{
 	int count;
 	int store_size;
 	hashtable_node_t **store;	
 
-	// Methods 
+	// Adds an item to the hashtable.
 	void   (*add)                (hashtable_t *h, void *key, size_t key_length, void *item);
+	// Removes an item from the hashtable. If the item is not present, a null pointer is returned.
 	void*  (*remove)             (hashtable_t *h, void *key, size_t key_length);
+	// Gets an item from the hashtable without removing it. If the item is not present, a null pointer is returned.
 	void*  (*get)                (hashtable_t *h, void *key, size_t key_length);
+	// Gets an array of all items in the hastable.
 	void** (*get_all)            (hashtable_t *h);
+	// Check to see if the hashtable is empty.
 	int    (*is_empty)           (hashtable_t *h);
+	// Destroys the hashtable but does not free the memory used by the items added or the keys.
 	void   (*destroy)            (hashtable_t *h);
+	// Destroys the hashtable and calls free on each item.
 	void   (*destroy_free_items) (hashtable_t *h);
 };
 
-struct hashtable_node_t_t {
+struct hashtable_node_t_t
+{
 	size_t key_length;  
 	void *key;	
 	void *item;
