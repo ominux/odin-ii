@@ -24,7 +24,7 @@ typedef int boolean;
 extern int linenum;	/* line in file being parsed */
 
 
-#define BUFSIZE 3000	/* Maximum line length for various parsing proc. */
+#define BUFSIZE 8192	/* Maximum line length for various parsing proc. */
 #ifndef max
 #define max(a,b) (((a) > (b))? (a) : (b))
 #define min(a,b) ((a) > (b)? (b) : (a))
