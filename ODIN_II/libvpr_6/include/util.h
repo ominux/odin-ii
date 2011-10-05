@@ -24,7 +24,7 @@ typedef int boolean;
 extern int linenum;	/* line in file being parsed */
 
 
-#define BUFSIZE 8192	/* Maximum line length for various parsing proc. */
+#define BUFSIZE 65536 // Increased for MCML.blif	/* Maximum line length for various parsing proc. */
 #ifndef max
 #define max(a,b) (((a) > (b))? (a) : (b))
 #define min(a,b) ((a) > (b)? (b) : (a))

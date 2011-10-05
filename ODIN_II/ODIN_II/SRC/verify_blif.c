@@ -63,54 +63,56 @@ void get_options(int argc, char **argv);
 
 int main(int argc,char **argv)
 {
-    int num_types; // not sure what value does this store
-    printf("----------------------------------------------------------------------\n");
-    printf("Reading the verify_blif for verification\n");
+	int num_types; // not sure what value does this store
+	printf("----------------------------------------------------------------------\n");
+	printf("Reading the verify_blif for verification\n");
 
-    // reading the command line flags
-    get_options(argc,argv);
+	// reading the command line flags
+	get_options(argc,argv);
 
-    /* read the configuration file (unavailable) */
-    if (global_args_read_blif.config_file != NULL)
+	/* read the configuration file (unavailable) */
+	if (global_args_read_blif.config_file != NULL)
 	{
 		printf("Reading Configuration file\n");
 		printf("Config read function not included yet\n");
 	}
-    
-    /* read the architecture file */
-    if (global_args_read_blif.arch_file != NULL)
-    {
-       printf("Reading FPGA Architecture file\n");
-#ifdef VPR5
-       t_clocks ClockDetails = { 0 };
-       t_power PowerDetails = { 0 };
-       XmlReadArch(global_args_read_blif.arch_file, FALSE, &Arch, &type_descriptors, &num_types, &ClockDetails, &PowerDetails);
-#endif
-#ifdef VPR6
-       XmlReadArch(global_args_read_blif.arch_file, FALSE, &Arch, &type_descriptors, &num_types);
-#endif
-    }
 
-printf("--------------------------------------------------------------------------\n");
-printf("Reading the read_blif and Extracting the netlist\n");
-    //lut_size = type_descriptors[2].max_subblock_inputs; /* VPR6 does not support
-   read_blif(global_args_read_blif.blif_file);
+	/* read the architecture file */
+	if (global_args_read_blif.arch_file != NULL)
+	{
+		printf("Reading FPGA Architecture file\n");
+		#ifdef VPR5
+		t_clocks ClockDetails = { 0 };
+		t_power PowerDetails = { 0 };
+		XmlReadArch(global_args_read_blif.arch_file, FALSE, &Arch, &type_descriptors, &num_types, &ClockDetails, &PowerDetails);
+		#endif
+		#ifdef VPR6
+		XmlReadArch(global_args_read_blif.arch_file, FALSE, &Arch, &type_descriptors, &num_types);
+		#endif
+	}
 
-printf("Printing the netlist as a graph\n");
-    char path[]=".";
-    char name[]="net_blif1";
-    graphVizOutputNetlist(path,name,1, blif_netlist);
-    /* prints the netlist as net_blif.dot */	
+	printf("--------------------------------------------------------------------------\n");
+	printf("Reading the read_blif and Extracting the netlist\n");
+	//lut_size = type_descriptors[2].max_subblock_inputs; /* VPR6 does not support
+	read_blif(global_args_read_blif.blif_file);
 
-printf("Extraction of netlist Completed\n");    
-    // Call the function to due simulation of the extracted netlist
-    do_simulation_of_netlist();
+	// Removing graph printing due to high memory requirement.
+	/*printf("Printing the netlist as a graph\n");
+	char path[]=".";
+	char name[]="net_blif1";
+	graphVizOutputNetlist(path,name,1, blif_netlist);
+	/* prints the netlist as net_blif.dot * /
+	*/
 
-#ifdef print_netlist    
+	printf("Extraction of netlist Completed\n");
+	// Call the function to due simulation of the extracted netlist
+	do_simulation_of_netlist();
+
+	#ifdef print_netlist
 	print_netlist_for_checking(blif_netlist,"blif_netlist");
-#endif
+	#endif
 
-return 0;
+	return 0;
 }
  
 
@@ -215,7 +217,6 @@ void get_options(int argc, char **argv)
 	}
 
 	if ((global_args_read_blif.config_file == NULL) && ((global_args_read_blif.blif_file == NULL)|| (global_args_read_blif.arch_file==NULL)))
-			
 	{
 		printf("Error: must include either a config file, or a blif file and Fpga Architecture file \n");
 		exit(-1);
