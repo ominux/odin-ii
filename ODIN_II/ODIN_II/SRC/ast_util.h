@@ -6,7 +6,7 @@ void free_ast_node(ast_node_t *child);
 void free_ast_node_only(ast_node_t *child);
 
 ast_node_t* create_tree_node_id(char* string, int line_number, int file_number);
-ast_node_t *create_tree_node_long_long_number(long long number, int line_number, int file_number);
+ast_node_t *create_tree_node_long_long_number(long long number, int constant_bit_size, int line_number, int file_number);
 ast_node_t *create_tree_node_number(char* number, int line_number, int file_number);
 
 void allocate_children_to_node(ast_node_t* node, int num_children, ...);
