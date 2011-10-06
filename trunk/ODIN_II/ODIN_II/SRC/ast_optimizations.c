@@ -235,8 +235,8 @@ info_ast_visit_t *constantFold(ast_node_t *node)
 						node_details->is_constant_folded = TRUE;
 						node_details->me = node;
 
-						/* create the new node */
-						new_node = create_tree_node_long_long_number(new_value, node->line_number, node->file_number);
+						/* create the new node...assumes bitsize of 128 will handle all constant folds */
+						new_node = create_tree_node_long_long_number(new_value, 128, node->line_number, node->file_number);
 
 						/* record that this node can be eliminated */
 						free_myself = TRUE;
@@ -311,8 +311,8 @@ info_ast_visit_t *constantFold(ast_node_t *node)
 						node_details->is_constant_folded = TRUE;
 						node_details->me = node;
 
-						/* create the new node */
-						new_node = create_tree_node_long_long_number(new_value, node->line_number, node->file_number);
+						/* create the new node...assumes bitsize of 128 will handle all constant folds */
+						new_node = create_tree_node_long_long_number(new_value, 128, node->line_number, node->file_number);
 	
 						/* record that this node can be eliminated */
 						free_myself = TRUE;
