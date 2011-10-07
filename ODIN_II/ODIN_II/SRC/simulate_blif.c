@@ -542,26 +542,17 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			oassert(node->num_input_port_sizes == 3);
 			oassert(node->num_output_port_sizes == 1);
 
-			if (
-				   get_pin_value(node->input_pins[0],cycle) < 0 
-				|| get_pin_value(node->input_pins[1],cycle) < 0 
-				|| get_pin_value(node->input_pins[2],cycle) < 0
-			)
-			{
+			int pin0 = get_pin_value(node->input_pins[0],cycle);
+			int pin1 = get_pin_value(node->input_pins[1],cycle);
+			int pin2 = get_pin_value(node->input_pins[2],cycle);
+
+			if (pin0 < 0 || pin1 < 0 || pin2 < 0)
 				update_pin_value(node->output_pins[0], -1, cycle);				
-			}
-			else if (
-				   get_pin_value(node->input_pins[0],cycle) == 1 
-				&& get_pin_value(node->input_pins[1],cycle) == 0 
-				&& get_pin_value(node->input_pins[2],cycle) == 0
-			)
-			{
+			else if (pin0 == 1 && pin1 == 0 && pin2 == 0)
 				update_pin_value(node->output_pins[0], 1, cycle);
-			}
 			else
-			{
 				update_pin_value(node->output_pins[0], 0, cycle);
-			}
+
 			return;
 		}
 		case ADDER_FUNC:
@@ -569,43 +560,22 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			oassert(node->num_input_port_sizes == 3);
 			oassert(node->num_output_port_sizes == 1);
 
+			int pin0 = get_pin_value(node->input_pins[0],cycle);
+			int pin1 = get_pin_value(node->input_pins[1],cycle);
+			int pin2 = get_pin_value(node->input_pins[2],cycle);
+
 			if (
-				   get_pin_value(node->input_pins[0],cycle) < 0 
-				|| get_pin_value(node->input_pins[1],cycle) < 0 
-				|| get_pin_value(node->input_pins[2],cycle) < 0
+					   (pin0 == 0 && pin1 == 0 && pin2 == 1)
+					|| (pin0 == 0 && pin1 == 1 && pin2 == 0)
+					|| (pin0 == 1 && pin1 == 0 && pin2 == 0)
+					|| (pin0 == 1 && pin1 == 1 && pin2 == 1)
 			)
-			{
+				update_pin_value(node->output_pins[0], 1, cycle);
+			else if (pin0 < 0 || pin1 < 0 || pin2 < 0)
 				update_pin_value(node->output_pins[0], -1, cycle);
-			}
-			else if (
-				(
-					   get_pin_value(node->input_pins[0],cycle) == 0 
-					&& get_pin_value(node->input_pins[1],cycle) == 0
-					&& get_pin_value(node->input_pins[2],cycle) == 1
-				)
-				|| (
-					   get_pin_value(node->input_pins[0],cycle) == 0 
-					&& get_pin_value(node->input_pins[1],cycle) == 1 
-					&& get_pin_value(node->input_pins[2],cycle) == 0
-				) 
-				|| (
-					   get_pin_value(node->input_pins[0],cycle) == 1 
-					&& get_pin_value(node->input_pins[1],cycle) == 0 
-					&& get_pin_value(node->input_pins[2],cycle) == 0
-				)
-				|| (
-					   get_pin_value(node->input_pins[0],cycle) == 1 
-					&& get_pin_value(node->input_pins[1],cycle) == 1 
-					&& get_pin_value(node->input_pins[2],cycle) == 1
-				)
-			)
-			{
-				update_pin_value(node->output_pins[0], 1, cycle);			
-			}
 			else
-			{
 				update_pin_value(node->output_pins[0], 0, cycle);
-			}
+
 			return;
 		}
 		case CARRY_FUNC:
@@ -613,37 +583,20 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			oassert(node->num_input_port_sizes == 3);
 			oassert(node->num_output_port_sizes == 1);
 			
+			int pin0 = get_pin_value(node->input_pins[0],cycle);
+			int pin1 = get_pin_value(node->input_pins[1],cycle);
+			int pin2 = get_pin_value(node->input_pins[2],cycle);
+
 			if (
-				(
-					   get_pin_value(node->input_pins[0],cycle) == 1 
-					&& get_pin_value(node->input_pins[1],cycle) == 0 
-					&& get_pin_value(node->input_pins[2],cycle) == 0
-				) 
-				|| (
-					   get_pin_value(node->input_pins[0],cycle) == 1 
-					&& get_pin_value(node->input_pins[1],cycle) == 1 
-					&& get_pin_value(node->input_pins[2],cycle) == 0
-				) 
-				|| (
-					   get_pin_value(node->input_pins[1],cycle) == 1 
-					&& get_pin_value(node->input_pins[2],cycle) == 1
-				)
+				   (pin0 == 1 && (pin1 == 1 || pin2 == 1))
+				|| (pin1 == 1 && pin2 == 1)
 			)
-			{
 				update_pin_value(node->output_pins[0], 1, cycle);				
-			}
-			else if (
-				   get_pin_value(node->input_pins[0],cycle) < 0 
-				|| get_pin_value(node->input_pins[1],cycle) < 0 
-				|| get_pin_value(node->input_pins[2],cycle) < 0
-			)
-			{
-				update_pin_value(node->output_pins[0], -1, cycle);				
-			}
+			else if (pin0 < 0 || pin1 < 0 || pin2 < 0)
+				update_pin_value(node->output_pins[0], -1, cycle);
 			else
-			{
 				update_pin_value(node->output_pins[0], 0, cycle);
-			}
+
 			return;
 		}
 		case BITWISE_NOT:
