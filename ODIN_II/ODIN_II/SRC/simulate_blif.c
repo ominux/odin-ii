@@ -98,6 +98,7 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 		modelsim_out = fopen("test.do", "w");
 		if (!modelsim_out) error_message(SIMULATION_ERROR, -1, -1, "Could not open modelsim output file.");
 
+		fprintf(modelsim_out, "add wave *\n");
 		fprintf(modelsim_out, "force clock 1 0, 0 50 -repeat 100\n");
 
 		out = fopen(OUTPUT_VECTOR_FILE_NAME, "w");
@@ -179,7 +180,7 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 
 	if (!test_vector_file_name)
 	{
-		fprintf(modelsim_out, "run %d\n", num_test_vectors*101);
+		fprintf(modelsim_out, "run %d\n", (num_test_vectors*100) + 100);
 
 		fclose(out);
 		fclose(modelsim_out);		
@@ -1646,7 +1647,7 @@ void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *mod
 				else                              fprintf(file, "%d", get_pin_value(pin,cycle));
 
 				if (type == INPUT && modelsim_out)
-					fprintf(modelsim_out, "force %s %d %d\n", lines[i]->name,get_pin_value(pin,cycle), cycle * 100 + 95);
+					fprintf(modelsim_out, "force %s %d %d\n", lines[i]->name,get_pin_value(pin,cycle), cycle * 100);
 			}
 			else
 			{
@@ -1709,7 +1710,7 @@ void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *mod
 					}
 
 					if (type == INPUT && modelsim_out)
-						fprintf(modelsim_out, " %d\n", cycle * 100 + 95);
+						fprintf(modelsim_out, " %d\n", cycle * 100);
 				}
 			}
 		}
