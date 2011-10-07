@@ -329,7 +329,7 @@ void do_activation_estimation(
 
 	/* read in the blif file */
 	printf("Reading blif format in for probability densitity estimation\n");
-	blif_netlist = read_blif (global_args.activation_blif_file);
+	//blif_netlist = read_blif (global_args.activation_blif_file);
 
 	/* read in the blif file */
 	/* IO type is known from read_arch library #define EMPTY_TYPE_INDEX 0 #define IO_TYPE_INDEX 1 */

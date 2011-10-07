@@ -27,7 +27,9 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#ifdef VPR6
 #include "arch_types.h"
+#endif
 #include "globals.h"
 #include "types.h"
 #include "util.h"
@@ -101,7 +103,7 @@ int main(int argc,char **argv)
 	char path[]=".";
 	char name[]="net_blif1";
 	graphVizOutputNetlist(path,name,1, blif_netlist);
-	/* prints the netlist as net_blif.dot * /
+	 prints the netlist as net_blif.dot
 	*/
 
 	printf("Extraction of netlist Completed\n");
