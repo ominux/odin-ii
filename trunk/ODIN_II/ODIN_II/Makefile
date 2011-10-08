@@ -10,7 +10,7 @@ WARN_FLAGS = -Wall
 SRC_DIR = SRC
 
 EXEO = odin_II.exe
-EXEV= verify_blif.exe
+#EXEV= verify_blif.exe
 
 DEBUG_FLAGS = -g 
 
@@ -61,14 +61,12 @@ OBJ/output_blif.o \
 OBJ/netlist_check.o \
 OBJ/activity_estimation.o \
 OBJ/read_netlist.o \
+OBJ/read_blif.o \
 OBJ/output_graphcrunch_format.o \
 OBJ/verilog_preprocessor.o \
 OBJ/verilog_bison.o \
 OBJ/verilog_flex.o \
 OBJ/odin_ii.o
-
-OBJV = OBJ/read_blif.o \
-OBJ/verify_blif.o
 
 SRC = \
 SRC/netlist_visualizer.c \
@@ -100,6 +98,7 @@ SRC/output_blif.c \
 SRC/netlist_check.c \
 SRC/activity_estimation.c \
 SRC/read_netlist.c \
+SRC/read_blif.c \
 SRC/output_graphcrunch_format.c \
 SRC/verilog_preprocessor.c \
 SRC/odin_ii.c
@@ -141,13 +140,10 @@ SRC/simulate_blif.h \
 SRC/globals.h \
 SRC/print_netlist.h
 
-all: $(EXEO) $(EXEV)
+all: $(EXEO) 
 
 $(EXEO): CTAGS OBJ/verilog_bison.o OBJ/verilog_flex.o $(OBJS) $(OBJO)
 	$(CC) $(C_FLAGS) $(FLAGS) $(OBJS) $(OBJO) -o $(EXEO) $(LIB)
-
-$(EXEV): CTAGS $(OBJS) $(OBJV) 
-	$(CC) $(C_FLAGS) $(FLAGS) $(OBJS) $(OBJV) -o $(EXEV) $(LIB) 
 
 CTAGS :
 	cd SRC && ctags *.[ch] && cd -

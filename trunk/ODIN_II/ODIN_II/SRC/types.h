@@ -121,25 +121,15 @@ struct global_args_t_t
 {
 	char *config_file;
 	char *verilog_file;
+	char *blif_file;
 	char *output_file;
 	char *arch_file; // Name of the FPGA architecture file
 	char *activation_blif_file;
 	char *activation_netlist_file;
 	char *high_level_block;
-	char *sim_vectors_file;
+	char *sim_vector_input_file;   // Input vectors to simulate.
+	char *sim_vector_output_file;  // Existing output to verify against.
 	int num_test_vectors;
-	simulation_type sim_type;
-};
-
-/* global arguments of the verify_blif function */
-struct global_args_read_blif_t_t
-{
-	char *config_file;
-	char *blif_file;
-	char *arch_file; // Name of the FPGA architecture file
-	char *sim_vectors_file;
-	int num_test_vectors;
-	simulation_type sim_type;
 };
 
 #endif // TYPES_H
