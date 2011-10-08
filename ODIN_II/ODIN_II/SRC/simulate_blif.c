@@ -21,64 +21,50 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 */
 #include "simulate_blif.h"
+//#define NULL 0;
+
+//extern struct global_args;
 
 double wall_time() {
 	struct timeval tv;
-	gettimeofday(&tv, NULL);
+	gettimeofday(&tv, 0);
 	return (1000000*tv.tv_sec+tv.tv_usec)/1.0e6;
-}
-
-/* 
- * Simulates the netlist with the test_vector_file_name as input.
- * This simulates the input values in the test vector file, and
- * ensures the simulated values match the output values in the file.
- */
-void simulate_blif (char *test_vector_file_name, netlist_t *netlist)
-{
-	printf("Beginning simulation.\n"); fflush(stdout);
-	simulate_netlist(0, test_vector_file_name, netlist);
-}
-
-/*
- * Simulates the netlist with newly generated, random test vectors.
- * This will simulate num_test_vectors cycles of the circuit, storing
- * the input and output values in INPUT_TEST_VECTORS_FILE_NAME and
- * OUTPUT_TEST_VECTORS_FILE_NAME, respectively.
- */
-void simulate_new_vectors (int num_test_vectors, netlist_t *netlist)
-{
-	printf("Beginning simulation.\n"); fflush(stdout);
-	simulate_netlist(num_test_vectors, NULL, netlist);
 }
 
 /*
  * Performs simulation. 
  */ 
-void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist_t *netlist)
+void simulate_netlist(netlist_t *netlist)
 {
+	printf("Beginning simulation.\n"); fflush(stdout);
+
+	int num_test_vectors = global_args.num_test_vectors;
+	char *input_vector_file = global_args.sim_vector_input_file;
+	// Existing output vectors to check against.
+	char *output_vector_file = global_args.sim_vector_output_file;
+
 	int input_lines_size;
 	line_t **input_lines;
 	int output_lines_size;
 	line_t **output_lines = NULL;
 
-	FILE *in;
+	FILE *in  = NULL;
 	FILE *out = NULL;
 	FILE *modelsim_out = NULL;
 
-	if (test_vector_file_name)
+	if (input_vector_file)
 	{
-		in = fopen(test_vector_file_name, "r");
-		if (!in) error_message(SIMULATION_ERROR, -1, -1, "Could not open vector input file: %s", test_vector_file_name);
+		printf("Simulating input vector file.\n"); fflush(stdout);
 
-		input_lines = read_test_vector_headers(in, &input_lines_size, netlist->num_top_input_nodes + netlist->num_top_output_nodes);
-		if (!input_lines) error_message(SIMULATION_ERROR, -1, -1, "Invalid vector file format: %s", test_vector_file_name);
+		in = fopen(input_vector_file, "r");
+		if (!in) error_message(SIMULATION_ERROR, -1, -1, "Could not open vector input file: %s", input_vector_file);
+
+		input_lines = read_test_vector_headers(in, &input_lines_size, netlist->num_top_input_nodes);
+		if (!input_lines) error_message(SIMULATION_ERROR, -1, -1, "Invalid vector file format: %s", input_vector_file);
 
 		int i;
 		for (i = 0; i < netlist->num_top_input_nodes; i++)
 			assign_node_to_line(netlist->top_input_nodes[i], input_lines, input_lines_size, INPUT);
-
-		for (i = 0; i < netlist->num_top_output_nodes; i++)
-			assign_node_to_line(netlist->top_output_nodes[i], input_lines, input_lines_size, OUTPUT);
 
 		int lines_ok = verify_lines(input_lines, input_lines_size);
 		if (!lines_ok) error_message(SIMULATION_ERROR, -1, -1, "Lines could not be assigned.");
@@ -86,35 +72,39 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 		// Count the test vectors in the file.
 		num_test_vectors = 0;
 		char buffer[BUFFER_MAX_SIZE];
-		while (fgets(buffer, BUFFER_MAX_SIZE, in))
-			num_test_vectors++;
+		while (fgets(buffer, BUFFER_MAX_SIZE, in)) num_test_vectors++;
 
 		rewind(in);
 		// Skip the vector headers.
-		if (!fgets(buffer, BUFFER_MAX_SIZE, in)) error_message(SIMULATION_ERROR, -1, -1, "Failed to skip headers.");; 
+		if (!fgets(buffer, BUFFER_MAX_SIZE, in)) error_message(SIMULATION_ERROR, -1, -1, "Failed to skip headers.");
 	}
 	else
 	{
-		modelsim_out = fopen("test.do", "w");
-		if (!modelsim_out) error_message(SIMULATION_ERROR, -1, -1, "Could not open modelsim output file.");
-
-		fprintf(modelsim_out, "add wave *\n");
-		fprintf(modelsim_out, "force clk 1 0, 0 50 -repeat 100\n");
-
-		out = fopen(OUTPUT_VECTOR_FILE_NAME, "w");
-		if (!out) error_message(SIMULATION_ERROR, -1, -1, "Could not open output vector file.");
+		printf("Simulating using new vectors.\n"); fflush(stdout);
 
 		in  = fopen( INPUT_VECTOR_FILE_NAME, "w");
 		if (!in)  error_message(SIMULATION_ERROR, -1, -1, "Could not open input vector file.");
 
 		input_lines  = create_input_test_vector_lines(&input_lines_size, netlist);
-		output_lines = create_output_test_vector_lines(&output_lines_size, netlist);
 
-		int lines_ok = verify_lines(input_lines,  input_lines_size) && verify_lines(output_lines, output_lines_size);
+		int lines_ok = verify_lines(input_lines,  input_lines_size);
 		if (!lines_ok) error_message(SIMULATION_ERROR, -1, -1, "Lines could not be assigned.");
 	}
-	
+
+	output_lines = create_output_test_vector_lines(&output_lines_size, netlist);
+	int lines_ok = verify_lines(output_lines, output_lines_size);
+	if (!lines_ok) error_message(SIMULATION_ERROR, -1, -1, "Lines could not be assigned.");
+
+	out = fopen(OUTPUT_VECTOR_FILE_NAME, "w");
+	if (!out) error_message(SIMULATION_ERROR, -1, -1, "Could not open output vector file.");
+
 	double simulation_time = 0;
+
+	modelsim_out = fopen("test.do", "w");
+	if (!modelsim_out) error_message(SIMULATION_ERROR, -1, -1, "Could not open modelsim output file.");
+	fprintf(modelsim_out, "add wave *\n");
+	fprintf(modelsim_out, "force clk 1 0, 0 50 -repeat 100\n");
+
 
 	if (num_test_vectors)
 	{
@@ -126,12 +116,14 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 			int cycle_offset = SIM_WAVE_LENGTH * wave;
 			int wave_length  = (wave < (num_waves-1))?SIM_WAVE_LENGTH:(num_test_vectors - cycle_offset);
 
-			if (test_vector_file_name)
+			if (input_vector_file)
 			{
 				int cycle = cycle_offset;
 				char buffer[BUFFER_MAX_SIZE];
-				while (fgets(buffer, BUFFER_MAX_SIZE, in))
+				while (fgets(buffer, BUFFER_MAX_SIZE, in) && cycle < cycle_offset + wave_length)
+				{
 					assign_input_vector_to_lines(input_lines, buffer, cycle++);
+				}
 			}
 			else
 			{
@@ -152,41 +144,31 @@ void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist
 
 			simulation_time += wall_time() - time;
 
-			if (test_vector_file_name)
-			{
-				int error = FALSE; 
-				for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
-				{
-					if (!verify_output_vectors(netlist, input_lines, input_lines_size, cycle)) 
-						error = TRUE; 
-				}
-				if (!error) printf("Error\n"); 
-				else        printf("OK   \n");
-			}
-			else
-			{
-				int wave_cols = wave_length+10; 
-				int display_cols = 80; 
-				if (!((wave+1) % (display_cols/wave_cols))) 
-					printf("\n");
 
-				write_all_vectors_to_file(output_lines, output_lines_size, out, modelsim_out, OUTPUT, cycle_offset, wave_length);
-			}
+			int wave_cols = wave_length+10;
+			int display_cols = 80;
+			if (!((wave+1) % (display_cols/wave_cols)))
+				printf("\n");
+
+			write_all_vectors_to_file(output_lines, output_lines_size, out, modelsim_out, OUTPUT, cycle_offset, wave_length);
 		}
 		free_stages(stages);
-	}
-
-	printf("\n\nSimulation time: %fs\n", simulation_time);
-
-	if (!test_vector_file_name)
-	{
-		fprintf(modelsim_out, "run %d\n", (num_test_vectors*100) + 100);
-
 		fclose(out);
-		fclose(modelsim_out);		
-		free_lines(output_lines, output_lines_size);		
+
+		printf("\n");
+
+		if (output_vector_file)
+			if (!verify_output_vectors(output_vector_file, num_test_vectors))
+				warning_message(SIMULATION_ERROR,0,-1,"Output vector mismatch.");
 	}
+
+	printf("Simulation time: %fs\n", simulation_time);
+	fprintf(modelsim_out, "run %d\n", (num_test_vectors*100) + 100);
+
+	free_lines(output_lines, output_lines_size);
 	free_lines(input_lines, input_lines_size);
+
+	fclose(modelsim_out);
 	fclose(in);
 }
 
@@ -1054,7 +1036,7 @@ void store_value_in_line(char *token, line_t *line, int cycle)
 		warning_message(SIMULATION_ERROR, -1, -1, "Found a line '%s' with no pins.", line->name);		
 	}	
 	else if (strlen(token) == 1)
-	{ // Only 1 pin.
+	{   // Only 1 pin.
 		if      (token[0] == '0') update_pin_value(line->pins[0],  0, cycle);
 		else if (token[0] == '1') update_pin_value(line->pins[0],  1, cycle);
 		else                      update_pin_value(line->pins[0], -1, cycle);		
@@ -1185,6 +1167,12 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 				lines[j]->pins = realloc(lines[j]->pins, sizeof(npin_t*)*lines[j]->max_number_of_pins);
 			}
 
+
+			/*
+			 * always assign to output pin; if it's an input line, then this is
+			 * where it should go. if it's an output line, then we'll compare
+			 * that node's input pins to output pins to verify the simulation
+			 */
 			if (!node->num_output_pins)
 			{
 				npin_t *pin = allocate_npin();
@@ -1549,7 +1537,6 @@ void write_all_vectors_to_file(line_t **lines, int lines_size, FILE* file, FILE 
 		write_vectors_to_file(lines, lines_size, file, modelsim_out, type, cycle);
 }
 
-
 /*
  * Writes all line values in lines[] such that line->type == type to the
  * file specified by the file parameter.
@@ -1652,43 +1639,62 @@ void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *mod
  * Checks that each member line of lines[] such that line->type == OUTPUT
  * has corresponding values stored in input_pins[0] and output_pins[0].
  */
-int verify_output_vectors(netlist_t *netlist, line_t **lines, int lines_size, int cycle)
+int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 {
-	int problems = FALSE;
-	int i;
-	for (i = 0; i < lines_size; i++)
+	int error = FALSE;
+
+	if (!strcmp(output_vector_file,OUTPUT_VECTOR_FILE_NAME))
 	{
-		if (lines[i]->type != INPUT)
+		warning_message(SIMULATION_ERROR,0,-1,
+				"Vector file \"%s\" given for verification "
+				"is the same as the default output file \"%s\". "
+				"Ignoring.", output_vector_file, OUTPUT_VECTOR_FILE_NAME);
+	}
+	else
+	{
+		FILE *existing_out = fopen(output_vector_file, "r");
+		FILE *current_out  = fopen(OUTPUT_VECTOR_FILE_NAME, "r");
+		if (!existing_out) error_message(SIMULATION_ERROR, -1, -1, "Could not open vector output file: %s", output_vector_file);
+		if (!current_out) error_message(SIMULATION_ERROR, -1, -1, "Could not open output vector file.");
+
+		// Skip the vector headers.
+		char buffer[BUFFER_MAX_SIZE];
+		if (!fgets(buffer, BUFFER_MAX_SIZE, existing_out)) error_message(SIMULATION_ERROR, 0, -1, "Failed to skip headers.");;
+		if (!fgets(buffer, BUFFER_MAX_SIZE, current_out)) error_message(SIMULATION_ERROR, 0, -1, "Failed to skip headers.");;
+
+		int cycle;
+		int error = FALSE;
+		char buffer1[BUFFER_MAX_SIZE], buffer2[BUFFER_MAX_SIZE];
+		for (cycle = 0; cycle < num_test_vectors; cycle++)
 		{
-			int j; 
-			for (j = 0; j < lines[i]->number_of_pins; j++)
+			if (!fgets(buffer1, BUFFER_MAX_SIZE, existing_out))
 			{
-				npin_t *output_pin = lines[i]->pins[j];
-				npin_t *input_pin = output_pin->node->input_pins[output_pin->pin_node_idx];
-
-				if (get_pin_value(input_pin,cycle) != get_pin_value(output_pin,cycle))
-				{
-					fprintf(stderr, "Simulation Value mismatch at node %s. Expected %d but encountered %d on cycle %d.\n",
-							output_pin->node->name,
-							get_pin_value(output_pin,cycle),
-							get_pin_value(input_pin,cycle),
-							cycle);
-					problems = TRUE;
-				}
-
-				if (input_pin->cycle != output_pin->cycle || input_pin->cycle != cycle)
-				{
-					fprintf(stderr, "Simulation cycle mismatch at node %s. Expected cycle %d but encountered cycle %d on actual cycle %d.\n",
-							output_pin->node->name,
-							output_pin->cycle,
-							input_pin->cycle,
-							cycle);
-					problems = TRUE;
-				}
+				error = TRUE;
+				warning_message(SIMULATION_ERROR, 0, -1,"Too few vectors in %s \n", output_vector_file);
+				break;
+			}
+			else if (!fgets(buffer2, BUFFER_MAX_SIZE, current_out))
+			{
+				error = TRUE;
+				warning_message(SIMULATION_ERROR, 0, -1,"Simulation produced fewer than %d vectors.\n", num_test_vectors);
+				break;
+			}
+			else if (strcmp(buffer1,buffer2))
+			{
+				error = TRUE;
+				warning_message(SIMULATION_ERROR, 0, -1, "Cycle %d mismatch: \n"
+						"\t%s"
+						"in %s does not match\n"
+						"\t%s"
+						"in %s.\n\n",
+						cycle, buffer2, OUTPUT_VECTOR_FILE_NAME, buffer1, output_vector_file
+				);
 			}
 		}
-	}	
-	return !problems;
+		fclose(existing_out);
+		fclose(current_out);
+	}
+	return !error;
 }
 
 /*
@@ -1815,8 +1821,8 @@ void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_wi
 			char *semicolon = strchr(input, ';');
 			strncpy(data, colon, (semicolon-colon));
 
-			long long int addr_val = strtol(addr, NULL, 10);
-			long long int data_val = strtol(data, NULL, 16);
+			long long int addr_val = strtol(addr, 0, 10);
+			long long int data_val = strtol(data, 0, 16);
 			
 			int i;
 			for (i = 0; i < data_width; i++)

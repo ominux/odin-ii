@@ -58,6 +58,8 @@ void do_high_level_synthesis();
 void do_simulation_of_netlist();
 void do_activation_estimation( int num_types, t_type_descriptor * type_descriptors);
 
+void print_usage();
+
 int main(int argc, char **argv)
 {
 	int num_types;
@@ -100,8 +102,15 @@ int main(int argc, char **argv)
 	}
 	else
 	{
-		/* High level synthesis tool */
-		do_high_level_synthesis();
+		if (!global_args.blif_file)
+		{
+			/* High level synthesis tool */
+			do_high_level_synthesis();
+		}
+		else
+		{
+			read_blif(global_args.blif_file);
+		}
 
 		/* Simulate blif netlist */
 		do_simulation_of_netlist();
@@ -117,7 +126,7 @@ int main(int argc, char **argv)
 	return 0;
 } 
 
-static const char *optString = "hHc:V:h:o:O:a:B:N:f:s:S:g:G:t:T:"; // list must end in ":"
+static const char *optString = "hc:V:h:o:a:B:b:N:f:s:S:g:t:T:"; // list must end in ":"
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
@@ -128,13 +137,14 @@ void get_options(int argc, char **argv)
 	/* set up the global arguments to there defualts */
 	global_args.config_file = NULL;
 	global_args.verilog_file = NULL;
+	global_args.blif_file = NULL;
 	global_args.output_file = "./default_out.blif";
 	global_args.arch_file = NULL;
 	global_args.activation_blif_file = NULL;
 	global_args.activation_netlist_file = NULL;
 	global_args.high_level_block = NULL;
-	global_args.sim_vectors_file = NULL;
-	global_args.sim_type = NO_SIMULATION;
+	global_args.sim_vector_input_file = NULL;
+	global_args.sim_vector_output_file = NULL;
 	global_args.num_test_vectors = 0;
 
 	/* set up the global configuration ahead of time */
@@ -152,70 +162,71 @@ void get_options(int argc, char **argv)
 	opt = getopt(argc, argv, optString);
 	while(opt != -1) 
 	{
-       		switch(opt) 
+		switch(opt)
 		{
-		/* arch file */
-		case 'a': 
-			global_args.arch_file = optarg;
-			configuration.arch_file = optarg;
+			/* arch file */
+			case 'a':
+				global_args.arch_file = optarg;
+				configuration.arch_file = optarg;
 			break;
-		/* config file */
-		case 'c': 
-			global_args.config_file = optarg;
+			/* config file */
+			case 'c':
+				global_args.config_file = optarg;
 			break;
-		case 'V': 
-			global_args.verilog_file = optarg;
+			case 'V':
+				global_args.verilog_file = optarg;
 			break;
-		case 'o':
-		case 'O':
-			global_args.output_file = optarg;
+				case 'o':
+				global_args.output_file = optarg;
 			break;
-		case 'B':
-			global_args.activation_blif_file = optarg;
+			case 'B':
+				global_args.activation_blif_file = optarg;
+				break;
+			case 'b':
+				global_args.blif_file = optarg;
+				break;
+			case 'N':
+				global_args.activation_netlist_file = optarg;
 			break;
-		case 'N':
-			global_args.activation_netlist_file = optarg;
+			case 'f':
+				#ifdef VPR5
+				global_args.high_level_block = optarg;
+				#endif
+				#ifdef VPR6
+				warning_message(0, -1, 0, "VPR 6.0 doesn't have this feature yet.  You'll need to deal with the output_blif.c differences wrapped by \"if (global_args.high_level_block != NULL)\"\n");
+				#endif
+				break;
+			case 'h':
+				print_usage();
+				exit(-1);
 			break;
-		case 'f':
-#ifdef VPR5
-			global_args.high_level_block = optarg;
-#endif
-#ifdef VPR6
-			warning_message(0, -1, 0, "VPR 6.0 doesn't have this feature yet.  You'll need to deal with the output_blif.c differences wrapped by \"if (global_args.high_level_block != NULL)\"\n");
-#endif
+			case 'g':
+				global_args.num_test_vectors = atoi(optarg);
 			break;
-		case 'h':
-		case 'H':
-			printf("Usage: odin_II.exe\n\tOne of:\n\t\t-c <config_file_name.xml>\n\t\t-V <verilog_file_name.v>\n\tAlso options of:\n\t\t-o <output_path and file name>\n\t\t-a <architecture_file_in_VPR6.0_form>\n\t\t-B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n\nSimulation options:\n\t\t -g <number_of_random_test_vectors\n\t\t -t test_vector_file\n");
-			exit(-1);
+			case 't':
+				global_args.sim_vector_input_file = optarg;
 			break;
-		case 'g':
-		case 'G':
-			global_args.num_test_vectors = atoi(optarg);
-			global_args.sim_type = GENERATE_VECTORS;
+			case 'T':
+				global_args.sim_vector_output_file = optarg;
 			break;
-		case 't':
-		case 'T':
-			global_args.sim_vectors_file = optarg;
-			global_args.sim_type = TEST_EXISTING_VECTORS;
-			break;
-		case 's':
-		case 'S':
-			global_args.sim_vectors_file = optarg;
-			break;
-		default : 
-			printf("Usage: \"odin_II.exe -h\" for usage\n");
-			exit(-1);
+			default :
+				print_usage();
+				error_message(0, 0, -1, "Invalid arguments.\n");
 			break;
 		}
 
 		opt = getopt(argc, argv, optString);
 	}
 
-	if ((global_args.config_file == NULL) && (global_args.verilog_file == NULL) && 
-			((global_args.activation_blif_file == NULL) || (global_args.activation_netlist_file == NULL)))
+	if (
+			   !global_args.config_file
+			&& !global_args.blif_file
+			&& !global_args.verilog_file
+			&& ((!global_args.activation_blif_file) || (!global_args.activation_netlist_file)))
 	{
-		printf("Error: must include either a activation blif and netlist file, a config file, or a verilog file\n");
+		print_usage();
+		error_message(0,0,-1,"Must include either a activation blif and netlist file, "
+				"a config file, a blif netlist, or a verilog file\n");
 		exit(-1);
 	}
 	else if ((global_args.config_file != NULL) && ((global_args.verilog_file != NULL) || (global_args.activation_blif_file != NULL)))
@@ -223,6 +234,33 @@ void get_options(int argc, char **argv)
 		printf("Warning: Using command line options for verilog input file!!!\n");
 	}
 }
+
+void print_usage()
+{
+	printf
+	(
+			"Usage: odin_II.exe\n\tOne of:\n"
+				"\t\t-c <config_file_name.xml>\n"
+				"\t\t-V <verilog_file_name.v>\n\t"
+				"\t\t-b <input_blif_fil_name.blif>\n"
+			"Also options of:\n"
+				"\t\t-o <output_path and file name>\n"
+				"\t\t-a <architecture_file_in_VPR6.0_form>\n"
+				"\t\t-B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n"
+
+			""
+			"\n"
+			"Simulation options:\n"
+				"\t\t -g <number of random test vectors>\n"
+				"\t\t -t <input vectors file>: Supply an input vector file\n"
+				"\t\t -T <output vectors file>: Supply an output vector file to check output vectors against.\n"
+			"\n"
+			"Other options:\n"
+				"\t\t -h Print help\n"
+	);
+	fflush(stdout);
+}
+
 
 /*---------------------------------------------------------------------------
  * (function: do_high_level_synthesis)
@@ -290,21 +328,17 @@ void do_high_level_synthesis()
  *-------------------------------------------------------------------------------------------*/
 void do_simulation_of_netlist()
 {
-	if (global_args.sim_type == NO_SIMULATION)
+	if (!global_args.num_test_vectors && !global_args.sim_vector_input_file)
 		return;
+
 	printf("Netlist Simulation Begin\n");
-	if (global_args.sim_type == GENERATE_VECTORS)
-	{
-		printf("Testing new (random) vectors.\n");
-		simulate_new_vectors(global_args.num_test_vectors, verilog_netlist);
-	}
-	else //global_args.sim_type == TEST_EXISTING_VECTORS
-	{
-		printf("Testing existing vectors.\n");
-		simulate_blif(global_args.sim_vectors_file, verilog_netlist);
-	}
-	printf("\n--------------------------------------------------------------------\n");
+	simulate_netlist(verilog_netlist);
+
+	printf("--------------------------------------------------------------------\n");
 }
+
+
+
 
 /*---------------------------------------------------------------------------------------------
  * (function: do_activation_estimation)

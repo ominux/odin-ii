@@ -71,10 +71,7 @@ typedef struct {
 	int 	   count;  // Number of stages.
 } stages;
 
-void simulate_blif (char *test_vector_file_name, netlist_t *netlist);
-void simulate_new_vectors (int num_test_vectors, netlist_t *netlist);
-
-void simulate_netlist(int num_test_vectors, char *test_vector_file_name, netlist_t *netlist);
+void simulate_netlist(netlist_t *netlist);
 void simulate_cycle(netlist_t *netlist, int cycle, stages **s);
 
 stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes);
@@ -117,7 +114,7 @@ line_t** read_test_vector_headers(FILE *out, int *lines_size, int max_lines_size
 void write_vector_headers(FILE *file, line_t **lines, int lines_size);
 void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *modelsim_out, int type, int cycle);
 void write_all_vectors_to_file(line_t **lines, int lines_size, FILE* file, FILE *modelsim_out, int type, int cycle_offset, int wave_length);
-int verify_output_vectors(netlist_t *netlist, line_t **lines, int lines_size, int cycle);
+int verify_output_vectors(char* output_vector_file, int num_test_vectors);
 
 #endif
 
