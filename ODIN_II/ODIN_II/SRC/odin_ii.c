@@ -241,7 +241,7 @@ void print_usage()
 	(
 			"Usage: odin_II.exe\n\tOne of:\n"
 				"\t\t-c <config_file_name.xml>\n"
-				"\t\t-V <verilog_file_name.v>\n\t"
+				"\t\t-V <verilog_file_name.v>\n"
 				"\t\t-b <input_blif_fil_name.blif>\n"
 			"Also options of:\n"
 				"\t\t-o <output_path and file name>\n"
