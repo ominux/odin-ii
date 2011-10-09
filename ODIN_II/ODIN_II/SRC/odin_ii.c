@@ -126,7 +126,7 @@ int main(int argc, char **argv)
 	return 0;
 } 
 
-static const char *optString = "hc:V:h:o:a:B:b:N:f:s:S:g:t:T:"; // list must end in ":"
+static const char *optString = "hc:V:h:o:a:B:b:N:f:s:S:p:g:t:T:"; // list must end in ":"
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
@@ -145,6 +145,7 @@ void get_options(int argc, char **argv)
 	global_args.high_level_block = NULL;
 	global_args.sim_vector_input_file = NULL;
 	global_args.sim_vector_output_file = NULL;
+	global_args.sim_additional_pins = NULL;
 	global_args.num_test_vectors = 0;
 
 	/* set up the global configuration ahead of time */
@@ -209,6 +210,9 @@ void get_options(int argc, char **argv)
 			case 'T':
 				global_args.sim_vector_output_file = optarg;
 			break;
+			case 'p':
+				global_args.sim_additional_pins = optarg;
+			break;
 			default :
 				print_usage();
 				error_message(0, 0, -1, "Invalid arguments.\n");
@@ -239,23 +243,24 @@ void print_usage()
 {
 	printf
 	(
-			"Usage: odin_II.exe\n\tOne of:\n"
+			"Usage: odin_II.exe\n"
+			"\tOne of:\n"
 				"\t\t-c <config_file_name.xml>\n"
 				"\t\t-V <verilog_file_name.v>\n"
 				"\t\t-b <input_blif_fil_name.blif>\n"
-			"Also options of:\n"
+			"\tAlso options of:\n"
 				"\t\t-o <output_path and file name>\n"
 				"\t\t-a <architecture_file_in_VPR6.0_form>\n"
 				"\t\t-B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n"
-
-			""
-			"\n"
-			"Simulation options:\n"
+			"\tSimulation options:\n"
 				"\t\t -g <number of random test vectors>\n"
 				"\t\t -t <input vectors file>: Supply an input vector file\n"
 				"\t\t -T <output vectors file>: Supply an output vector file to check output vectors against.\n"
-			"\n"
-			"Other options:\n"
+				"\t\t -p Supply a comma separated list of additional pins or nodes to monitor during simulation.\n"
+					"\t\t\t Eg: -p input~0,input~1 monitors pin 0 and 1 of input, or -p input monitors all pins of input as a single port. \n"
+					"\t\t\t - Note: Non-existent pins are ignored. \n"
+					"\t\t\t - Matching is done via strstr so general strings will match all similar pins and nodes. (Eg: FF_NODE will create a single port will all flipflops) \n"
+			"\tOther options:\n"
 				"\t\t -h Print help\n"
 	);
 	fflush(stdout);

@@ -69,10 +69,25 @@ typedef struct {
 	nnode_t ***stages; // Stages.
 	int       *counts; // Number of nodes in each stage.
 	int 	   count;  // Number of stages.
+	int    num_nodes;  // The total number of nodes.
 } stages;
 
+typedef struct {
+	signed char  **values;
+	int           *counts;
+	int            count;
+} test_vector;
+
 void simulate_netlist(netlist_t *netlist);
-void simulate_cycle(netlist_t *netlist, int cycle, stages **s);
+void simulate_cycle(netlist_t *netlist, int cycle, stages *s);
+stages *simulate_first_cycle
+(
+		netlist_t *netlist,
+		int cycle,
+		char **additional_pins, int num_additional_pins,
+		line_t ***output_lines, int *num_output_lines
+);
+
 
 stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes);
 void free_stages(stages *s);
@@ -98,18 +113,23 @@ int *multiply_arrays(int *a, int a_length, int *b, int b_length);
 void compute_memory(npin_t **inputs, npin_t **outputs, int data_width, npin_t **addr, int addr_width, int we, int clock, int cycle, int *data);
 void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width);
 
+test_vector *parse_test_vector(char *buffer);
+test_vector *generate_random_test_vector(line_t **lines, int lines_size, int cycle);
+int compare_test_vectors(test_vector *v1, test_vector *v2);
+
+int verify_test_vector_headers(FILE *in, line_t **lines, int lines_size);
+void free_test_vector(test_vector* v);
+
 line_t *create_line(char *name);
 int verify_lines(line_t **lines, int lines_size);
 void free_lines(line_t **lines, int lines_size);
 
+int find_portname_in_lines(char* port_name, line_t **lines, int count);
 line_t **create_input_test_vector_lines(int *lines_size, netlist_t *netlist);
 line_t **create_output_test_vector_lines(int *lines_size, netlist_t *netlist);
 
-void assign_input_vector_to_lines(line_t **lines, char *buffer, int cycle);
-void assign_random_vector_to_input_lines(line_t **lines, int lines_size, int cycle);
-void store_value_in_line(char *token, line_t *line, int cycle);
-void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type);
-line_t** read_test_vector_headers(FILE *out, int *lines_size, int max_lines_size);
+void store_test_vector_in_lines(test_vector *v, line_t **lines, int num_lines, int cycle);
+void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type, int single_pin);
 
 void write_vector_headers(FILE *file, line_t **lines, int lines_size);
 void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *modelsim_out, int type, int cycle);
