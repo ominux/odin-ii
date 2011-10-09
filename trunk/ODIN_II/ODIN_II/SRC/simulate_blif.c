@@ -46,10 +46,10 @@ void simulate_netlist(netlist_t *netlist)
 	char **additional_pins = 0;
 	int num_additional_pins = 0;
 
+	// Parse the list of additional pins passed via the -p option.
 	if (global_args.sim_additional_pins)
 	{
 		char *pin_list = strdup(global_args.sim_additional_pins);
-
 		char *token    = strtok(pin_list, ",");
 		int count = 0;
 		while (token)
@@ -62,51 +62,48 @@ void simulate_netlist(netlist_t *netlist)
 		num_additional_pins = count;
 	}
 
+	// Create and verify the lines.
 	int input_lines_size;
-	line_t **input_lines;
+	line_t **input_lines = create_input_test_vector_lines(&input_lines_size, netlist);
+	if (!verify_lines(input_lines,  input_lines_size))
+		error_message(SIMULATION_ERROR, 0, -1, "Input lines could not be assigned.");
+
 	int output_lines_size;
-	line_t **output_lines = NULL;
+	line_t **output_lines = create_output_test_vector_lines(&output_lines_size, netlist);
+	if (!verify_lines(output_lines, output_lines_size))
+		error_message(SIMULATION_ERROR, 0, -1, "Output lines could not be assigned.");
 
-	FILE *in  = NULL;
-	FILE *out = NULL;
-	FILE *modelsim_out = NULL;
-
-	input_lines  = create_input_test_vector_lines(&input_lines_size, netlist);
-	if (!verify_lines(input_lines,  input_lines_size)) error_message(SIMULATION_ERROR, 0, -1, "Lines could not be assigned.");
-
-	output_lines = create_output_test_vector_lines(&output_lines_size, netlist);
-	if (!verify_lines(output_lines, output_lines_size)) error_message(SIMULATION_ERROR, 0, -1, "Lines could not be assigned.");
-
-	out = fopen(OUTPUT_VECTOR_FILE_NAME, "w");
+	FILE *out = fopen(OUTPUT_VECTOR_FILE_NAME, "w");
 	if (!out) error_message(SIMULATION_ERROR, -1, -1, "Could not open output vector file.");
 
-	modelsim_out = fopen("test.do", "w");
+	FILE *modelsim_out = fopen("test.do", "w");
 	if (!modelsim_out) error_message(SIMULATION_ERROR, -1, -1, "Could not open modelsim output file.");
 	fprintf(modelsim_out, "add wave *\n");
 	fprintf(modelsim_out, "force clk 1 0, 0 50 -repeat 100\n");
 
+	FILE *in  = NULL;
 	if (input_vector_file)
 	{
 		printf("Simulating input vector file.\n"); fflush(stdout);
-
 		in = fopen(input_vector_file, "r");
 		if (!in) error_message(SIMULATION_ERROR, -1, -1, "Could not open vector input file: %s", input_vector_file);
 
 		// Count the test vectors in the file.
 		num_test_vectors = 0;
 		char buffer[BUFFER_MAX_SIZE];
-		while (fgets(buffer, BUFFER_MAX_SIZE, in)) num_test_vectors++;
-
-		//if (num_test_vectors) num_test_vectors--;
-
+		while (fgets(buffer, BUFFER_MAX_SIZE, in))
+			num_test_vectors++;
+		if (num_test_vectors) // Don't count the headers.
+			num_test_vectors--;
 		rewind(in);
+
+		// Read the vector headers and check to make sure they match the lines.
 		if (!verify_test_vector_headers(in, input_lines, input_lines_size))
 			error_message(SIMULATION_ERROR, 0, -1, "Invalid vector header format in %s.", input_vector_file);
 	}
 	else
 	{
 		printf("Simulating using new vectors.\n"); fflush(stdout);
-
 		in  = fopen( INPUT_VECTOR_FILE_NAME, "w");
 		if (!in)  error_message(SIMULATION_ERROR, -1, -1, "Could not open input vector file.");
 	}
@@ -115,6 +112,8 @@ void simulate_netlist(netlist_t *netlist)
 	{
 		double simulation_time = 0;
 		stages *stages = 0;
+
+		// Simulation is done in "waves" of SIM_WAVE_LENGTH cycles at a time.
 		int  num_waves = ceil(num_test_vectors / (double)SIM_WAVE_LENGTH);
 		int  wave;
 		for (wave = 0; wave < num_waves; wave++)
@@ -122,6 +121,7 @@ void simulate_netlist(netlist_t *netlist)
 			int cycle_offset = SIM_WAVE_LENGTH * wave;
 			int wave_length  = (wave < (num_waves-1))?SIM_WAVE_LENGTH:(num_test_vectors - cycle_offset);
 
+			// Assign vectors to lines, either by reading or generating it.
 			if (input_vector_file)
 			{
 				int cycle = cycle_offset;
@@ -142,55 +142,65 @@ void simulate_netlist(netlist_t *netlist)
 					store_test_vector_in_lines(v, input_lines, input_lines_size, cycle);
 					free_test_vector(v);
 				}
-				write_all_vectors_to_file(input_lines, input_lines_size, in, modelsim_out, INPUT, cycle_offset, wave_length);
+				write_wave_to_file(input_lines, input_lines_size, in, modelsim_out, INPUT, cycle_offset, wave_length);
 			}
 
 			printf("%6d/%d",wave+1,num_waves);
 
 			double time = wall_time();
 
+			// Perform simulation
 			int cycle;
 			for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
 			{
-				if (!cycle) stages = simulate_first_cycle(netlist, cycle, additional_pins, num_additional_pins, &output_lines, &output_lines_size);
-				else        simulate_cycle(netlist, cycle, stages);
+				if (!cycle)
+				{	// The first cycle produces the stages, and adds additional lines as specified by the -p option.
+					stages = simulate_first_cycle(netlist, cycle, additional_pins, num_additional_pins, &output_lines, &output_lines_size);
+					// Make sure the output lines are still OK after adding custom lines.
+					if (!verify_lines(output_lines, output_lines_size))
+						error_message(SIMULATION_ERROR, -1, -1, "Problem detected with the output lines after the first cycle.");
+				}
+				else
+				{
+					simulate_cycle(netlist, cycle, stages);
+				}
 			}
 
 			simulation_time += wall_time() - time;
 
+			// Write the result of this wave to the output vector file.
+			write_wave_to_file(output_lines, output_lines_size, out, modelsim_out, OUTPUT, cycle_offset, wave_length);
 
 			int wave_cols = wave_length+10;
 			int display_cols = 80;
 			if (!((wave+1) % (display_cols/wave_cols)))
 				printf("\n");
-
-			int lines_ok = verify_lines(output_lines, output_lines_size);
-			if (!lines_ok) error_message(SIMULATION_ERROR, -1, -1, "Lines could not be assigned.");
-
-			write_all_vectors_to_file(output_lines, output_lines_size, out, modelsim_out, OUTPUT, cycle_offset, wave_length);
 		}
 
 		fclose(out);
 
 		printf("\n");
 
+		// If a second output vector file was given via the -T option, verify that it matches.
 		if (output_vector_file)
-		{
-			int error = verify_output_vectors(output_vector_file, num_test_vectors);
-
-			if (!error) printf("Vectors match\n");
-		}
+			if (verify_output_vectors(output_vector_file, num_test_vectors))
+				printf("Vectors match\n");
 
 		printf("Number of nodes: %d\n", stages->num_nodes);
 		printf("Simulation time: %fs\n", simulation_time);
 
 		fprintf(modelsim_out, "run %d\n", (num_test_vectors*100) + 100);
+
 		free_stages(stages);
 	}
 	else
 	{
 		printf("No vectors to simulate.\n");
 	}
+
+	while (num_additional_pins--)
+		free(additional_pins[num_additional_pins]);
+	free(additional_pins);
 
 	free_lines(output_lines, output_lines_size);
 	free_lines(input_lines, input_lines_size);
@@ -232,7 +242,8 @@ void simulate_cycle(netlist_t *netlist, int cycle, stages *s)
 
 /*
  * Simulates the first cycle by traversing the netlist and returns
- * the nodes organised into parallelizable stages.
+ * the nodes organised into parallelizable stages. Also adds lines to
+ * custom pins and nodes as requested via the -p option.
  */
 stages *simulate_first_cycle
 (
@@ -243,10 +254,12 @@ stages *simulate_first_cycle
 )
 {
 	queue_t *queue = create_queue();
+	// Enqueue top input nodes
 	int i;
 	for (i = 0; i < netlist->num_top_input_nodes; i++)
 		enqueue_node_if_ready(queue,netlist->top_input_nodes[i],cycle);
 
+	// Enqueue constant nodes.
 	nnode_t *constant_nodes[] = {netlist->gnd_node, netlist->vcc_node, netlist->pad_node};
 	int num_constant_nodes = 3;
 	for (i = 0; i < num_constant_nodes; i++)
@@ -261,6 +274,7 @@ stages *simulate_first_cycle
 		compute_and_store_value(node, cycle);
 
 		// Add custom pins to the lines as found.
+		// TODO: Should be factored into a separate function.
 		if (num_additional_pins)
 		{
 			int add = FALSE;
@@ -315,6 +329,7 @@ stages *simulate_first_cycle
 			}
 		}
 
+		// Enqueue child nodes which are ready, not already queued, and not already complete.
 		int num_children;
 		nnode_t **children = get_children_of(node, &num_children);
 		for (i = 0; i < num_children; i++)
@@ -341,6 +356,7 @@ stages *simulate_first_cycle
 	}
 	queue->destroy(queue);
 
+	// Reorganise the ordered nodes into stages for parallel computation.
 	stages *s = stage_ordered_nodes(ordered_nodes, num_ordered_nodes);
 	free(ordered_nodes);
 
@@ -348,7 +364,6 @@ stages *simulate_first_cycle
 
 	return s;
 }
-
 
 /*
  * Puts the ordered nodes in stages which can be computed in parallel.
@@ -361,6 +376,7 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 
 	const int index_table_size = (num_ordered_nodes/100)+10;
 
+	// Hash tables index the nodes in the current stage, as well as their children.
 	hashtable_t *stage_children = create_hashtable(index_table_size);
 	hashtable_t *stage_nodes    = create_hashtable(index_table_size);
 
@@ -370,10 +386,14 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 		nnode_t* node = ordered_nodes[i];
 		int stage = s->count-1;
 
+		// Get the node's children for dependency checks.
 		int num_children;
 		nnode_t **children = get_children_of(node, &num_children);
 
+		// Determine if the node is a child of any node in the current stage.
 		int is_child_of_stage = stage_children->get(stage_children, node, sizeof(nnode_t*))?1:0;
+
+		// Determine if any node in the current stage is a child of this node.
 		int is_stage_child_of = FALSE;
 		int j;
 		if (!is_child_of_stage)
@@ -397,11 +417,14 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 			stage_nodes    = create_hashtable(index_table_size);
 		}
 
+		// Add the node to the current stage.
 		s->stages[stage] = realloc(s->stages[stage],sizeof(nnode_t*) * (s->counts[stage]+1));
 		s->stages[stage][s->counts[stage]++] = node;
 
+		// Index the node.
 		stage_nodes->add(stage_nodes, node, sizeof(nnode_t*), node);
 
+		// Index its children.
 		for (j = 0; j < num_children; j++)
 			stage_children->add(stage_children, children[j], sizeof(nnode_t*), children[j]);
 
@@ -410,12 +433,11 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 	stage_children->destroy(stage_children);
 	stage_nodes   ->destroy(stage_nodes);
 
+	// Add the total number of nodes to the stages structure.
 	s->num_nodes = num_ordered_nodes;
 
 	return s;
 }
-
-
 
 /*
  * Enqueues the node in the given queue if is_node_ready returns TRUE.
@@ -491,21 +513,6 @@ nnode_t **get_children_of(nnode_t *node, int *num_children)
 	*num_children = count;
 	return children; 
 }
-
-npin_t **get_output_pins(nnode_t *node, int *num_pins)
-{
-	npin_t **pins = 0;
-	int count = 0;
-	int i;
-	for (i = 0; i < node->num_output_pins; i++)
-	{
-		pins = realloc(pins, sizeof(npin_t*) * (count + 1));
-		pins[count++] = node->output_pins[i];
-	}
-	*num_pins = count;
-	return pins;
-}
-
 
 /*
  * Sets the pin to the given value for the given cycle. Does not
@@ -1009,6 +1016,7 @@ void compute_memory_node(nnode_t *node, int cycle)
 	}
 }
 
+// TODO: Needs to be verified.
 void compute_hard_ip_node(nnode_t *node, int cycle)
 {
 	int *input_pins = malloc(sizeof(int)*node->num_input_pins);
@@ -1051,7 +1059,7 @@ void compute_hard_ip_node(nnode_t *node, int cycle)
 	free(output_pins);
 }
 
-
+// TODO: Needs to be verified.
 void compute_multiply_node(nnode_t *node, int cycle)
 {
 	int *a = malloc(sizeof(int)*node->input_port_sizes[0]);
@@ -1088,7 +1096,7 @@ void compute_multiply_node(nnode_t *node, int cycle)
 	free(b);
 }
 
-
+// TODO: Needs to be verified.
 void compute_generic_node(nnode_t *node, int cycle)
 {
 	int line_count_bitmap = node->bit_map_line_count;
@@ -1129,6 +1137,7 @@ void compute_generic_node(nnode_t *node, int cycle)
  *
  * This array will need to be freed later!
  */
+// TODO: Needs to be verified.
 int *multiply_arrays(int *a, int a_length, int *b, int b_length)
 {
 	int result_size = a_length + b_length;
@@ -1158,6 +1167,7 @@ int *multiply_arrays(int *a, int a_length, int *b, int b_length)
 /*
  * Computes memory.
  */
+// TODO: Needs to be verified.
 void compute_memory(
 	npin_t **inputs,
 	npin_t **outputs,
@@ -1207,6 +1217,7 @@ void compute_memory(
  * Initializes memory using a memory information file (mif). If not
  * file is found, it is initialized to 0's.
  */
+// TODO: Needs to be verified.
 void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width)
 {
 	char *filename = node->name;
@@ -1263,8 +1274,10 @@ void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_wi
 	fclose(mif);
 }
 
-
-
+/*
+ * Searches for a line with the given name in the lines. Returns the id
+ * or -1 if no such line was found.
+ */
 int find_portname_in_lines(char* port_name, line_t **lines, int count)
 {
 	int found = FALSE;
@@ -1282,7 +1295,10 @@ int find_portname_in_lines(char* port_name, line_t **lines, int count)
 	else        return  j;
 }
 
-
+/*
+ * Assigns the given node to its corresponding line in the given array of line.
+ * Assumes the line has already been created.
+ */
 void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type, int single_pin)
 {
 	if (!node->num_output_pins)
@@ -1292,13 +1308,21 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 		add_a_output_pin_to_node_spot_idx(node, pin, 0);
 	}
 
+	// Grab the portion of the name ater the ^
 	char *port_name = strdup(strchr(node->name, '^') + 1);
+	// Find out if there is a ~
 	char *tilde = strchr(port_name, '~');
+	/*
+	 * If there's a ~, this is a multi-pin port. Unless we want to forcibly
+	 * treat it as a single pin, get the pin number, and truncate the
+	 * port name by placing null in the position of the tilde.
+	 */
 	int pin_number;
 	if (tilde && !single_pin) {
 		pin_number = atoi(tilde+1);
-		*tilde = '\0'; // Ignore the tilde, and everything after it.
+		*tilde = '\0';
 	}
+	// Otherwise, pretend there is no tilde.
 	else {
 		tilde = 0;
 	}
@@ -1306,7 +1330,7 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 	int j = find_portname_in_lines(port_name, lines, lines_size);
 
 	if (!tilde)
-	{
+	{	// Treat the pin as a lone single pin.
 		if (j == -1)
 		{
 			if (!(node->type == GND_NODE || node->type == VCC_NODE || node->type == PAD_NODE || node->type == CLOCK_NODE))
@@ -1314,8 +1338,6 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 		} 
 		else
 		{
-			//lines[j]->name = strdup(port_name);
-
 			lines[j]->number_of_pins = 1;
 			lines[j]->pins = malloc(sizeof(npin_t *));
 			lines[j]->pins[0] = node->output_pins[0];
@@ -1323,7 +1345,7 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 		}		
 	}
 	else
-	{
+	{	// Treat the pin as part of a multi-pin port.
 		if (j == -1)
 		{
 			warning_message(SIMULATION_ERROR, -1, -1, "Could not map multi-bit top-level input node '%s' to input vector", node->name);			
@@ -1339,7 +1361,7 @@ void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type
 }
 
 /*
- * Given a netlist, this function maps the top_input_nodes and
+ * Given a netlist, this function maps the top_input_nodes
  * to a line_t* each. It stores them in an array and returns it,
  * storing the array size in the *lines_size pointer.
  */
@@ -1372,6 +1394,11 @@ line_t **create_input_test_vector_lines(int *lines_size, netlist_t *netlist)
 	return lines;
 }
 
+/*
+ * Given a netlist, this function maps the top_output_nodes
+ * to a line_t* each. It stores them in an array and returns it,
+ * storing the array size in the *lines_size pointer.
+ */
 line_t **create_output_test_vector_lines(int *lines_size, netlist_t *netlist)
 {
 	line_t **lines = 0;
@@ -1400,8 +1427,7 @@ line_t **create_output_test_vector_lines(int *lines_size, netlist_t *netlist)
 }
 
 /*
- * Writes the lines[] elements' names to the files
- * followed by a newline at the very end of
+ * Writes the lines[] elements' names to the files followed by a newline at the very end of
  * each file
  */
 void write_vector_headers(FILE *file, line_t **lines, int lines_size)
@@ -1414,14 +1440,20 @@ void write_vector_headers(FILE *file, line_t **lines, int lines_size)
 		else        first = FALSE; 
 
 		fprintf(file, "%s", lines[i]->name);
-
 	}
 	fprintf(file, "\n");
 	fflush(file);
 }
 
+/*
+ * Parses the first line of the given file pointer and compares it to the
+ * given nodes for identity. If there is any difference, a warning is printed,
+ * and FALSE is returned. If there are no differences, the file pointer is left
+ * at the start of the first line after the header, and TRUE is returned.
+ */
 int verify_test_vector_headers(FILE *in, line_t **lines, int lines_size)
 {
+	rewind(in);
 	char buffer [BUFFER_MAX_SIZE];
 	int current_line = 0;
 	int buffer_length = 0;
@@ -1504,9 +1536,10 @@ line_t *create_line(char *name)
 	return line;
 }
 
-
-
-
+/*
+ * Stores the given test vector in the given lines, with some sanity checking to ensure that it
+ * has a compatible geometry.
+ */
 void store_test_vector_in_lines(test_vector *v, line_t **lines, int num_lines, int cycle)
 {
 	if (num_lines < v->count) error_message(SIMULATION_ERROR, 0, -1, "Fewer lines (%d) than values (%d).", num_lines, v->count);
@@ -1535,7 +1568,10 @@ void store_test_vector_in_lines(test_vector *v, line_t **lines, int num_lines, i
 	}
 }
 
-
+/*
+ * Compares two test vectors for numerical and geometric identity. Returns FALSE if
+ * they are found to be different, and TRUE otherwise.
+ */
 int compare_test_vectors(test_vector *v1, test_vector *v2)
 {
 	if (v1->count != v2->count)
@@ -1568,7 +1604,10 @@ int compare_test_vectors(test_vector *v1, test_vector *v2)
 	return TRUE;
 }
 
-
+/*
+ * Parses the given line from a test vector file into a
+ * test_vector data structure.
+ */
 test_vector *parse_test_vector(char *buffer)
 {
 	buffer = strdup(buffer);
@@ -1650,6 +1689,11 @@ test_vector *parse_test_vector(char *buffer)
 	return v;
 }
 
+/*
+ * Generates a "random" test_vector structure based on the geometry of the given lines.
+ *
+ * If you want better randomness, call srand at some point.
+ */
 test_vector *generate_random_test_vector(line_t **lines, int lines_size, int cycle)
 {
 	test_vector *v = malloc(sizeof(test_vector));
@@ -1691,28 +1735,30 @@ test_vector *generate_random_test_vector(line_t **lines, int lines_size, int cyc
 		}
 		v->count++;
 	}
-	//printf("%d", v->values[0][1]);
 	return v;
 }
 
 /*
- * Writes a wave of vectors to the given file. 
+ * Writes a wave of vectors to the given file. Writes the headers
+ * prior to cycle 0.
  */ 
-void write_all_vectors_to_file(line_t **lines, int lines_size, FILE* file, FILE *modelsim_out, int type, int cycle_offset, int wave_length)
+void write_wave_to_file(line_t **lines, int lines_size, FILE* file, FILE *modelsim_out, int type, int cycle_offset, int wave_length)
 {
 	if (!cycle_offset)
 		write_vector_headers(file, lines, lines_size);
 
 	int cycle;
 	for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle++)
-		write_vectors_to_file(lines, lines_size, file, modelsim_out, type, cycle);
+		write_vector_to_file(lines, lines_size, file, modelsim_out, type, cycle);
 }
 
 /*
  * Writes all line values in lines[] such that line->type == type to the
  * file specified by the file parameter.
+ *
+ * TODO: Factor modelsim output and disentangle it from vector output.
  */
-void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *modelsim_out, int type, int cycle)
+void write_vector_to_file(line_t **lines, int lines_size, FILE *file, FILE *modelsim_out, int type, int cycle)
 {
 	int first = TRUE;
 
@@ -1737,8 +1783,6 @@ void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *mod
 
 				if (type == INPUT && modelsim_out)
 					fprintf(modelsim_out, "force %s %d %d\n", lines[i]->name,get_pin_value(pin,cycle), cycle * 100);
-
-
 			}
 			else
 			{
@@ -1774,7 +1818,8 @@ void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *mod
 						if (get_pin_value(pin,cycle) < 0) fprintf(file, "x");
 						else                              fprintf(file, "%d", get_pin_value(pin,cycle));
 
-						if (type == INPUT) warning_message(SIMULATION_ERROR, -1, -1, "Tried to write an unknown value to the modelsim script. It's likely unreliable. \n");
+						if (type == INPUT)
+							warning_message(SIMULATION_ERROR, -1, -1, "Tried to write an unknown value to the modelsim script. It's likely unreliable. \n");
 					}
 				}
 				else
@@ -1809,19 +1854,27 @@ void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *mod
 					if (type == INPUT && modelsim_out)
 						fprintf(modelsim_out, " %d\n", cycle * 100);
 				}
-
-
 			}
 		}
 	}
 	fprintf(file, "\n");
 }
 
-
+/*
+ * Verify that the given output vector file matches is identical (numerically)
+ * to the one written by the current simulation. This is done by parsing each
+ * file vector by vector and comparing them. Also verifies that the headers are identical.
+ *
+ * Prints appropriate warning messages when differences are found.
+ *
+ * Returns false if the files differ and true if they are identical, with the exception of
+ * number format.
+ */
 int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 {
 	int error = FALSE;
 
+	// The filename cannot be the same as our default output file.
 	if (!strcmp(output_vector_file,OUTPUT_VECTOR_FILE_NAME))
 	{
 		error = TRUE;
@@ -1832,13 +1885,18 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 	}
 	else
 	{
+		// The file being verified against.
 		FILE *existing_out = fopen(output_vector_file, "r");
-		FILE *current_out  = fopen(OUTPUT_VECTOR_FILE_NAME, "r");
 		if (!existing_out) error_message(SIMULATION_ERROR, -1, -1, "Could not open vector output file: %s", output_vector_file);
+
+		// Our current output vectors. (Just produced.)
+		FILE *current_out  = fopen(OUTPUT_VECTOR_FILE_NAME, "r");
 		if (!current_out) error_message(SIMULATION_ERROR, -1, -1, "Could not open output vector file.");
 
 		int cycle;
-		char buffer1[BUFFER_MAX_SIZE], buffer2[BUFFER_MAX_SIZE];
+		char buffer1[BUFFER_MAX_SIZE];
+		char buffer2[BUFFER_MAX_SIZE];
+		// Start at cycle -1 to check the headers.
 		for (cycle = -1; cycle < num_test_vectors; cycle++)
 		{
 			if (!fgets(buffer1, BUFFER_MAX_SIZE, existing_out))
@@ -1853,6 +1911,7 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 				warning_message(SIMULATION_ERROR, 0, -1,"Simulation produced fewer than %d vectors.\n", num_test_vectors);
 				break;
 			}
+			// The headers differ.
 			else if ((cycle == -1) && strcmp(buffer1,buffer2))
 			{
 				error = TRUE;
@@ -1867,9 +1926,11 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 			}
 			else
 			{
+				// Parse both vectors.
 				test_vector *v1 = parse_test_vector(buffer1);
 				test_vector *v2 = parse_test_vector(buffer2);
 
+				// Compare them and print an appropreate message if they differ.
 				if (!compare_test_vectors(v1,v2))
 				{
 					error = TRUE;
@@ -1886,6 +1947,7 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 			}
 		}
 
+		// If the file we're checking against is longer than the current output, print an appropreate warning.
 		if (!error && fgets(buffer1, BUFFER_MAX_SIZE, existing_out))
 		{
 			warning_message(SIMULATION_ERROR, 0, -1,"%s contains more vectors than %s.\n", output_vector_file, OUTPUT_VECTOR_FILE_NAME);
@@ -1895,11 +1957,11 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 		fclose(existing_out);
 		fclose(current_out);
 	}
-	return error;
+	return !error;
 }
 
 /*
- * frees each element in lines[] and the array itself
+ * Free each element in lines[] and the array itself
  */
 void free_lines(line_t **lines, int lines_size)
 {
@@ -1913,6 +1975,9 @@ void free_lines(line_t **lines, int lines_size)
 	free(lines);
 }
 
+/*
+ * Free stages.
+ */
 void free_stages(stages *s)
 {
 	while (s->count--)
@@ -1922,10 +1987,14 @@ void free_stages(stages *s)
 	free(s);
 }
 
+/*
+ * Free the given test_vector.
+ */
 void free_test_vector(test_vector* v)
 {
 	while (v->count--)
 		free(v->values[v->count]);
+
 	free(v->counts);
 	free(v);
 }

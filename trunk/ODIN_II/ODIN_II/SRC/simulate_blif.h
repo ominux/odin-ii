@@ -132,8 +132,8 @@ void store_test_vector_in_lines(test_vector *v, line_t **lines, int num_lines, i
 void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type, int single_pin);
 
 void write_vector_headers(FILE *file, line_t **lines, int lines_size);
-void write_vectors_to_file(line_t **lines, int lines_size, FILE *file, FILE *modelsim_out, int type, int cycle);
-void write_all_vectors_to_file(line_t **lines, int lines_size, FILE* file, FILE *modelsim_out, int type, int cycle_offset, int wave_length);
+void write_vector_to_file(line_t **lines, int lines_size, FILE *file, FILE *modelsim_out, int type, int cycle);
+void write_wave_to_file(line_t **lines, int lines_size, FILE* file, FILE *modelsim_out, int type, int cycle_offset, int wave_length);
 int verify_output_vectors(char* output_vector_file, int num_test_vectors);
 
 #endif
