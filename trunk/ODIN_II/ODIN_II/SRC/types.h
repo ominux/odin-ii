@@ -129,6 +129,7 @@ struct global_args_t_t
 	char *high_level_block;
 	char *sim_vector_input_file;   // Input vectors to simulate.
 	char *sim_vector_output_file;  // Existing output to verify against.
+	char *sim_additional_pins;
 	int num_test_vectors;
 };
 
