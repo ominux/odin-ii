@@ -56,14 +56,23 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define SINGLE_PORT_MEMORY_NAME "single_port_ram"
 #define DUAL_PORT_MEMORY_NAME "dual_port_ram"
 
-#define line_t struct line_t_t
-line_t {
+typedef struct {
+	char **pins;
+	int   count;
+} additional_pins;
+
+typedef struct {
 	int number_of_pins;
 	int max_number_of_pins;
 	npin_t **pins;
 	char *name;
 	int type;
-};
+} line_t;
+
+typedef struct {
+	line_t **lines;
+	int    count;
+} lines_t;
 
 typedef struct {
 	nnode_t ***stages; // Stages.
@@ -80,14 +89,7 @@ typedef struct {
 
 void simulate_netlist(netlist_t *netlist);
 void simulate_cycle(netlist_t *netlist, int cycle, stages *s);
-stages *simulate_first_cycle
-(
-		netlist_t *netlist,
-		int cycle,
-		char **additional_pins, int num_additional_pins,
-		line_t ***output_lines, int *num_output_lines
-);
-
+stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, lines_t *output_lines);
 
 stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes);
 void free_stages(stages *s);
@@ -114,27 +116,31 @@ void compute_memory(npin_t **inputs, npin_t **outputs, int data_width, npin_t **
 void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width);
 
 test_vector *parse_test_vector(char *buffer);
-test_vector *generate_random_test_vector(line_t **lines, int lines_size, int cycle);
+test_vector *generate_random_test_vector(lines_t *l, int cycle);
 int compare_test_vectors(test_vector *v1, test_vector *v2);
 
-int verify_test_vector_headers(FILE *in, line_t **lines, int lines_size);
+int verify_test_vector_headers(FILE *in, lines_t *l);
 void free_test_vector(test_vector* v);
 
 line_t *create_line(char *name);
-int verify_lines(line_t **lines, int lines_size);
-void free_lines(line_t **lines, int lines_size);
+int verify_lines(lines_t *l);
+void free_lines(lines_t *l);
 
-int find_portname_in_lines(char* port_name, line_t **lines, int count);
-line_t **create_input_test_vector_lines(int *lines_size, netlist_t *netlist);
-line_t **create_output_test_vector_lines(int *lines_size, netlist_t *netlist);
+int find_portname_in_lines(char* port_name, lines_t *l);
+lines_t *create_input_test_vector_lines(netlist_t *netlist);
+lines_t *create_output_test_vector_lines(netlist_t *netlist);
 
-void store_test_vector_in_lines(test_vector *v, line_t **lines, int num_lines, int cycle);
-void assign_node_to_line(nnode_t *node, line_t **lines, int lines_size, int type, int single_pin);
+void store_test_vector_in_lines(test_vector *v, lines_t *l, int cycle);
+void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin);
 
-void write_vector_headers(FILE *file, line_t **lines, int lines_size);
-void write_vector_to_file(line_t **lines, int lines_size, FILE *file, FILE *modelsim_out, int type, int cycle);
-void write_wave_to_file(line_t **lines, int lines_size, FILE* file, FILE *modelsim_out, int type, int cycle_offset, int wave_length);
+void write_vector_headers(FILE *file, lines_t *l);
+void write_vector_to_file(lines_t *l, FILE *file, FILE *modelsim_out, int type, int cycle);
+void write_wave_to_file(lines_t *l, FILE* file, FILE *modelsim_out, int type, int cycle_offset, int wave_length);
 int verify_output_vectors(char* output_vector_file, int num_test_vectors);
+
+void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l);
+additional_pins *parse_additional_pins();
+void free_additional_pins(additional_pins *p);
 
 #endif
 
