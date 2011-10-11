@@ -106,6 +106,7 @@ void simulate_netlist(netlist_t *netlist)
 					store_test_vector_in_lines(v, input_lines, cycle++);
 					free_test_vector(v);
 				}
+				write_wave_to_modelsim_file(netlist, input_lines, modelsim_out, cycle_offset, wave_length);
 			}
 			else
 			{
