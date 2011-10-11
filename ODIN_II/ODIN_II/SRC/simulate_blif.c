@@ -35,15 +35,6 @@ void simulate_netlist(netlist_t *netlist)
 {
 	printf("Beginning simulation.\n"); fflush(stdout);
 
-	// Passed via the -g option.
-	int num_test_vectors     = global_args.num_test_vectors;
-	// Passed via the -t option.
-	char *input_vector_file  = global_args.sim_vector_input_file;
-	// Existing output vectors to check against, passed via -T.
-	char *output_vector_file = global_args.sim_vector_output_file;
-
-	additional_pins *p = parse_additional_pins();
-
 	// Create and verify the lines.
 	lines_t *input_lines = create_input_test_vector_lines(netlist);
 	if (!verify_lines(input_lines))
@@ -64,30 +55,31 @@ void simulate_netlist(netlist_t *netlist)
 	fprintf(modelsim_out, "add wave *\n");
 	fprintf(modelsim_out, "force clk 1 0, 0 50 -repeat 100\n");
 
-	// Input vectors can either come from a file or be randomly generated.
 	FILE *in  = NULL;
+	int num_test_vectors;
+	// Passed via the -t option.
+	char *input_vector_file  = global_args.sim_vector_input_file;
+
+	// Input vectors can either come from a file or be randomly generated.
 	if (input_vector_file)
 	{
 		printf("Simulating input vector file.\n"); fflush(stdout);
+
 		in = fopen(input_vector_file, "r");
 		if (!in) error_message(SIMULATION_ERROR, -1, -1, "Could not open vector input file: %s", input_vector_file);
 
-		// Count the test vectors in the file.
-		num_test_vectors = 0;
-		char buffer[BUFFER_MAX_SIZE];
-		while (fgets(buffer, BUFFER_MAX_SIZE, in))
-			num_test_vectors++;
-		if (num_test_vectors) // Don't count the headers.
-			num_test_vectors--;
-		rewind(in);
+		num_test_vectors = count_test_vectors(in);
 
 		// Read the vector headers and check to make sure they match the lines.
 		if (!verify_test_vector_headers(in, input_lines))
 			error_message(SIMULATION_ERROR, 0, -1, "Invalid vector header format in %s.", input_vector_file);
 	}
 	else
-	{
-		printf("Simulating using new vectors.\n"); fflush(stdout);
+	{	printf("Simulating using new vectors.\n"); fflush(stdout);
+
+		// Passed via the -g option.
+		num_test_vectors     = global_args.num_test_vectors;
+
 		in  = fopen( INPUT_VECTOR_FILE_NAME, "w");
 		if (!in)
 			error_message(SIMULATION_ERROR, -1, -1, "Could not open input vector file.");
@@ -111,7 +103,7 @@ void simulate_netlist(netlist_t *netlist)
 			{
 				int cycle = cycle_offset;
 				char buffer[BUFFER_MAX_SIZE];
-				while (fgets(buffer, BUFFER_MAX_SIZE, in) && cycle < cycle_offset + wave_length)
+				while ((cycle < cycle_offset + wave_length) && fgets(buffer, BUFFER_MAX_SIZE, in))
 				{
 					test_vector *v = parse_test_vector(buffer);
 					store_test_vector_in_lines(v, input_lines, cycle++);
@@ -140,7 +132,9 @@ void simulate_netlist(netlist_t *netlist)
 			{
 				if (!cycle)
 				{	// The first cycle produces the stages, and adds additional lines as specified by the -p option.
+					additional_pins *p = parse_additional_pins();
 					stages = simulate_first_cycle(netlist, cycle, p, output_lines);
+					free_additional_pins(p);
 					// Make sure the output lines are still OK after adding custom lines.
 					if (!verify_lines(output_lines))
 						error_message(SIMULATION_ERROR, -1, -1, "Problem detected with the output lines after the first cycle.");
@@ -167,6 +161,8 @@ void simulate_netlist(netlist_t *netlist)
 		printf("\n");
 
 		// If a second output vector file was given via the -T option, verify that it matches.
+		char *output_vector_file = global_args.sim_vector_output_file;
+
 		if (output_vector_file)
 			if (verify_output_vectors(output_vector_file, num_test_vectors))
 				printf("Vectors match\n");
@@ -183,7 +179,7 @@ void simulate_netlist(netlist_t *netlist)
 		printf("No vectors to simulate.\n");
 	}
 
-	free_additional_pins(p);
+
 
 	free_lines(output_lines);
 	free_lines(input_lines);
@@ -1565,28 +1561,22 @@ test_vector *parse_test_vector(char *buffer)
 			token += 2;
 			int token_length = strlen(token);
 
-			int i = 0;
-			int j = token_length - 1;
-			while(i < j)
-			{
-				char temp = token[i];
-				token[i] = token [j];
-				token[j] = temp;
-				i++;
-				j--;
-			}
+			string_reverse(token, token_length);
 
-			int k = 0;
+			int i;
 			for (i = 0; i < token_length; i++)
 			{
 				char temp[] = {token[i],'\0'};
-				int value = strtol(temp, NULL, 16);
 
+				int value = strtol(temp, NULL, 16);
+				int k;
 				for (k = 0; k < 4; k++)
 				{
-					signed char bit = (value & (1 << k)) > 0 ? 1 : 0;
+					signed char bit = value % 2;
+					value /= 2;
 					v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));
 					v->values[v->count][v->counts[v->count]++] = bit;
+
 				}
 			}
 		}
@@ -1603,6 +1593,7 @@ test_vector *parse_test_vector(char *buffer)
 				v->values[v->count][v->counts[v->count]++] = value;
 			}
 		}
+
 		v->count++;
 		token = strtok(NULL, delim);
 	}
@@ -1881,6 +1872,10 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 	return !error;
 }
 
+/*
+ * Parses a comma separated list of additional pins
+ * into an additional_pins struct.
+ */
 additional_pins *parse_additional_pins()
 {
 	additional_pins *p = malloc(sizeof(additional_pins));
@@ -1903,7 +1898,10 @@ additional_pins *parse_additional_pins()
 	return p;
 }
 
-
+/*
+ * If the given node matches one of the additional_pins,
+ * it's added to the lines.
+ */
 void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l)
 {
 	// Add additional pins to the lines as found.
@@ -1964,6 +1962,67 @@ void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l)
 }
 
 /*
+ * Prints a value from a test_vectors struct in hex.
+ */
+char *vector_value_to_hex(signed char *value, int length)
+{
+	char *tmp;
+	char *string = malloc(sizeof(char) * (length + 1));
+	int j;
+	for (j = 0; j < length+1; j++)
+	{
+		string[j] = value[j] + '0';
+		string[j+1] = '\0';
+	}
+
+	string_reverse(string,strlen(string));
+
+	char *hex_string = malloc(sizeof(char) * ((length/4 + 1) + 1));
+	sprintf(hex_string, "%X ", strtol(string, &tmp, 2));
+	free(string);
+
+	return hex_string;
+}
+
+/*
+ * Reverses the given string.
+ */
+void string_reverse(char *string, int length)
+{
+	int i = 0;
+	int j = length - 1;
+	while(i < j)
+	{
+		char temp = string[i];
+		string[i] = string [j];
+		string[j] = temp;
+		i++;
+		j--;
+	}
+}
+
+/*
+ * Counts the number of lines besides the headers
+ * present in the given file.
+ */
+int count_test_vectors(FILE *in)
+{
+	rewind(in);
+
+	int count = 0;
+	char buffer[BUFFER_MAX_SIZE];
+	while (fgets(buffer, BUFFER_MAX_SIZE, in))
+		count++;
+
+	if (count) // Don't count the headers.
+		count--;
+
+	rewind(in);
+
+	return count;
+}
+
+/*
  * Free each element in lines[] and the array itself
  */
 void free_lines(lines_t *l)
@@ -2004,6 +2063,9 @@ void free_test_vector(test_vector* v)
 	free(v);
 }
 
+/*
+ * Frees additional_pins struct.
+ */
 void free_additional_pins(additional_pins *p)
 {
 	while (p->count--)

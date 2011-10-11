@@ -115,6 +115,7 @@ int *multiply_arrays(int *a, int a_length, int *b, int b_length);
 void compute_memory(npin_t **inputs, npin_t **outputs, int data_width, npin_t **addr, int addr_width, int we, int clock, int cycle, int *data);
 void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width);
 
+int count_test_vectors(FILE *in);
 test_vector *parse_test_vector(char *buffer);
 test_vector *generate_random_test_vector(lines_t *l, int cycle);
 int compare_test_vectors(test_vector *v1, test_vector *v2);
@@ -141,6 +142,10 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors);
 void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l);
 additional_pins *parse_additional_pins();
 void free_additional_pins(additional_pins *p);
+
+
+void string_reverse(char *token, int length);
+char *vector_value_to_hex(signed char *value, int length);
 
 #endif
 
