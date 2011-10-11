@@ -49,10 +49,6 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define INPUT_VECTOR_FILE_NAME "input_vectors"
 #define OUTPUT_VECTOR_FILE_NAME "output_vectors"
 
-#define CLOCK_PORT_NAME_1 "clock"
-#define CLOCK_PORT_NAME_2 "clk"
-#define RESET_PORT_NAME "reset_n"
-
 #define SINGLE_PORT_MEMORY_NAME "single_port_ram"
 #define DUAL_PORT_MEMORY_NAME "dual_port_ram"
 
@@ -134,16 +130,22 @@ lines_t *create_output_test_vector_lines(netlist_t *netlist);
 void store_test_vector_in_lines(test_vector *v, lines_t *l, int cycle);
 void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin);
 
+char *generate_vector_header(lines_t *l);
 void write_vector_headers(FILE *file, lines_t *l);
-void write_vector_to_file(lines_t *l, FILE *file, FILE *modelsim_out, int type, int cycle);
-void write_wave_to_file(lines_t *l, FILE* file, FILE *modelsim_out, int type, int cycle_offset, int wave_length);
+
+void write_vector_to_file(lines_t *l, FILE *file, int cycle);
+void write_wave_to_file(lines_t *l, FILE* file, int cycle_offset, int wave_length);
+
+void write_vector_to_modelsim_file(lines_t *l, FILE *modelsim_out, int cycle);
+void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_out, int cycle_offset, int wave_length);
+
 int verify_output_vectors(char* output_vector_file, int num_test_vectors);
 
 void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l);
 additional_pins *parse_additional_pins();
 void free_additional_pins(additional_pins *p);
 
-
+void string_trim(char* string, char *chars);
 void string_reverse(char *token, int length);
 char *vector_value_to_hex(signed char *value, int length);
 
