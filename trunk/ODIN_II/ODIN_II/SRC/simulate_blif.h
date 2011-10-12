@@ -112,6 +112,8 @@ void compute_memory(npin_t **inputs, npin_t **outputs, int data_width, npin_t **
 void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width);
 
 int count_test_vectors(FILE *in);
+int is_vector(char *buffer);
+int get_next_vector(FILE *file, char *buffer);
 test_vector *parse_test_vector(char *buffer);
 test_vector *generate_random_test_vector(lines_t *l, int cycle);
 int compare_test_vectors(test_vector *v1, test_vector *v2);
@@ -148,6 +150,8 @@ void free_additional_pins(additional_pins *p);
 void string_trim(char* string, char *chars);
 void string_reverse(char *token, int length);
 char *vector_value_to_hex(signed char *value, int length);
+
+
 
 #endif
 
