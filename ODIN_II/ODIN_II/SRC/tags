@@ -775,7 +775,7 @@ instantiate_buffer	partial_map.c	/^void instantiate_buffer(nnode_t *node, short 
 instantiate_hard_block	hard_blocks.c	/^instantiate_hard_block(nnode_t *node, short mark, netlist_t *netlist)$/;"	f
 instantiate_hard_multiplier	multipliers.c	/^void instantiate_hard_multiplier(nnode_t *node, short mark, netlist_t *netlist)$/;"	f
 instantiate_logical_logic	partial_map.c	/^void instantiate_logical_logic(nnode_t *node, operation_list op, short mark, netlist_t *netlist)$/;"	f
-instantiate_memory	simulate_blif.c	/^void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width)$/;"	f
+instantiate_memory	simulate_blif.c	/^void instantiate_memory(nnode_t *node, signed char **memory, int data_width, int addr_width)$/;"	f
 instantiate_memory	simulate_blif.prerevert.c	/^void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width)$/;"	f
 instantiate_memory	simulate_blif.prestage.c	/^void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width)$/;"	f
 instantiate_multi_port_mux	partial_map.c	/^void instantiate_multi_port_mux(nnode_t *node, short mark, netlist_t *netlist)$/;"	f
@@ -857,7 +857,7 @@ markAndProcessSymbolListWith	parse_making_ast.c	/^ast_node_t *markAndProcessSymb
 mark_clock_node	netlist_utils.c	/^mark_clock_node ($/;"	f
 max_number_of_pins	simulate_blif.h	/^	int max_number_of_pins;$/;"	m	struct:__anon2
 me	types.h	/^	ast_node_t *me;$/;"	m	struct:info_ast_visit_t_t
-memory_data	types.h	/^	int *memory_data;$/;"	m	struct:nnode_t_t
+memory_data	types.h	/^	signed char *memory_data;$/;"	m	struct:nnode_t_t
 memory_instances	memories.c	/^struct s_linked_vptr *memory_instances = NULL;$/;"	v	typeref:struct:s_linked_vptr
 memory_port_size_list	memories.c	/^struct s_linked_vptr *memory_port_size_list = NULL;$/;"	v	typeref:struct:s_linked_vptr
 min_hard_multiplier	types.h	/^	int min_hard_multiplier; \/\/ threshold from hard to soft logic$/;"	m	struct:config_t_t
@@ -1107,7 +1107,7 @@ sim_vector_output_file	types.h	/^	char *sim_vector_output_file;  \/\/ Existing o
 simulate_blif	simulate_blif.prerevert.c	/^void simulate_blif (char *test_vector_file_name, netlist_t *netlist)$/;"	f
 simulate_blif	simulate_blif.prestage.c	/^void simulate_blif (char *test_vector_file_name, netlist_t *netlist)$/;"	f
 simulate_block_cycle	types.h	/^	void (*simulate_block_cycle)(int, int, int*, int, int*);$/;"	m	struct:nnode_t_t
-simulate_cycle	simulate_blif.c	/^void simulate_cycle(netlist_t *netlist, int cycle, stages *s)$/;"	f
+simulate_cycle	simulate_blif.c	/^void simulate_cycle(int cycle, stages *s)$/;"	f
 simulate_cycle	simulate_blif.prerevert.c	/^void simulate_cycle(netlist_t *netlist, int cycle, stages **s)$/;"	f
 simulate_cycle	simulate_blif.prestage.c	/^void simulate_cycle(netlist_t *netlist, int cycle, nnode_t ***ordered_nodes, int *num_ordered_nodes)$/;"	f
 simulate_first_cycle	simulate_blif.c	/^stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, lines_t *l)$/;"	f

@@ -84,7 +84,7 @@ typedef struct {
 } test_vector;
 
 void simulate_netlist(netlist_t *netlist);
-void simulate_cycle(netlist_t *netlist, int cycle, stages *s);
+void simulate_cycle(int cycle, stages *s);
 stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, lines_t *output_lines);
 
 stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes);
@@ -108,8 +108,8 @@ inline signed char get_pin_value(npin_t *pin, int cycle);
 inline int get_values_offset(int cycle); 
 
 int *multiply_arrays(int *a, int a_length, int *b, int b_length);
-void compute_memory(npin_t **inputs, npin_t **outputs, int data_width, npin_t **addr, int addr_width, int we, int clock, int cycle, int *data);
-void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width);
+void compute_memory(npin_t **inputs, npin_t **outputs, int data_width, npin_t **addr, int addr_width, int we, int clock, int cycle, signed char *data);
+void instantiate_memory(nnode_t *node, signed char **memory, int data_width, int addr_width);
 
 int count_test_vectors(FILE *in);
 int is_vector(char *buffer);
