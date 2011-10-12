@@ -140,7 +140,7 @@ void simulate_netlist(netlist_t *netlist)
 				}
 				else
 				{
-					simulate_cycle(netlist, cycle, stages);
+					simulate_cycle(cycle, stages);
 				}
 			}
 
@@ -166,8 +166,9 @@ void simulate_netlist(netlist_t *netlist)
 			if (verify_output_vectors(output_vector_file, num_test_vectors))
 				printf("Vectors match\n");
 
-		printf("Number of nodes: %d\n", stages->num_nodes);
-		printf("Simulation time: %fs\n", simulation_time);
+		printf("Number of nodes:  %d\n",  stages->num_nodes);
+		printf("Number of levels: %d\n",  stages->count);
+		printf("Simulation time:  %fs\n", simulation_time);
 
 		fprintf(modelsim_out, "run %d\n", (num_test_vectors*100) + 100);
 
@@ -191,7 +192,7 @@ void simulate_netlist(netlist_t *netlist)
  * This simulates a single cycle using the stages generated
  * during the first cycle. Simulates in parallel if OpenMP is enabled.
  */
-void simulate_cycle(netlist_t *netlist, int cycle, stages *s)
+void simulate_cycle(int cycle, stages *s)
 {
 	int i;
 	for(i = 0; i < s->count; i++)
@@ -1092,59 +1093,57 @@ void compute_memory(
 	int we,
 	int clock,
 	int cycle,
-	int *data
+	signed char *data
 )
 {
-	if (!clock)
+	long address = 0;
+	int i;
+	for (i = 0; i < addr_width; i++)
 	{
-		int i;
-		for (i = 0; i < data_width; i++)
-			update_pin_value(outputs[i], get_pin_value(outputs[i],cycle), cycle);
+		if (get_pin_value(addr[i],cycle) < 0)
+		{
+			int j;
+			for (j = 0; j < data_width; j++)
+				update_pin_value(outputs[j], -1, cycle);
+
+			return;
+		}
+
+		address += get_pin_value(addr[i],cycle) << (i);
 	}
-	else
+
+	for (i = 0; i < data_width; i++)
 	{
-		long address = 0;
-		int i;
-		for (i = 0; i < addr_width; i++)
-			address += get_pin_value(addr[i],cycle) << (i);
+		long long byte_address = i + (address * data_width);
 
 		if (we)
-		{
-			for (i = 0; i < data_width; i++)
-			{
-				long write_address = i + (address * data_width);
-				data[write_address] = get_pin_value(inputs[i],cycle);
-				update_pin_value(outputs[i], data[write_address], cycle);
-			}
-		}
-		else
-		{
-			for (i = 0; i < data_width; i++)
-			{
-				long read_address = i + (address * data_width);
-				update_pin_value(outputs[i], data[read_address], cycle);
-			}
-		}
+			data[byte_address] = get_pin_value(inputs[i],cycle);
+
+		update_pin_value(outputs[i], data[byte_address], cycle);
 	}
 }
 
 /*
- * Initializes memory using a memory information file (mif). If not
- * file is found, it is initialized to 0's.
+ * Initialises memory using a memory information file (mif). If not
+ * file is found, it is initialised to x's.
  */
-// TODO: Needs to be verified.
-void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_width)
+// TODO: This obviously won't work with mif files, as it doesn't even write the values to the memory.
+void instantiate_memory(nnode_t *node, signed char **memory, int data_width, int addr_width)
 {
 	char *filename = node->name;
 	char *input = (char *)malloc(sizeof(char)*BUFFER_MAX_SIZE);
 	long long int max_address = my_power(2, addr_width);
 
-	*memory = (int *)malloc(sizeof(int)*max_address*data_width);
-	memset(*memory, 0, sizeof(int)*max_address*data_width);
+	*memory = malloc(sizeof(signed char)*max_address*data_width);
+	// Initialise the memory to -1.
+	int i;
+	for (i = 0; i < max_address * data_width; i++)
+		(*memory)[i] = -1;
 
 	filename = strrchr(filename, '+') + 1;
 	strcat(filename, ".mif");
-	if (!filename) error_message(SIMULATION_ERROR, 0, -1, "Couldn't parse node name");
+	if (!filename)
+		error_message(SIMULATION_ERROR, 0, -1, "Couldn't parse node name");
 
 	FILE *mif = fopen(filename, "r");
 	if (!mif)
@@ -1159,8 +1158,8 @@ void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_wi
 
 	while (fgets(input, BUFFER_MAX_SIZE, mif))
 	{
-		char *addr = (char *)malloc(sizeof(char)*BUFFER_MAX_SIZE);
-		char *data = (char *)malloc(sizeof(char)*BUFFER_MAX_SIZE);
+		char *addr = malloc(sizeof(char)*BUFFER_MAX_SIZE);
+		char *data = malloc(sizeof(char)*BUFFER_MAX_SIZE);
 
 		if (!(strcmp(input, "Begin\n") == 0 || strcmp(input, "End;") == 0 || strcmp(input, "End;\n") == 0))
 		{
@@ -1179,9 +1178,9 @@ void instantiate_memory(nnode_t *node, int **memory, int data_width, int addr_wi
 			for (i = 0; i < data_width; i++)
 			{
 				int mask = (1 << ((data_width - 1) - i));
-				int val = (mask & data_val) > 0 ? 1 : 0;
+				signed char val = (mask & data_val) > 0 ? 1 : 0;
 				int write_address = i + (addr_val * data_width);
-
+				// TODO: This is obviously incorrect, as it's writing the value to a small char buffer which isn't connected to the memory.
 				data[write_address] = val;
 			}
 		}
@@ -1343,7 +1342,7 @@ lines_t *create_output_test_vector_lines(netlist_t *netlist)
 void write_vector_headers(FILE *file, lines_t *l)
 {
 	char* headers = generate_vector_header(l);
-	fprintf(file, headers);
+	fprintf(file, "%s", headers);
 	free(headers);
 	fflush(file);
 }
@@ -2073,7 +2072,9 @@ char *vector_value_to_hex(signed char *value, int length)
 	string_reverse(string,strlen(string));
 
 	char *hex_string = malloc(sizeof(char) * ((length/4 + 1) + 1));
-	sprintf(hex_string, "%X ", strtol(string, &tmp, 2));
+
+	sprintf(hex_string, "%X ", (unsigned int)strtol(string, &tmp, 2));
+
 	free(string);
 
 	return hex_string;
