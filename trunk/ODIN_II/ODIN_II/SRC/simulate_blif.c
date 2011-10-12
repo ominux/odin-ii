@@ -1956,6 +1956,8 @@ additional_pins *parse_additional_pins()
 		char *token    = strtok(pin_list, ",");
 		while (token)
 		{
+			printf(" %s ",token);
+
 			p->pins = realloc(p->pins, sizeof(char *) * (p->count + 1));
 			p->pins[p->count++] = strdup(token);
 			token = strtok(NULL, ",");
@@ -1976,8 +1978,8 @@ void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l)
 	if (p->count)
 	{
 		int add = FALSE;
-		int j, k;
-		char *port_name = 0;
+		int j, k = 0;
+
 		for (j = 0; j < node->num_output_pins; j++)
 		{
 			if (node->output_pins[j]->name)
@@ -1990,7 +1992,6 @@ void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l)
 						break;
 					}
 				}
-				free(port_name);
 				if (add) break;
 			}
 		}
@@ -2011,19 +2012,23 @@ void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l)
 		{
 			int single_pin = strchr(p->pins[k], '~')?1:0;
 
-			port_name = strdup(strchr(node->name, '^') + 1);
-			char *tilde = strchr(port_name, '~');
-			if (tilde && !single_pin)
-				*tilde = '\0';
-
-			if (find_portname_in_lines(port_name, l) == -1)
+			if (strchr(node->name, '^'))
 			{
-				line_t *line = create_line(port_name);
-				l->lines = realloc(l->lines, sizeof(line_t *)*((l->count)+1));
-				l->lines[l->count++] = line;
+				char *port_name = strdup(strchr(node->name, '^') + 1);
+
+				char *tilde = strchr(port_name, '~');
+				if (tilde && !single_pin)
+					*tilde = '\0';
+
+				if (find_portname_in_lines(port_name, l) == -1)
+				{
+					line_t *line = create_line(port_name);
+					l->lines = realloc(l->lines, sizeof(line_t *)*((l->count)+1));
+					l->lines[l->count++] = line;
+				}
+				assign_node_to_line(node, l, OUTPUT, single_pin);
+				free(port_name);
 			}
-			assign_node_to_line(node, l, OUTPUT, single_pin);
-			free(port_name);
 		}
 	}
 }
