@@ -291,7 +291,7 @@ void output_node(nnode_t *node, short traverse_number, FILE *fp)
 			define_set_input_logical_function(node, "001 1\n010 1\n100 1\n111 1\n", fp);
 			break;
 		case CARRY_FUNC:
-			define_set_input_logical_function(node, "011 1\n100 1\n110 1\n111 1\n", fp);
+			define_set_input_logical_function(node, "011 1\n101 1\n110 1\n111 1\n", fp);
 			break;
 		case BITWISE_NOT:
 			define_set_input_logical_function(node, "0 1\n", fp);
