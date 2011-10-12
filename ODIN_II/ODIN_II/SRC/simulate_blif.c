@@ -100,7 +100,7 @@ void simulate_netlist(netlist_t *netlist)
 			{
 				int cycle = cycle_offset;
 				char buffer[BUFFER_MAX_SIZE];
-				while ((cycle < cycle_offset + wave_length) && fgets(buffer, BUFFER_MAX_SIZE, in))
+				while ((cycle < cycle_offset + wave_length) && get_next_vector(in, buffer))
 				{
 					test_vector *v = parse_test_vector(buffer);
 					store_test_vector_in_lines(v, input_lines, cycle++);
@@ -1103,7 +1103,7 @@ void compute_memory(
 	}
 	else
 	{
-		int address = 0;
+		long address = 0;
 		int i;
 		for (i = 0; i < addr_width; i++)
 			address += get_pin_value(addr[i],cycle) << (i);
@@ -1112,7 +1112,7 @@ void compute_memory(
 		{
 			for (i = 0; i < data_width; i++)
 			{
-				int write_address = i + (address * data_width);
+				long write_address = i + (address * data_width);
 				data[write_address] = get_pin_value(inputs[i],cycle);
 				update_pin_value(outputs[i], data[write_address], cycle);
 			}
@@ -1121,7 +1121,7 @@ void compute_memory(
 		{
 			for (i = 0; i < data_width; i++)
 			{
-				int read_address = i + (address * data_width);
+				long read_address = i + (address * data_width);
 				update_pin_value(outputs[i], data[read_address], cycle);
 			}
 		}
@@ -1362,7 +1362,7 @@ int verify_test_vector_headers(FILE *in, lines_t *l)
 	int buffer_length = 0;
 
 	char read_buffer [BUFFER_MAX_SIZE];
-	if (!fgets(read_buffer, BUFFER_MAX_SIZE, in))
+	if (!get_next_vector(in, read_buffer))
 		error_message(SIMULATION_ERROR, 0, -1, "Failed to read vector headers.");
 
 	char buffer [BUFFER_MAX_SIZE];
@@ -1878,13 +1878,13 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 		// Start at cycle -1 to check the headers.
 		for (cycle = -1; cycle < num_test_vectors; cycle++)
 		{
-			if (!fgets(buffer1, BUFFER_MAX_SIZE, existing_out))
+			if (!get_next_vector(existing_out, buffer1))
 			{
 				error = TRUE;
 				warning_message(SIMULATION_ERROR, 0, -1,"Too few vectors in %s \n", output_vector_file);
 				break;
 			}
-			else if (!fgets(buffer2, BUFFER_MAX_SIZE, current_out))
+			else if (!get_next_vector(current_out, buffer2))
 			{
 				error = TRUE;
 				warning_message(SIMULATION_ERROR, 0, -1,"Simulation produced fewer than %d vectors.\n", num_test_vectors);
@@ -1927,7 +1927,7 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 		}
 
 		// If the file we're checking against is longer than the current output, print an appropreate warning.
-		if (!error && fgets(buffer1, BUFFER_MAX_SIZE, existing_out))
+		if (!error && get_next_vector(existing_out, buffer1))
 		{
 			warning_message(SIMULATION_ERROR, 0, -1,"%s contains more vectors than %s.\n", output_vector_file, OUTPUT_VECTOR_FILE_NAME);
 			error = TRUE;
@@ -1956,8 +1956,6 @@ additional_pins *parse_additional_pins()
 		char *token    = strtok(pin_list, ",");
 		while (token)
 		{
-			printf(" %s ",token);
-
 			p->pins = realloc(p->pins, sizeof(char *) * (p->count + 1));
 			p->pins[p->count++] = strdup(token);
 			token = strtok(NULL, ",");
@@ -2108,8 +2106,8 @@ int count_test_vectors(FILE *in)
 
 	int count = 0;
 	char buffer[BUFFER_MAX_SIZE];
-	while (fgets(buffer, BUFFER_MAX_SIZE, in))
-		count++;
+	while (get_next_vector(in, buffer))
+			count++;
 
 	if (count) // Don't count the headers.
 		count--;
@@ -2117,6 +2115,33 @@ int count_test_vectors(FILE *in)
 	rewind(in);
 
 	return count;
+}
+
+int is_vector(char *buffer)
+{
+	char *line = strdup(buffer);
+	string_trim(line," \t\r\n");
+
+	if (line[0] != '#' && strlen(line))
+	{
+		free(line);
+		return TRUE;
+	}
+	else
+	{
+		free(line);
+		return FALSE;
+	}
+}
+
+int get_next_vector(FILE *file, char *buffer)
+{
+	while (fgets(buffer, BUFFER_MAX_SIZE, file))
+	{
+			if (is_vector(buffer))
+				return TRUE;
+	}
+	return FALSE;
 }
 
 /*
