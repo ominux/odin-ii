@@ -1106,7 +1106,7 @@ void compute_memory(
 		int address = 0;
 		int i;
 		for (i = 0; i < addr_width; i++)
-			address += 1 << (addr_width - 1 - i);
+			address += get_pin_value(addr[i],cycle) << (i);
 
 		if (we)
 		{
@@ -1201,7 +1201,6 @@ int find_portname_in_lines(char* port_name, lines_t *l)
 		if (!strcmp(l->lines[j]->name, port_name))
 		{
 			return  j;
-			break;
 		}
 	}
 	return -1;
