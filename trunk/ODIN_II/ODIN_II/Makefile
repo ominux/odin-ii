@@ -14,9 +14,9 @@ EXEO = odin_II.exe
 
 DEBUG_FLAGS = -g 
 
-OPT_FLAGS =
+OPT_FLAGS = 
 # Use this value of OPT_FLAGS to simulate in parallel (requires GCC >= 4.2)
-#OPT_FLAGS = -fopenmp
+#OPT_FLAGS = -O2 -fopenmp
 
 ifeq "$(BUILD)" "VPR5"
 	INC_FLAGS =  -I../libvpr_5/include
@@ -163,6 +163,7 @@ clean :
 	rm -f SRC/verilog_bison.h
 	rm -f SRC/verilog_bison.output
 	rm -f SRC/verilog_flex.c
+	rm -f SRC/tags
 	rm -f *.exe
 	rm -f OBJ/*.o
 	rm -f SRC/*~
