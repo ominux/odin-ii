@@ -220,7 +220,7 @@ void partial_map_node(nnode_t *node, short traverse_number, netlist_t *netlist)
 			if (hard_multipliers != NULL)
 			{
 #ifdef VPR6
-				if ((node->input_port_sizes[0] * node->input_port_sizes[1]) > min_mult)
+				if ((node->input_port_sizes[0] + node->input_port_sizes[1]) > min_mult)
 					instantiate_hard_multiplier(node, traverse_number, netlist);
 #endif
 			}
