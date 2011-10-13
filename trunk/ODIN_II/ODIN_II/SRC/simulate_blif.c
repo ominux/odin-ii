@@ -82,7 +82,11 @@ void simulate_netlist(netlist_t *netlist)
 			error_message(SIMULATION_ERROR, 0, -1, "Could not open input vector file.");
 	}
 
-	if (num_test_vectors)
+	if (!num_test_vectors)
+	{
+		printf("No vectors to simulate.\n");
+	}
+	else
 	{
 		double simulation_time = 0;
 		stages *stages = 0;
@@ -155,13 +159,12 @@ void simulate_netlist(netlist_t *netlist)
 				printf("\n");
 		}
 
-		fclose(out);
-
 		printf("\n");
+
+		fflush(out); 
 
 		// If a second output vector file was given via the -T option, verify that it matches.
 		char *output_vector_file = global_args.sim_vector_output_file;
-
 		if (output_vector_file)
 			if (verify_output_vectors(output_vector_file, num_test_vectors))
 				printf("Vectors match\n");
@@ -174,18 +177,13 @@ void simulate_netlist(netlist_t *netlist)
 
 		free_stages(stages);
 	}
-	else
-	{
-		printf("No vectors to simulate.\n");
-	}
-
-
 
 	free_lines(output_lines);
 	free_lines(input_lines);
 
 	fclose(modelsim_out);
 	fclose(in);
+	fclose(out);
 }
 
 /*
@@ -263,7 +261,6 @@ stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, 
 				node->in_queue = TRUE;
 				queue->add(queue,node);
 			}
-
 		}
 		free(children);
 
@@ -442,7 +439,7 @@ nnode_t **get_children_of(nnode_t *node, int *num_children)
  * CAUTION: Use update_pin_value to update pins. This function will not update
  *          the connected net. 
  */
-inline void set_pin(npin_t *pin, int value, int cycle)
+inline void set_pin(npin_t *pin, signed char value, int cycle)
 {
 	pin->values[get_values_offset(cycle)] = value;
 	pin->cycle = cycle;
@@ -452,7 +449,7 @@ inline void set_pin(npin_t *pin, int value, int cycle)
  * Updates the value of a pin and its cycle. Pins should be updated using 
  * only this function. 
  */
-inline void update_pin_value(npin_t *pin, int value, int cycle)
+inline void update_pin_value(npin_t *pin, signed char value, int cycle)
 {
 	set_pin(pin,value,cycle); 
 
@@ -651,7 +648,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			else         update_pin_value(node->output_pins[0], 1, cycle);
 			return;
 		}
-		case LOGICAL_EQUAL:	// ==
+		case NOT_EQUAL:	// ==
 		case LOGICAL_XOR:
 		{	// ^
 			oassert(node->num_output_pins == 1);
@@ -667,7 +664,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			else                 update_pin_value(node->output_pins[0], 0, cycle);
 			return;
 		}
-		case NOT_EQUAL:			// !=
+		case LOGICAL_EQUAL:			// !=
 		case LOGICAL_XNOR:
 		{	// !^
 			oassert(node->num_output_pins == 1);
@@ -684,29 +681,30 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			return;
 		}
 		case MUX_2: // May still be incorrect for 3 valued logic.
-		{
+		{	// The first port is a bit mask for which bit in the second port should be connected.
 			oassert(node->num_output_pins == 1);
 			oassert(node->num_input_port_sizes >= 2);
 			oassert(node->input_port_sizes[0] == node->input_port_sizes[1]);
 
+			// Figure out which pin is being selected.
+			int select = 0;
 			for (i = 0; i < node->input_port_sizes[0]; i++)
 			{
 				signed char pin = get_pin_value(node->input_pins[i], cycle);
 
-				if (pin < 0)
-				{
-					unknown = TRUE;
-				}
-
-				if (pin == 1 && pin == get_pin_value(node->input_pins[i+node->input_port_sizes[0]],cycle)) {
-					update_pin_value(node->output_pins[0], 1, cycle);
-					return;
-				}
+				if (pin  < 0) { unknown = TRUE; break; }
+				if (pin == 1) { select = i;     break; }
 			}
 
-			if (unknown) update_pin_value(node->output_pins[0], -1, cycle);
-			else         update_pin_value(node->output_pins[0], 0, cycle);
-
+			if (unknown)
+			{
+				update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0], cycle-1), cycle);			
+			}
+			else 
+			{			
+				signed char pin = get_pin_value(node->input_pins[select + node->input_port_sizes[0]],cycle);
+				update_pin_value(node->output_pins[0], pin, cycle);						
+			}			
 			return;
 		}
 		case FF_NODE:
@@ -1083,7 +1081,6 @@ int *multiply_arrays(int *a, int a_length, int *b, int b_length)
 /*
  * Computes memory.
  */
-// TODO: Needs to be verified.
 void compute_memory(
 	npin_t **inputs,
 	npin_t **outputs,
@@ -1099,7 +1096,7 @@ void compute_memory(
 	long address = 0;
 	int i;
 	for (i = 0; i < addr_width; i++)
-	{
+	{	// If any address pins are x's, write x's to the output and return. 
 		if (get_pin_value(addr[i],cycle) < 0)
 		{
 			int j;
@@ -1108,18 +1105,17 @@ void compute_memory(
 
 			return;
 		}
-
 		address += get_pin_value(addr[i],cycle) << (i);
 	}
 
+
 	for (i = 0; i < data_width; i++)
-	{
-		long long byte_address = i + (address * data_width);
-
-		if (we)
-			data[byte_address] = get_pin_value(inputs[i],cycle);
-
-		update_pin_value(outputs[i], data[byte_address], cycle);
+	{	// Compute which byte we are addressing. 
+		long long bit_address = i + (address * data_width);
+		// If write is enabled, copy the input to. 
+		if (we) data[bit_address] = get_pin_value(inputs[i],cycle);
+		// Update the output. 
+		update_pin_value(outputs[i], data[bit_address], cycle);
 	}
 }
 
@@ -1195,13 +1191,10 @@ void instantiate_memory(nnode_t *node, signed char **memory, int data_width, int
 int find_portname_in_lines(char* port_name, lines_t *l)
 {
 	int j;
-	for (j = 0; j < l->count; j++)
-	{
-		if (!strcmp(l->lines[j]->name, port_name))
-		{
+	for (j = 0; j < l->count; j++)	
+		if (!strcmp(l->lines[j]->name, port_name))		
 			return  j;
-		}
-	}
+	
 	return -1;
 }
 
@@ -1405,7 +1398,6 @@ int verify_test_vector_headers(FILE *in, lines_t *l)
 			buffer[buffer_length] = '\0';
 		}		
 	}
-
 	return TRUE;
 }
 
@@ -1422,7 +1414,9 @@ int verify_lines (lines_t *l)
 		{
 			if (!l->lines[i]->pins[j])
 			{
-				warning_message(SIMULATION_ERROR, 0, -1, "A line %d:(%s) has a NULL pin. This may cause a segfault. This can be caused when registers are declared as reg [X:Y], where Y is greater than zero.", j, l->lines[i]->name);
+				warning_message(SIMULATION_ERROR, 0, -1, "A line %d:(%s) has a NULL pin. "
+					"This may cause a segfault. This can be caused when registers are declared "
+					"as reg [X:Y], where Y is greater than zero.", j, l->lines[i]->name);
 				return FALSE; 
 			}
 		}
@@ -1469,8 +1463,10 @@ char *generate_vector_header(lines_t *l)
  */
 void store_test_vector_in_lines(test_vector *v, lines_t *l, int cycle)
 {
-	if (l->count < v->count) error_message(SIMULATION_ERROR, 0, -1, "Fewer lines (%d) than values (%d).", l->count, v->count);
-	if (l->count > v->count) error_message(SIMULATION_ERROR, 0, -1, "More lines (%d) than values (%d).", l->count, v->count);
+	if (l->count < v->count) 
+		error_message(SIMULATION_ERROR, 0, -1, "Fewer lines (%d) than values (%d).", l->count, v->count);
+	if (l->count > v->count) 
+		error_message(SIMULATION_ERROR, 0, -1, "More lines (%d) than values (%d).", l->count, v->count);
 
 	int i;
 	for (i = 0; i < v->count; i++)
@@ -1553,16 +1549,7 @@ test_vector *parse_test_vector(char *buffer)
 		v->values[v->count] = 0;
 		v->counts[v->count] = 0;
 
-		if (strlen(token) == 1)
-		{   // Only 1 pin.
-			signed char value = -1;
-			if      (token[0] == '0') value = 0;
-			else if (token[0] == '1') value = 1;
-
-			v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));
-			v->values[v->count][v->counts[v->count]++] = value;
-		}
-		else if (token[0] == '0' && (token[1] == 'x' || token[1] == 'X'))
+		if (token[0] == '0' && (token[1] == 'x' || token[1] == 'X'))
 		{
 			token += 2;
 			int token_length = strlen(token);
@@ -1582,7 +1569,6 @@ test_vector *parse_test_vector(char *buffer)
 					value /= 2;
 					v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));
 					v->values[v->count][v->counts[v->count]++] = bit;
-
 				}
 			}
 		}
@@ -1599,7 +1585,6 @@ test_vector *parse_test_vector(char *buffer)
 				v->values[v->count][v->counts[v->count]++] = value;
 			}
 		}
-
 		v->count++;
 		token = strtok(NULL, delim);
 	}
@@ -1630,8 +1615,11 @@ test_vector *generate_random_test_vector(lines_t *l, int cycle)
 		int j;
 		for (j = 0; j < l->lines[i]->number_of_pins; j++)
 		{
-			v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));
-			v->values[v->count][v->counts[v->count]++] = rand() % 2;
+			v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));		
+			v->values[v->count][v->counts[v->count]++] = (rand() % 2);
+			
+			// Generate random three valued logic. 
+			// v->values[v->count][v->counts[v->count]++] = (rand() % 3) - 1; 
 		}
 		v->count++;
 	}
@@ -1667,73 +1655,43 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 
 		if (first) first = FALSE;
 		else       fprintf(file, " ");
-
-		if (l->lines[i]->number_of_pins == 1)
-		{
-			npin_t *pin;
-			nnode_t *node = l->lines[i]->pins[0]->node;
-
-			if (type == INPUT || !node->input_pins) pin = l->lines[i]->pins[0];
-			else                                    pin = node->input_pins[l->lines[i]->pins[0]->pin_node_idx];
-
-			if (get_pin_value(pin,cycle) < 0) fprintf(file, "x");
-			else                              fprintf(file, "%d", get_pin_value(pin,cycle));
+						
+		int unknown = FALSE;
+		int j; 			
+		for (j = l->lines[i]->number_of_pins - 1; j >= 0; j--)
+		{			
+			if (get_line_pin_value(l->lines[i],j,cycle) < 0)
+			{
+				unknown = TRUE; 
+				break; 
+			}
 		}
-		else
+		
+		if (unknown || l->lines[i]->number_of_pins == 1)
 		{
 			int j;
-			int value = 0;
-			int unknown = FALSE;
-
-			nnode_t *node = l->lines[i]->pins[0]->node;
-
-			if (type == INPUT || !node->input_pins)
+			for (j = l->lines[i]->number_of_pins - 1; j >= 0 ; j--)
 			{
-				for (j = 0; j < l->lines[i]->number_of_pins; j++)
-					if (get_pin_value(l->lines[i]->pins[j],cycle) < 0)
-						unknown = TRUE;
+				signed char value = get_line_pin_value(l->lines[i],j,cycle); 
+				if (value < 0) fprintf(file, "x");
+				else           fprintf(file, "%d", value);
 			}
-			else
-			{
-				for (j = 0; j < l->lines[i]->number_of_pins; j++)
-					if (get_pin_value(node->input_pins[l->lines[i]->pins[j]->pin_node_idx],cycle) < 0)
-						unknown = TRUE;
-			}
+		}
+		else
+		{	
+			fprintf(file, "0X");
 
-			if (unknown)
+			int value = 0;				
+			int j;
+			for (j = l->lines[i]->number_of_pins - 1; j >= 0; j--)
 			{
-				for (j = l->lines[i]->number_of_pins - 1; j >= 0 ; j--)
+				if (get_line_pin_value(l->lines[i],j,cycle) > 0) 
+					value += my_power(2, j % 4);
+				
+				if (j % 4 == 0)
 				{
-					npin_t *pin;
-					nnode_t *node = l->lines[i]->pins[j]->node;
-
-					if (type == INPUT || !node->input_pins) pin = l->lines[i]->pins[j];
-					else                                    pin = node->input_pins[l->lines[i]->pins[j]->pin_node_idx];
-
-					if (get_pin_value(pin,cycle) < 0) fprintf(file, "x");
-					else                              fprintf(file, "%d", get_pin_value(pin,cycle));
-				}
-			}
-			else
-			{
-				fprintf(file, "0x");
-
-				for (j = l->lines[i]->number_of_pins - 1; j >= 0; j--)
-				{
-					npin_t *pin;
-					nnode_t *node = l->lines[i]->pins[j]->node;
-
-					if (type == INPUT || !node->input_pins) pin = l->lines[i]->pins[j];
-					else                                    pin = node->input_pins[l->lines[i]->pins[j]->pin_node_idx];
-
-					if (get_pin_value(pin,cycle) > 0)
-						value += my_power(2, j % 4);
-
-					if (j % 4 == 0)
-					{
-						fprintf(file, "%X", value);
-						value = 0;
-					}
+					fprintf(file, "%X", value);
+					value = 0;
 				}
 			}
 		}
@@ -1774,72 +1732,56 @@ void write_vector_to_modelsim_file(lines_t *l, FILE *modelsim_out, int cycle)
 	int i;
 	for (i = 0; i < l->count; i++)
 	{
-		if (l->lines[i]->number_of_pins == 1)
+		int unknown = FALSE;
+		int j; 			
+		for (j = l->lines[i]->number_of_pins - 1; j >= 0; j--)
 		{
-			npin_t *pin;
-			nnode_t *node = l->lines[i]->pins[0]->node;
+			if (get_line_pin_value(l->lines[i],j,cycle) < 0)
+			{
+				unknown = TRUE; 
+				break; 
+			}
+		}
 
-			if (!node->input_pins) pin = l->lines[i]->pins[0];
-			else                   pin = node->input_pins[l->lines[i]->pins[0]->pin_node_idx];
+		if (unknown || l->lines[i]->number_of_pins == 1)
+		{
+			fprintf(modelsim_out, "force %s ",l->lines[i]->name);
+			int j;
 
-			fprintf(modelsim_out, "force %s %d %d\n", l->lines[i]->name,get_pin_value(pin,cycle), cycle * 100);
+			for (j = l->lines[i]->number_of_pins - 1; j >= 0 ; j--)
+			{
+				int value = get_line_pin_value(l->lines[i],j,cycle);
+
+				if (value < 0)  fprintf(modelsim_out, "%s", "x");
+				else 		fprintf(modelsim_out, "%d", value);
+			}
+			fprintf(modelsim_out, " %d\n", cycle * 100);
 		}
 		else
 		{
-			int unknown = FALSE;
+			int value = 0;
+			fprintf(modelsim_out, "force %s 16#", l->lines[i]->name);
 
-			nnode_t *node = l->lines[i]->pins[0]->node;
+			int j;
+			for (j = l->lines[i]->number_of_pins - 1; j >= 0; j--)
+			{
+				if (get_line_pin_value(l->lines[i],j,cycle) > 0)
+					value += my_power(2, j % 4);
 
-			if (!node->input_pins)
-			{
-				int j;
-				for (j = 0; j < l->lines[i]->number_of_pins; j++)
-					if (get_pin_value(l->lines[i]->pins[j],cycle) < 0)
-						unknown = TRUE;
-			}
-			else
-			{
-				int j;
-				for (j = 0; j < l->lines[i]->number_of_pins; j++)
-					if (get_pin_value(node->input_pins[l->lines[i]->pins[j]->pin_node_idx],cycle) < 0)
-						unknown = TRUE;
-			}
-
-			if (unknown)
-			{
-				warning_message(SIMULATION_ERROR, 0, -1, "Tried to write an unknown value to the modelsim script. It's likely unreliable. \n");
-			}
-			else
-			{
-				int value = 0;
-				fprintf(modelsim_out, "force %s 16#", l->lines[i]->name);
-
-				int j;
-				for (j = l->lines[i]->number_of_pins - 1; j >= 0; j--)
+				if (j % 4 == 0)
 				{
-					npin_t *pin;
-					nnode_t *node = l->lines[i]->pins[j]->node;
-
-					if (!node->input_pins) pin = l->lines[i]->pins[j];
-					else                   pin = node->input_pins[l->lines[i]->pins[j]->pin_node_idx];
-
-					if (get_pin_value(pin,cycle) > 0)
-						value += my_power(2, j % 4);
-
-					if (j % 4 == 0)
-					{
-						fprintf(modelsim_out, "%X", value);
-						value = 0;
-					}
+					fprintf(modelsim_out, "%X", value);
+					value = 0;
 				}
-				fprintf(modelsim_out, " %d\n", cycle * 100);
 			}
+			fprintf(modelsim_out, " %d\n", cycle * 100);
 		}
+
 	}
 }
 
 /*
- * Verify that the given output vector file matches is identical (numerically)
+ * Verify that the given output vector file is identical (numerically)
  * to the one written by the current simulation. This is done by parsing each
  * file vector by vector and comparing them. Also verifies that the headers are identical.
  *
@@ -1886,7 +1828,7 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 			else if (!get_next_vector(current_out, buffer2))
 			{
 				error = TRUE;
-				warning_message(SIMULATION_ERROR, 0, -1,"Simulation produced fewer than %d vectors.\n", num_test_vectors);
+				warning_message(SIMULATION_ERROR, 0, -1,"Simulation produced fewer than %d vectors. \n", num_test_vectors);
 				break;
 			}
 			// The headers differ.
@@ -1928,8 +1870,8 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 		// If the file we're checking against is longer than the current output, print an appropreate warning.
 		if (!error && get_next_vector(existing_out, buffer1))
 		{
-			warning_message(SIMULATION_ERROR, 0, -1,"%s contains more vectors than %s.\n", output_vector_file, OUTPUT_VECTOR_FILE_NAME);
 			error = TRUE;
+			warning_message(SIMULATION_ERROR, 0, -1,"%s contains more vectors than %s.\n", output_vector_file, OUTPUT_VECTOR_FILE_NAME);			
 		}
 
 		fclose(existing_out);
@@ -2055,8 +1997,22 @@ void string_trim(char* string, char *chars)
 	}
 }
 
+
+signed char get_line_pin_value(line_t *line, int pin_num, int cycle)
+{
+	npin_t *pin;
+	nnode_t *node = line->pins[pin_num]->node;
+
+	if (line->type == INPUT || !node->input_pins) 
+		pin = line->pins[pin_num];
+	else                                    
+		pin = node->input_pins[line->pins[pin_num]->pin_node_idx];
+
+	return get_pin_value(pin,cycle); 
+}
+
 /*
- * Prints a value from a test_vectors struct in hex.
+ * Returns a value from a test_vectors struct in hex.
  */
 char *vector_value_to_hex(signed char *value, int length)
 {
@@ -2098,8 +2054,7 @@ void string_reverse(char *string, int length)
 }
 
 /*
- * Counts the number of lines besides the headers
- * present in the given file.
+ * Counts the number of vectors in the given file. 
  */
 int count_test_vectors(FILE *in)
 {
@@ -2138,10 +2093,9 @@ int is_vector(char *buffer)
 int get_next_vector(FILE *file, char *buffer)
 {
 	while (fgets(buffer, BUFFER_MAX_SIZE, file))
-	{
-			if (is_vector(buffer))
-				return TRUE;
-	}
+		if (is_vector(buffer))
+			return TRUE;
+	
 	return FALSE;
 }
 

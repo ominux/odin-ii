@@ -102,10 +102,12 @@ void compute_hard_ip_node(nnode_t *node, int cycle);
 void compute_multiply_node(nnode_t *node, int cycle);
 void compute_generic_node(nnode_t *node, int cycle);
 
-inline void set_pin(npin_t *pin, int value, int cycle);
-inline void update_pin_value(npin_t *pin, int value, int cycle);
+inline void set_pin(npin_t *pin, signed char value, int cycle);
+inline void update_pin_value(npin_t *pin, signed char value, int cycle);
 inline signed char get_pin_value(npin_t *pin, int cycle);
 inline int get_values_offset(int cycle); 
+
+signed char get_line_pin_value(line_t *line, int pin_num, int cycle);
 
 int *multiply_arrays(int *a, int a_length, int *b, int b_length);
 void compute_memory(npin_t **inputs, npin_t **outputs, int data_width, npin_t **addr, int addr_width, int we, int clock, int cycle, signed char *data);
