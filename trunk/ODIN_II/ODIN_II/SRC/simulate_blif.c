@@ -1447,13 +1447,16 @@ line_t *create_line(char *name)
 char *generate_vector_header(lines_t *l)
 {
 	char *header = calloc(BUFFER_MAX_SIZE, sizeof(char *));
-	int j;
-	for (j = 0; j < l->count; j++)
+	if (l->count)
 	{
-		strcat(header,l->lines[j]->name);
-		strcat(header," ");
+		int j;
+		for (j = 0; j < l->count; j++)
+		{
+			strcat(header,l->lines[j]->name);
+			strcat(header," ");
+		}
+		header[strlen(header)-1] = '\n';
 	}
-	header[strlen(header)-1] = '\n';
 	return header;
 }
 
