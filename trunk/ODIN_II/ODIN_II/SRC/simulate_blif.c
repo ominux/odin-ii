@@ -1457,6 +1457,10 @@ char *generate_vector_header(lines_t *l)
 		}
 		header[strlen(header)-1] = '\n';
 	}
+	else
+	{
+		header[0] = '\n';
+	}
 	return header;
 }
 
