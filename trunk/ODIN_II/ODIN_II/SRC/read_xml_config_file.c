@@ -251,7 +251,7 @@ void read_optimizations(ezxml_t a_node, config_t *config)
 			config->mult_padding = atoi(prop);
 			ezxml_set_attr(child, "padding", NULL);
 		}
-		else /* Default: Pad to unconn pins */
+		else /* Default: Pad to hbpad pins */
 			config->mult_padding = -1;
 
 		prop = FindProperty(child, "fixed", (boolean)FALSE);
