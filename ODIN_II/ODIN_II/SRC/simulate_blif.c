@@ -198,10 +198,10 @@ int get_num_covered_nodes(stages *s)
 		int j;
 		for (j = 0; j < s->counts[i]; j++)
 		{
-			if (s->stages[i][j]->coverage)
+			nnode_t *node = s->stages[i][j];
+			if (node->coverage)
 				covered_nodes++;
 		}
-
 	}
 	return covered_nodes;
 }
@@ -776,10 +776,11 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		case INPUT_NODE:
 			break;
 		case OUTPUT_NODE:
+			update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle), cycle);
 			break;
 		case PAD_NODE:
-			for (i = 0; i < node->num_output_pins; i++)
-				update_pin_value(node->output_pins[i], 0, cycle);
+			//for (i = 0; i < node->num_output_pins; i++)
+			update_pin_value(node->output_pins[0], 0, cycle);
 			break;
 		case CLOCK_NODE:
 			for (i = 0; i < node->num_output_pins; i++)
@@ -815,14 +816,8 @@ void compute_and_store_value(nnode_t *node, int cycle)
 	}
 
 	for (i = 0; i < node->num_output_pins; i++)
-	{
-		if
-		(
-				   cycle
-				&& get_pin_value(node->output_pins[i],cycle-1) != get_pin_value(node->output_pins[i],cycle)
-		)
+		if(cycle && get_pin_value(node->output_pins[i],cycle-1) != get_pin_value(node->output_pins[i],cycle))
 			node->coverage++;
-	}
 }
 
 // TODO: Needs to be verified.
