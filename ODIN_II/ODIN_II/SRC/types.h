@@ -382,6 +382,8 @@ struct nnode_t_t
 
 	// For simulation
 	int in_queue; // Flag used by the simulator to avoid double queueing.
+
+	int coverage;
 };
 
 struct npin_t_t

@@ -75,6 +75,7 @@ nnode_t* allocate_nnode() {
 	new_node->bit_map_line_count=0;
 
 	new_node->in_queue = FALSE;
+	new_node->coverage = 0;
 
 	return new_node;
 }
