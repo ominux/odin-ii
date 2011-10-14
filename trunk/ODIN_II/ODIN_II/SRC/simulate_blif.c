@@ -169,7 +169,9 @@ void simulate_netlist(netlist_t *netlist)
 			if (verify_output_vectors(output_vector_file, num_test_vectors))
 				printf("Vectors match\n");
 
+
 		printf("Number of nodes:  %d\n",  stages->num_nodes);
+		printf("Number of covered nodes: %d\n",get_num_covered_nodes(stages));
 		printf("Number of levels: %d\n",  stages->count);
 		printf("Simulation time:  %fs\n", simulation_time);
 
@@ -185,6 +187,25 @@ void simulate_netlist(netlist_t *netlist)
 	fclose(in);
 	fclose(out);
 }
+
+int get_num_covered_nodes(stages *s)
+{
+	int covered_nodes = 0;
+
+	int i;
+	for(i = 0; i < s->count; i++)
+	{
+		int j;
+		for (j = 0; j < s->counts[i]; j++)
+		{
+			if (s->stages[i][j]->coverage)
+				covered_nodes++;
+		}
+
+	}
+	return covered_nodes;
+}
+
 
 /*
  * This simulates a single cycle using the stages generated
@@ -504,8 +525,8 @@ void compute_and_store_value(nnode_t *node, int cycle)
 	 */
 	switch(node->type)
 	{
-		case LT:
-		{	// < 010 1
+		case LT: // < 010 1
+		{
 			oassert(node->num_input_port_sizes == 3);
 			oassert(node->num_output_port_sizes == 1);
 
@@ -513,13 +534,17 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			signed char pin1 = get_pin_value(node->input_pins[1],cycle);
 			signed char pin2 = get_pin_value(node->input_pins[2],cycle);
 
-			if      (pin0  < 0 || pin1  < 0 || pin2  < 0) update_pin_value(node->output_pins[0], -1, cycle);
-			else if (pin0 == 0 && pin1 == 1 && pin2 == 0) update_pin_value(node->output_pins[0],  1, cycle);
-			else                                          update_pin_value(node->output_pins[0],  0, cycle);
-			return;
+			if      (pin0  < 0 || pin1  < 0 || pin2  < 0)
+				update_pin_value(node->output_pins[0], -1, cycle);
+			else if (pin0 == 0 && pin1 == 1 && pin2 == 0)
+				update_pin_value(node->output_pins[0],  1, cycle);
+			else
+				update_pin_value(node->output_pins[0],  0, cycle);
+
+			break;
 		}
-		case GT:
-		{	// > 100 1
+		case GT: // > 100 1
+		{
 			oassert(node->num_input_port_sizes == 3);
 			oassert(node->num_output_port_sizes == 1);
 
@@ -527,14 +552,17 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			signed char pin1 = get_pin_value(node->input_pins[1],cycle);
 			signed char pin2 = get_pin_value(node->input_pins[2],cycle);
 
-			if      (pin0  < 0 || pin1  < 0 || pin2  < 0) update_pin_value(node->output_pins[0], -1, cycle);
-			else if (pin0 == 1 && pin1 == 0 && pin2 == 0) update_pin_value(node->output_pins[0],  1, cycle);
-			else                                          update_pin_value(node->output_pins[0],  0, cycle);
+			if      (pin0  < 0 || pin1  < 0 || pin2  < 0)
+				update_pin_value(node->output_pins[0], -1, cycle);
+			else if (pin0 == 1 && pin1 == 0 && pin2 == 0)
+				update_pin_value(node->output_pins[0],  1, cycle);
+			else
+				update_pin_value(node->output_pins[0],  0, cycle);
 
-			return;
+			break;
 		}
-		case ADDER_FUNC:
-		{	// 001 1\n010 1\n100 1\n111 1
+		case ADDER_FUNC: // 001 1\n010 1\n100 1\n111 1
+		{
 			oassert(node->num_input_port_sizes == 3);
 			oassert(node->num_output_port_sizes == 1);
 
@@ -554,10 +582,10 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			else
 				update_pin_value(node->output_pins[0], 0, cycle);
 
-			return;
+			break;
 		}
-		case CARRY_FUNC:
-		{	// 011 1\n100 1\n110 1\n111 1
+		case CARRY_FUNC: // 011 1\n100 1\n110 1\n111 1
+		{
 			oassert(node->num_input_port_sizes == 3);
 			oassert(node->num_output_port_sizes == 1);
 			
@@ -570,14 +598,12 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				|| (pin1 == 1 && pin2 == 1)
 			)
 				update_pin_value(node->output_pins[0], 1, cycle);
-
 			else if (pin0 < 0 || pin1 < 0 || pin2 < 0)
 				update_pin_value(node->output_pins[0], -1, cycle);
-
 			else
 				update_pin_value(node->output_pins[0], 0, cycle);
 
-			return;
+			break;
 		}
 		case BITWISE_NOT:
 		{
@@ -586,102 +612,118 @@ void compute_and_store_value(nnode_t *node, int cycle)
 
 			signed char pin = get_pin_value(node->input_pins[0], cycle);
 
-			if      (pin  < 0) update_pin_value(node->output_pins[0], -1, cycle);
-			else if (pin == 1) update_pin_value(node->output_pins[0],  0, cycle);
-			else               update_pin_value(node->output_pins[0],  1, cycle);
-			return;
+			if      (pin  < 0)
+				update_pin_value(node->output_pins[0], -1, cycle);
+			else if (pin == 1)
+				update_pin_value(node->output_pins[0],  0, cycle);
+			else
+				update_pin_value(node->output_pins[0],  1, cycle);
+
+			break;
 		}
-		case LOGICAL_AND:
-		{	// &&
+		case LOGICAL_AND: // &&
+		{
 			oassert(node->num_output_pins == 1);
+			int zero = 0;
 			for (i = 0; i < node->num_input_pins; i++)
 			{
 				signed char pin = get_pin_value(node->input_pins[i], cycle);
 
 				if (pin <  0) { unknown = TRUE; }
-				if (pin == 0) { update_pin_value(node->output_pins[0],  0, cycle); return; }
+				if (pin == 0) { zero    = TRUE; break; }
 			}
-			if (unknown) update_pin_value(node->output_pins[0], -1, cycle);
-			else         update_pin_value(node->output_pins[0],  1, cycle);
-			return;
+			if      (zero)    update_pin_value(node->output_pins[0],  0, cycle);
+			else if (unknown) update_pin_value(node->output_pins[0], -1, cycle);
+			else              update_pin_value(node->output_pins[0],  1, cycle);
+			break;
 		}
 		case LOGICAL_OR:
 		{	// ||
 			oassert(node->num_output_pins == 1);
+			int one = 0;
 			for (i = 0; i < node->num_input_pins; i++)
 			{
 				signed char pin = get_pin_value(node->input_pins[i], cycle);
 
 				if (pin <  0) { unknown = TRUE; }
-				if (pin == 1) { update_pin_value(node->output_pins[0],  1, cycle); return; }
+				if (pin == 1) { one     = TRUE; break; }
 			}
-			if (unknown) update_pin_value(node->output_pins[0], -1, cycle);
-			else         update_pin_value(node->output_pins[0],  0, cycle);
-			return;
+			if      (one)     update_pin_value(node->output_pins[0],  1, cycle);
+			else if (unknown) update_pin_value(node->output_pins[0], -1, cycle);
+			else              update_pin_value(node->output_pins[0],  0, cycle);
+			break;
 		}
 		case LOGICAL_NAND:
 		{	// !&&
 			oassert(node->num_output_pins == 1);
+			int one = 0;
 			for (i = 0; i < node->num_input_pins; i++)
 			{
 				signed char pin = get_pin_value(node->input_pins[i], cycle);
 
 				if (pin <  0) { unknown = TRUE; }
-				if (pin == 0) { update_pin_value(node->output_pins[0],  1, cycle); return; }
+				if (pin == 0) { one     = TRUE; break; }
 			}
-			if (unknown) update_pin_value(node->output_pins[0], -1, cycle);
-			else         update_pin_value(node->output_pins[0],  0, cycle);
-			return;
+			if      (one)     update_pin_value(node->output_pins[0],  1, cycle);
+			else if (unknown) update_pin_value(node->output_pins[0], -1, cycle);
+			else              update_pin_value(node->output_pins[0],  0, cycle);
+			break;
 		}
 		case LOGICAL_NOT: // !
-		case LOGICAL_NOR:
-		{	// !|
+		case LOGICAL_NOR: // !|
+		{
 			oassert(node->num_output_pins == 1);
+			int zero = 0;
 			for (i = 0; i < node->num_input_pins; i++)
 			{
 				signed char pin = get_pin_value(node->input_pins[i], cycle);
 
 				if (pin <  0) { unknown = TRUE; }
-				if (pin == 1) { update_pin_value(node->output_pins[0],  0, cycle); return; }
+				if (pin == 1) { zero    = TRUE; break; }
 			}
-			if (unknown) update_pin_value(node->output_pins[0], -1, cycle);
-			else         update_pin_value(node->output_pins[0], 1, cycle);
-			return;
+			if      (zero)    update_pin_value(node->output_pins[0],  0, cycle);
+			else if (unknown) update_pin_value(node->output_pins[0], -1, cycle);
+			else              update_pin_value(node->output_pins[0],  1, cycle);
+			break;
 		}
 		case NOT_EQUAL:	// ==
-		case LOGICAL_XOR:
-		{	// ^
+		case LOGICAL_XOR: // ^
+		{
 			oassert(node->num_output_pins == 1);
 			int ones = 0;
 			for (i = 0; i < node->num_input_pins; i++)
 			{
 				signed char pin = get_pin_value(node->input_pins[i], cycle);
 
-				if (pin <  0) { update_pin_value(node->output_pins[0], -1, cycle); return; }
+				if (pin <  0) { unknown = 1; break; }
 				if (pin == 1) { ones++; }
 			}
-			if ((ones % 2) == 1) update_pin_value(node->output_pins[0], 1, cycle);
-			else                 update_pin_value(node->output_pins[0], 0, cycle);
-			return;
+			if      (unknown)         update_pin_value(node->output_pins[0], -1, cycle);
+			else if ((ones % 2) == 1) update_pin_value(node->output_pins[0], 1, cycle);
+			else                      update_pin_value(node->output_pins[0], 0, cycle);
+			break;
 		}
-		case LOGICAL_EQUAL:			// !=
-		case LOGICAL_XNOR:
-		{	// !^
+		case LOGICAL_EQUAL:	// !=
+		case LOGICAL_XNOR: // !^
+		{
 			oassert(node->num_output_pins == 1);
 			int ones = 0;
 			for (i = 0; i < node->num_input_pins; i++)
 			{
 				signed char pin = get_pin_value(node->input_pins[i], cycle);
 
-				if (pin <  0) { update_pin_value(node->output_pins[0], -1, cycle); return; }
+				if (pin <  0) { unknown = TRUE; break; }
 				if (pin == 1) { ones++; }
 			}
-			if ((ones % 2) == 1) update_pin_value(node->output_pins[0], 0, cycle);
-			else                 update_pin_value(node->output_pins[0], 1, cycle);
-			return;
+			if      (unknown)         update_pin_value(node->output_pins[0], -1, cycle);
+			else if ((ones % 2) == 1) update_pin_value(node->output_pins[0], 0, cycle);
+			else                      update_pin_value(node->output_pins[0], 1, cycle);
+			break;
 		}
-		case MUX_2: // May still be incorrect for 3 valued logic.
-		{	// The first port is a bit mask for which bit in the second port should be connected.
+		case MUX_2:
+		{
+			// May still be incorrect for 3 valued logic.
+			// The first port is a bit mask for which bit in the second port should be connected.
 			oassert(node->num_output_pins == 1);
 			oassert(node->num_input_port_sizes >= 2);
 			oassert(node->input_port_sizes[0] == node->input_port_sizes[1]);
@@ -693,7 +735,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				signed char pin = get_pin_value(node->input_pins[i], cycle);
 
 				if (pin  < 0) { unknown = TRUE; break; }
-				if (pin == 1) { select = i;     break; }
+				if (pin == 1) { select  = i;    break; }
 			}
 
 			if (unknown)
@@ -705,69 +747,50 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				signed char pin = get_pin_value(node->input_pins[select + node->input_port_sizes[0]],cycle);
 				update_pin_value(node->output_pins[0], pin, cycle);						
 			}			
-			return;
+			break;
 		}
 		case FF_NODE:
-		{
 			oassert(node->num_output_pins == 1);
 			oassert(node->num_input_pins == 2);
 
 			update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle-1), cycle);			
-			return;
-		}
+			break;
 		case MEMORY:
-		{
 			compute_memory_node(node,cycle);
-			return;
-		}
+			break;
 		case HARD_IP:
-		{
 			oassert(node->input_port_sizes[0] > 0);
 			oassert(node->output_port_sizes[0] > 0);
 			
 			compute_hard_ip_node(node,cycle);
-			return;
-		}
+			break;
 		case MULTIPLY:
-		{
 			oassert(node->num_input_port_sizes >= 2);
 			oassert(node->num_output_port_sizes == 1);
 				
 			compute_multiply_node(node,cycle);
-			return;
-		}
+			break;
 		case GENERIC :
-		{
 			compute_generic_node(node,cycle);
-			return;
-		}
-		case INPUT_NODE:  return; 
-		case OUTPUT_NODE: return;
+			break;
+		case INPUT_NODE:
+			break;
+		case OUTPUT_NODE:
+			break;
 		case PAD_NODE:
-		{
 			for (i = 0; i < node->num_output_pins; i++)
 				update_pin_value(node->output_pins[i], 0, cycle);
-
-			return;
-		}
+			break;
 		case CLOCK_NODE:
-		{
 			for (i = 0; i < node->num_output_pins; i++)
 				update_pin_value(node->output_pins[i], cycle % 2, cycle);
-
-			return;
-		}
+			break;
 		case GND_NODE:
-		{
 			update_pin_value(node->output_pins[0], 0, cycle);
-			return;
-		}
+			break;
 		case VCC_NODE:
-		{
 			update_pin_value(node->output_pins[0], 1, cycle);
-			return;
-		}
-
+			break;
 		/* These should have already been converted to softer versions. */
 		case BITWISE_AND:
 		case BITWISE_NAND:
@@ -787,11 +810,18 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		case LTE:
 		case ADD:
 		case MINUS:
-		default:
-		{
-			error_message(SIMULATION_ERROR, 0, -1, "Node should have been converted to softer version: %s", node->name);
-			return;
-		}
+
+		default: error_message(SIMULATION_ERROR, 0, -1, "Node should have been converted to softer version: %s", node->name);
+	}
+
+	for (i = 0; i < node->num_output_pins; i++)
+	{
+		if
+		(
+				   cycle
+				&& get_pin_value(node->output_pins[i],cycle-1) != get_pin_value(node->output_pins[i],cycle)
+		)
+			node->coverage++;
 	}
 }
 
