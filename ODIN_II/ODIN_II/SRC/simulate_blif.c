@@ -170,10 +170,13 @@ void simulate_netlist(netlist_t *netlist)
 				printf("Vectors match\n");
 
 
-		printf("Number of nodes:  %d\n",  stages->num_nodes);
-		printf("Number of covered nodes: %d\n",get_num_covered_nodes(stages));
-		printf("Number of levels: %d\n",  stages->count);
-		printf("Simulation time:  %fs\n", simulation_time);
+		int covered_nodes = get_num_covered_nodes(stages);
+
+		printf("Number of levels:  %d\n",  stages->count);
+		printf("Number of nodes:   %d\n",  stages->num_nodes);
+		printf("Number of vectors: %d\n",  num_test_vectors);
+		printf("Covered nodes:     %d (%4.1f%%)\n", covered_nodes, (covered_nodes/(double)stages->num_nodes) * 100);
+		printf("Simulation time:   %fs\n", simulation_time);
 
 		fprintf(modelsim_out, "run %d\n", (num_test_vectors*100) + 100);
 
@@ -187,25 +190,6 @@ void simulate_netlist(netlist_t *netlist)
 	fclose(in);
 	fclose(out);
 }
-
-int get_num_covered_nodes(stages *s)
-{
-	int covered_nodes = 0;
-
-	int i;
-	for(i = 0; i < s->count; i++)
-	{
-		int j;
-		for (j = 0; j < s->counts[i]; j++)
-		{
-			nnode_t *node = s->stages[i][j];
-			if (node->coverage)
-				covered_nodes++;
-		}
-	}
-	return covered_nodes;
-}
-
 
 /*
  * This simulates a single cycle using the stages generated
@@ -379,6 +363,28 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 }
 
 /*
+ * Gets the number of nodes whose coverage flags have been
+ * incremented at least once.
+ */
+int get_num_covered_nodes(stages *s)
+{
+	int covered_nodes = 0;
+
+	int i;
+	for(i = 0; i < s->count; i++)
+	{
+		int j;
+		for (j = 0; j < s->counts[i]; j++)
+		{
+			nnode_t *node = s->stages[i][j];
+			if (node->coverage)
+				covered_nodes++;
+		}
+	}
+	return covered_nodes;
+}
+
+/*
  * Enqueues the node in the given queue if is_node_ready returns TRUE.
  */
 int enqueue_node_if_ready(queue_t* queue, nnode_t* node, int cycle)
@@ -518,11 +524,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 {
 	int i;
 	int unknown = FALSE;
-	
-	/*
-	 * The behaviour defined in these case statements reflect
-	 * the logic in the output_blif.c file.
-	 */
+
 	switch(node->type)
 	{
 		case LT: // < 010 1
@@ -752,7 +754,6 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		case FF_NODE:
 			oassert(node->num_output_pins == 1);
 			oassert(node->num_input_pins == 2);
-
 			update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle-1), cycle);			
 			break;
 		case MEMORY:
@@ -761,13 +762,11 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		case HARD_IP:
 			oassert(node->input_port_sizes[0] > 0);
 			oassert(node->output_port_sizes[0] > 0);
-			
 			compute_hard_ip_node(node,cycle);
 			break;
 		case MULTIPLY:
 			oassert(node->num_input_port_sizes >= 2);
 			oassert(node->num_output_port_sizes == 1);
-				
 			compute_multiply_node(node,cycle);
 			break;
 		case GENERIC :
@@ -776,20 +775,24 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		case INPUT_NODE:
 			break;
 		case OUTPUT_NODE:
+			oassert(node->num_output_pins == 1);
+			oassert(node->num_input_pins  == 1);
 			update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle), cycle);
 			break;
 		case PAD_NODE:
-			//for (i = 0; i < node->num_output_pins; i++)
+			oassert(node->num_output_pins == 1);
 			update_pin_value(node->output_pins[0], 0, cycle);
 			break;
 		case CLOCK_NODE:
-			for (i = 0; i < node->num_output_pins; i++)
-				update_pin_value(node->output_pins[i], cycle % 2, cycle);
+			oassert(node->num_output_pins == 1);
+			update_pin_value(node->output_pins[0], cycle % 2, cycle);
 			break;
 		case GND_NODE:
+			oassert(node->num_output_pins == 1);
 			update_pin_value(node->output_pins[0], 0, cycle);
 			break;
 		case VCC_NODE:
+			oassert(node->num_output_pins == 1);
 			update_pin_value(node->output_pins[0], 1, cycle);
 			break;
 		/* These should have already been converted to softer versions. */
@@ -820,7 +823,9 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			node->coverage++;
 }
 
-// TODO: Needs to be verified.
+/*
+ * Computes the given memory node.
+ */
 void compute_memory_node(nnode_t *node, int cycle)
 {
 	char *clock_name = "clk";
@@ -997,6 +1002,7 @@ void compute_hard_ip_node(nnode_t *node, int cycle)
 	free(input_pins);
 	free(output_pins);
 }
+
 
 // TODO: Needs to be verified.
 void compute_multiply_node(nnode_t *node, int cycle)
@@ -1210,7 +1216,7 @@ void instantiate_memory(nnode_t *node, signed char **memory, int data_width, int
 }
 
 /*
- * Searches for a line with the given name in the lines. Returns the id
+ * Searches for a line with the given name in the lines. Returns the index
  * or -1 if no such line was found.
  */
 int find_portname_in_lines(char* port_name, lines_t *l)
@@ -1290,8 +1296,7 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 
 /*
  * Given a netlist, this function maps the top_input_nodes
- * to a line_t* each. It stores them in an array and returns it,
- * storing the array size in the *lines_size pointer.
+ * to a line_t* each. It stores them in a lines_t struct.
  */
 lines_t *create_input_test_vector_lines(netlist_t *netlist)
 {
@@ -1324,8 +1329,7 @@ lines_t *create_input_test_vector_lines(netlist_t *netlist)
 
 /*
  * Given a netlist, this function maps the top_output_nodes
- * to a line_t* each. It stores them in an array and returns it,
- * storing the array size in the *lines_size pointer.
+ * to a line_t* each. It stores them in a lines_t struct.
  */
 lines_t *create_output_test_vector_lines(netlist_t *netlist)
 {
@@ -1354,8 +1358,8 @@ lines_t *create_output_test_vector_lines(netlist_t *netlist)
 }
 
 /*
- * Writes the lines[] elements' names to the files followed by a newline at the very end of
- * each file
+ * Creates a vector file header from the given lines,
+ * and writes it to the given file.
  */
 void write_vector_headers(FILE *file, lines_t *l)
 {
@@ -1366,8 +1370,8 @@ void write_vector_headers(FILE *file, lines_t *l)
 }
 
 /*
- * Parses the first line of the given file pointer and compares it to the
- * given nodes for identity. If there is any difference, a warning is printed,
+ * Parses the first line of the given file and compares it to the
+ * given lines for identity. If there is any difference, a warning is printed,
  * and FALSE is returned. If there are no differences, the file pointer is left
  * at the start of the first line after the header, and TRUE is returned.
  */
@@ -1427,7 +1431,7 @@ int verify_test_vector_headers(FILE *in, lines_t *l)
 }
 
 /* 
- * Verifies that no lines are null. 
+ * Verifies that no lines have null pins.
  */
 int verify_lines (lines_t *l)
 {
@@ -1450,7 +1454,7 @@ int verify_lines (lines_t *l)
 }
 
 /*
- * allocates memory for and instantiates a line_t struct
+ * allocates memory for and initializes a line_t struct
  */
 line_t *create_line(char *name)
 {
@@ -1513,9 +1517,7 @@ void store_test_vector_in_lines(test_vector *v, lines_t *l, int cycle)
 		{
 			int j;
 			for (j = 0; j < v->counts[i] && j < line->number_of_pins; j++)
-			{
-				update_pin_value(line->pins[j],  v->values[i][j], cycle);
-			}
+				update_pin_value(line->pins[j], v->values[i][j], cycle);
 
 			for (; j < line->number_of_pins; j++)
 				update_pin_value(line->pins[j], 0, cycle);
@@ -1673,8 +1675,8 @@ void write_wave_to_file(lines_t *l, FILE* file, int cycle_offset, int wave_lengt
 }
 
 /*
- * Writes all line values in lines[] such that line->type == type to the
- * file specified by the file parameter.
+ * Writes all values in the given lines to a line in the given file
+ * for the given cycle.
  */
 void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 {
@@ -1683,23 +1685,10 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 	int i; 
 	for (i = 0; i < l->count; i++)
 	{
-		int type = l->lines[i]->type;
-
 		if (first) first = FALSE;
 		else       fprintf(file, " ");
-						
-		int unknown = FALSE;
-		int j; 			
-		for (j = l->lines[i]->number_of_pins - 1; j >= 0; j--)
-		{			
-			if (get_line_pin_value(l->lines[i],j,cycle) < 0)
-			{
-				unknown = TRUE; 
-				break; 
-			}
-		}
-		
-		if (unknown || l->lines[i]->number_of_pins == 1)
+
+		if (line_has_unknown_pin(l->lines[i], cycle) || l->lines[i]->number_of_pins == 1)
 		{
 			int j;
 			for (j = l->lines[i]->number_of_pins - 1; j >= 0 ; j--)
@@ -1731,7 +1720,9 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 	fprintf(file, "\n");
 }
 
-
+/*
+ * Writes a wave of vectors to the given modelsim out file.
+ */
 void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_out, int cycle_offset, int wave_length)
 {
 	if (!cycle_offset)
@@ -1757,25 +1748,14 @@ void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_
 }
 
 /*
- *
+ * Writes a vector to the given modelsim out file.
  */
 void write_vector_to_modelsim_file(lines_t *l, FILE *modelsim_out, int cycle)
 {
 	int i;
 	for (i = 0; i < l->count; i++)
 	{
-		int unknown = FALSE;
-		int j; 			
-		for (j = l->lines[i]->number_of_pins - 1; j >= 0; j--)
-		{
-			if (get_line_pin_value(l->lines[i],j,cycle) < 0)
-			{
-				unknown = TRUE; 
-				break; 
-			}
-		}
-
-		if (unknown || l->lines[i]->number_of_pins == 1)
+		if (line_has_unknown_pin(l->lines[i], cycle) || l->lines[i]->number_of_pins == 1)
 		{
 			fprintf(modelsim_out, "force %s ",l->lines[i]->name);
 			int j;
@@ -2029,22 +2009,29 @@ void string_trim(char* string, char *chars)
 	}
 }
 
+int line_has_unknown_pin(line_t *line, int cycle)
+{
+	int unknown = FALSE;
+	int j;
+	for (j = line->number_of_pins - 1; j >= 0; j--)
+	{
+		if (get_line_pin_value(line, j, cycle) < 0)
+		{
+			unknown = TRUE;
+			break;
+		}
+	}
+	return unknown;
+}
 
 signed char get_line_pin_value(line_t *line, int pin_num, int cycle)
 {
-	npin_t *pin;
-	nnode_t *node = line->pins[pin_num]->node;
-
-	if (line->type == INPUT || !node->input_pins) 
-		pin = line->pins[pin_num];
-	else                                    
-		pin = node->input_pins[line->pins[pin_num]->pin_node_idx];
-
-	return get_pin_value(pin,cycle); 
+	return get_pin_value(line->pins[pin_num],cycle);
 }
 
 /*
- * Returns a value from a test_vectors struct in hex.
+ * Returns a value from a test_vectors struct in hex. Works
+ * for the values arrays in pins as well.
  */
 char *vector_value_to_hex(signed char *value, int length)
 {
@@ -2105,6 +2092,10 @@ int count_test_vectors(FILE *in)
 	return count;
 }
 
+/*
+ * A given line is a vector if it contains one or more
+ * non-whitespace characters and does not being with a #.
+ */
 int is_vector(char *buffer)
 {
 	char *line = strdup(buffer);

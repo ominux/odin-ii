@@ -90,8 +90,8 @@ stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, 
 stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes);
 void free_stages(stages *s);
 
+int get_num_covered_nodes(stages *s);
 nnode_t **get_children_of(nnode_t *node, int *count);
-
 inline int is_node_ready(nnode_t* node, int cycle);
 inline int is_node_complete(nnode_t* node, int cycle);
 int enqueue_node_if_ready(queue_t* queue, nnode_t* node, int cycle);
@@ -108,6 +108,7 @@ inline signed char get_pin_value(npin_t *pin, int cycle);
 inline int get_values_offset(int cycle); 
 
 signed char get_line_pin_value(line_t *line, int pin_num, int cycle);
+int line_has_unknown_pin(line_t *line, int cycle);
 
 int *multiply_arrays(int *a, int a_length, int *b, int b_length);
 void compute_memory(npin_t **inputs, npin_t **outputs, int data_width, npin_t **addr, int addr_width, int we, int clock, int cycle, signed char *data);
