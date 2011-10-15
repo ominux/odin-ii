@@ -382,8 +382,6 @@ struct nnode_t_t
 
 	// For simulation
 	int in_queue; // Flag used by the simulator to avoid double queueing.
-
-	int coverage;
 };
 
 struct npin_t_t
@@ -402,6 +400,7 @@ struct npin_t_t
 	// For simulation
 	int  cycle;       // The last cycle the pin was computed for.
 	signed char values[SIM_WAVE_LENGTH]; // The values for the current wave.
+	unsigned long coverage;
 };
 
 struct nnet_t_t

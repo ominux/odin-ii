@@ -75,7 +75,6 @@ nnode_t* allocate_nnode() {
 	new_node->bit_map_line_count=0;
 
 	new_node->in_queue = FALSE;
-	new_node->coverage = 0;
 
 	return new_node;
 }
@@ -215,6 +214,8 @@ npin_t* allocate_npin() {
 	for (i = 0; i < SIM_WAVE_LENGTH; i++) {
 		new_pin->values[i] = -1;
 	}
+
+	new_pin->coverage = 0;
 
 	return new_pin;
 }
