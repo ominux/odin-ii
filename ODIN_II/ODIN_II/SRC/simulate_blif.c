@@ -375,9 +375,25 @@ int get_num_covered_nodes(stages *s)
 	{
 		int j;
 		for (j = 0; j < s->counts[i]; j++)
-		{
+		{	/*
+			 * To count as being covered, every pin should resolve, and
+			 * make at least one transition from one binary value to another
+			 * and back.
+			 * (That's three transitions total.)
+			 */
 			nnode_t *node = s->stages[i][j];
-			if (node->coverage)
+			int k;
+			int covered = TRUE;
+			for (k = 0; k < node->num_output_pins; k++)
+			{
+				if (node->output_pins[k]->coverage < 3)
+				{
+					covered = FALSE;
+					break;
+				}
+			}
+
+			if (covered)
 				covered_nodes++;
 		}
 	}
@@ -814,13 +830,17 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		case LTE:
 		case ADD:
 		case MINUS:
-
-		default: error_message(SIMULATION_ERROR, 0, -1, "Node should have been converted to softer version: %s", node->name);
+		default:
+			error_message(SIMULATION_ERROR, 0, -1, "Node should have been converted to softer version: %s", node->name);
 	}
 
 	for (i = 0; i < node->num_output_pins; i++)
-		if(cycle && get_pin_value(node->output_pins[i],cycle-1) != get_pin_value(node->output_pins[i],cycle))
-			node->coverage++;
+	{
+		if(get_pin_value(node->output_pins[i],cycle-1) != get_pin_value(node->output_pins[i],cycle))
+		{
+			node->output_pins[i]->coverage++;
+		}
+	}
 }
 
 /*
