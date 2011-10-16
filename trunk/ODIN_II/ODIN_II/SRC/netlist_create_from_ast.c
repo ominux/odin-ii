@@ -43,7 +43,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 /* NAMING CONVENTIONS
  {previous_string}.module_name+instance_name
  {previous_string}.module_name+instance_name^signal_name
- {previous_string}.module_name+instance_name^signal_name-bit
+ {previous_string}.module_name+instance_name^signal_name~bit
 */
 
 #define INSTANTIATE_DRIVERS 1
@@ -376,6 +376,8 @@ void convert_ast_to_netlist_recursing_via_modules(ast_node_t* current_module, ch
 			/* make the stringed up module instance name - instance name is MODULE_INSTANCE->MODULE_NAMED_INSTANCE(child[1])->IDENTIFIER(child[0]).  module name is MODULE_INSTANCE->IDENTIFIER(child[0]) */
 			temp_instance_name = make_full_ref_name(instance_name, current_module->types.module.module_instantiations_instance[i]->children[0]->types.identifier, current_module->types.module.module_instantiations_instance[i]->children[1]->children[0]->types.identifier, NULL, -1);
 
+			printf("t%s\n", temp_instance_name);
+
 			/* lookup the name of the module associated with this instantiated point */
 			if ((sc_spot = sc_lookup_string(module_names_to_idx, current_module->types.module.module_instantiations_instance[i]->children[0]->types.identifier)) == -1)
 			{
@@ -433,7 +435,7 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 		}
 
 		/* ------------------------------------------------------------------------------*/
-		/* PRE AMBLE */
+		/* PREAMBLE */
 		switch(node->type)
 		{
 			case FILE_ITEMS:
@@ -489,8 +491,11 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 				break;
 			/* ---------------------- */
 			/* All these are input references that we need to grab their pins from by create_pin */
-			case ARRAY_REF:
 			case CONCATENATE:
+				// Print an error for concatenation, until it's fixed.
+				error_message(NETLIST_ERROR, node->line_number, node->file_number, "Concatenation is currently not supported by ODIN\n");
+				break;
+			case ARRAY_REF:
 			case IDENTIFIERS:
 			case RANGE_REF:
 			case NUMBERS: 
@@ -604,7 +609,10 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 				/* attach the drivers to the driver nets */
 				if (type_of_circuit == COMBINATIONAL)
 				{
-					/* idx 1 element since alwayss has DELAY Control first */
+					// These blocks are currently unsupported, as they do not work correctly.
+					error_message(NETLIST_ERROR, node->line_number, node->file_number, "ODIN II currently does not support always blocks gated by non-posedge or non-clock signals.\n");
+
+					/* idx 1 element since always has DELAY Control first */
 					terminate_continuous_assignment(node, children_signal_list[1], instance_name_prefix); 	
 				}
 				else if (type_of_circuit == SEQUENTIAL)
@@ -1955,6 +1963,7 @@ void terminate_continuous_assignment(ast_node_t *node, signal_list_t* assignment
 	{
 		nnode_t *buf_node;
 
+
 		/* look up the net */
 		if ((sc_spot = sc_lookup_string(output_nets_sc, assignment->signal_list[i]->name)) == -1)
 		{
@@ -1979,7 +1988,7 @@ void terminate_continuous_assignment(ast_node_t *node, signal_list_t* assignment
 		allocate_more_node_output_pins(buf_node, 1);
 		add_output_port_information(buf_node, 1);
 		
-		/* hookup the driver pin (the in_1) to to this net (the lookup) */
+		/* hookup the driver pin (the in_1) to this net (the lookup) */
 		buf_input_pin = assignment->signal_list[i];
 		add_a_input_pin_to_node_spot_idx(buf_node, buf_input_pin, 0);
 
