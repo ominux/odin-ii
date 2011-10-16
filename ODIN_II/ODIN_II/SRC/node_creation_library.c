@@ -396,6 +396,7 @@ char *node_name_based_on_op(nnode_t *node)
 			return_string = HARD_IP_string;
 			break;
 		default: 
+			return_string = NULL;
 			oassert(FALSE);
 			break;
 	}

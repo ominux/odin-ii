@@ -497,6 +497,7 @@ char *get_name_of_var_declare_at_bit(ast_node_t *var_declare, int bit)
 	}
 	else if (var_declare->children[3] != NULL)
 	{
+		return_string = NULL;
 		/* MEMORY output */
 		oassert(FALSE);
 	}
@@ -539,6 +540,7 @@ char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit, char *instance_name_
 
 		if ((sc_spot = sc_lookup_string(local_symbol_table_sc, var_node->types.identifier)) == -1)
 		{
+			pin_index = 0;
 			error_message(NETLIST_ERROR, var_node->line_number, var_node->file_number, "Missing declaration of this symbol %s\n", var_node->types.identifier);
 		}
 
@@ -574,6 +576,7 @@ char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit, char *instance_name_
 		}
 		else
 		{
+			return_string = NULL;
 			oassert(FALSE);
 		}
 	}
@@ -581,6 +584,7 @@ char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit, char *instance_name_
 	{
 		if (var_node->types.concat.num_bit_strings == 0)
 		{
+			return_string = NULL;
 			oassert(FALSE);
 		}
 		else
@@ -597,6 +601,7 @@ char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit, char *instance_name_
 	}
 	else
 	{
+		return_string = NULL;
 		oassert(FALSE);
 	}
 	
@@ -718,6 +723,8 @@ char_list_t *get_name_of_pins(ast_node_t *var_node, char *instance_name_prefix)
 			}
 			else if (sym_node->children[3] != NULL)
 			{
+				width = 0;
+				return_string = NULL;
 				oassert(FALSE);	
 			}
 		}
@@ -737,6 +744,8 @@ char_list_t *get_name_of_pins(ast_node_t *var_node, char *instance_name_prefix)
 	{
 		if (var_node->types.concat.num_bit_strings == 0)
 		{
+			width = 0;
+			return_string = NULL;
 			oassert(FALSE);
 		}
 		else
@@ -758,6 +767,8 @@ char_list_t *get_name_of_pins(ast_node_t *var_node, char *instance_name_prefix)
 	}
 	else
 	{
+		width = 0;
+		return_string = NULL;
 		oassert(FALSE);
 	}
 	

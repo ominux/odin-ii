@@ -446,7 +446,7 @@ double calc_density(nnode_t *node, int variable_spot, short *boolean_difference)
 	int i, l;
 	int function_size;
 	double totalProb = 0;
-	double input_density;
+	double input_density = 0;
 
 	oassert(node->num_input_pins < sizeof (long long int)*8);
 

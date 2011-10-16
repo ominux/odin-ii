@@ -465,6 +465,7 @@ void instantiate_bitwise_reduction(nnode_t *node, operation_list op, short mark,
 			cell_op = LOGICAL_XOR;
 			break;
 		default:
+			cell_op = 0;
 			oassert(FALSE);
 	}
 	/* instantiate the cells */
@@ -531,6 +532,7 @@ void instantiate_bitwise_logic(nnode_t *node, operation_list op, short mark, net
 			cell_op = LOGICAL_XOR;
 			break;
 		default:
+			cell_op = 0;
 			oassert(FALSE);
 			break;
 	}
@@ -949,6 +951,14 @@ void instantiate_GT(nnode_t *node, short type, short mark, netlist_t *netlist)
 		port_A_index = width_b-1;
 		port_B_index = 0;
 	}
+	else
+	{
+		port_A_offset = 0;
+		port_B_offset = 0;
+		port_A_index = 0;
+		port_B_index = 0;
+		error_message(NETLIST_ERROR, node->related_ast_node->line_number, node->related_ast_node->file_number, "Invalid node type in instantiate_GT\n");
+	}
 
 	/* xor gate identifies if any bits don't match */
 	xor_gate = make_2port_gate(LOGICAL_XOR, width_a-1, width_b-1, width_max-1, node, mark);
@@ -1081,6 +1091,12 @@ void instantiate_GE(nnode_t *node, short type, short mark, netlist_t *netlist)
 		port_A_offset = width_b;
 		port_B_offset = 0;
 	}
+	else
+	{
+		port_A_offset = 0;
+		port_B_offset = 0;
+		error_message(NETLIST_ERROR, node->related_ast_node->line_number, node->related_ast_node->file_number, "Invalid node type in instantiate_GE\n");
+	}
 
 	/* build an xnor bitwise XNOR */
 	equal = make_2port_gate(LOGICAL_EQUAL, width_a, width_b, 1, node, mark);
@@ -1151,6 +1167,7 @@ void instantiate_shift_left_or_right(nnode_t *node, short type, short mark, netl
 	}
 	else
 	{
+		shift_size = 0;
 		error_message(NETLIST_ERROR, node->related_ast_node->line_number, node->related_ast_node->file_number, "Odin only supports constant shifts at present\n");
 	}	
 

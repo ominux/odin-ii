@@ -178,11 +178,6 @@ long long convert_dec_string_of_size_to_long(char *orig_string, int size)
  *-------------------------------------------------------------------------------------------*/
 long long convert_hex_string_of_size_to_long(char *orig_string, int size)
 {
-	int i;
-	long long return_value = 0;
-	long long current_base_value = 1;
-	char temp[2];
-
 	if (strlen(orig_string) > 16)
 	{
 		/* greater than our bit capacity so not a constant */

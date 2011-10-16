@@ -779,7 +779,7 @@ short read_bit_map_find_unknown_gate(int input_count,nnode_t * node)
 	int i,j;
 	int line_count_bitmap=0; //stores the number of lines in a particular bit map
 	char ** bit_map=NULL;
-	char *output_bit_map;// to distinguish whether for the bit_map output is 1 or 0
+	char *output_bit_map = 0;// to distinguish whether for the bit_map output is 1 or 0
 		
 	fgetpos(blif,&pos);
 	temp_fpointer=blif;

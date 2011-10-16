@@ -61,7 +61,9 @@ report_memory_distribution()
 {
 	nnode_t *node;
 	struct s_linked_vptr *temp;
-	int i, idx, width, depth;
+	int i, idx;
+	int width = 0;
+	int depth = 0;
 
 	if ((sp_memory_list == NULL) && (dp_memory_list == NULL))
 		return;
@@ -168,12 +170,17 @@ split_sp_memory_depth(nnode_t *node)
 	int we_port = -1;
 	int clk_port = -1;
 	int logical_size;
-	int i, j, idx, addr_pin_idx, we_pin_idx;
+	int i, j;
+	int idx;
+	int addr_pin_idx = 0;
+	int we_pin_idx = 0;
 	nnode_t *new_mem_node;
 	nnode_t *and_node, *not_node, *ff_node, *mux_node;
 	npin_t *addr_pin = NULL;
 	npin_t *we_pin = NULL;
-	npin_t *twe_pin, *taddr_pin, *clk_pin, *tdout_pin;
+	npin_t *twe_pin, *taddr_pin;
+	npin_t *clk_pin = NULL;
+	npin_t *tdout_pin;
 
 	oassert(node->type == MEMORY);
 
@@ -340,7 +347,12 @@ split_dp_memory_depth(nnode_t *node)
 	int we2_port = -1;
 	int clk_port = -1;
 	int logical_size;
-	int i, j, idx, addr1_pin_idx, we1_pin_idx, addr2_pin_idx, we2_pin_idx;
+	int i, j;
+	int idx;
+	int addr1_pin_idx = 0;
+	int we1_pin_idx = 0;
+	int addr2_pin_idx = 0;
+	int we2_pin_idx = 0;
 	nnode_t *new_mem_node;
 	nnode_t *and1_node, *not1_node, *ff1_node, *mux1_node;
 	nnode_t *and2_node, *not2_node, *ff2_node, *mux2_node;
@@ -348,7 +360,9 @@ split_dp_memory_depth(nnode_t *node)
 	npin_t *addr2_pin = NULL;
 	npin_t *we1_pin = NULL;
 	npin_t *we2_pin = NULL;
-	npin_t *twe_pin, *taddr_pin, *clk_pin, *tdout_pin;
+	npin_t *twe_pin, *taddr_pin;
+	npin_t *clk_pin = NULL;
+	npin_t *tdout_pin;
 
 	oassert(node->type == MEMORY);
 
