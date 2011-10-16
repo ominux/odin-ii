@@ -1490,7 +1490,7 @@ void connect_module_instantiation_and_alias(short PASS, ast_node_t* module_insta
 
 	for (i = 0; i < module_list->num_children; i++)
 	{
-		int port_size;
+		int port_size = 0;
 		ast_node_t *module_var_node = module_list->children[i]->children[0]; // VAR_DECLARE_LIST(child[i])->VAR_DECLARE_PORT(child[0])->VAR_DECLARE_input-or-output(child[0])
 		ast_node_t *module_instance_var_node = module_instance_list->children[i]->children[1]; // MODULE_CONNECT_LIST(child[i])->MODULE_CONNECT(child[1]) // child[0] is for aliasing
 
@@ -1701,7 +1701,7 @@ signal_list_t *create_pins(ast_node_t* var_declare, char *name, char *instance_n
 	long sc_spot_output;
 	npin_t *new_pin;
 	nnet_t *new_in_net;
-	char_list_t *pin_lists;
+	char_list_t *pin_lists = NULL;
 
 	if (name == NULL)
 	{
@@ -1717,7 +1717,10 @@ signal_list_t *create_pins(ast_node_t* var_declare, char *name, char *instance_n
 		pin_lists->num_strings = 1;
 	}
 	else
-		oassert(FALSE);
+	{
+		error_message(0,0,-1,"Invalid state or internal error");
+	}
+
 
 	for (i = 0; i < pin_lists->num_strings; i++)
 	{
@@ -3154,10 +3157,10 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
 	ast_node_t *block_instance = block->children[1];
 	ast_node_t *block_list = block_instance->children[1];
 	ast_node_t *block_connect;
-	char *ip_name;
+	char *ip_name = NULL;
 	t_model_ports *hb_ports;
 	int i, j, current_idx, current_out_idx;
-	int out_port_size;
+	int out_port_size = 0;
 
 	if ((hb_model == NULL) || (strcmp(hb_model->name, "single_port_ram") != 0))
 	{
@@ -3349,6 +3352,7 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
  * 	This function creates a hard block node in the netlist and hooks up the 
  * 	inputs and outputs.
  *------------------------------------------------------------------------*/
+//#endif
 signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 {
 	signal_list_t **in_list, *return_list;
@@ -3358,7 +3362,7 @@ signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 	ast_node_t *block_connect;
 	t_model *hb_model = NULL;
 	char *ip_name;
-	t_model_ports *hb_ports;
+	t_model_ports *hb_ports = NULL;
 	int i, j, current_idx, current_out_idx;
 	int is_mult = 0;
 	int mult_size = 0;

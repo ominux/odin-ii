@@ -363,178 +363,8 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 }
 
 /*
- * Gets the number of nodes whose coverage flags have been
- * incremented at least once.
- */
-int get_num_covered_nodes(stages *s)
-{
-	int covered_nodes = 0;
-
-	int i;
-	for(i = 0; i < s->count; i++)
-	{
-		int j;
-		for (j = 0; j < s->counts[i]; j++)
-		{	/*
-			 * To count as being covered, every pin should resolve, and
-			 * make at least one transition from one binary value to another
-			 * and back.
-			 * (That's three transitions total.)
-			 */
-			nnode_t *node = s->stages[i][j];
-			int k;
-			int covered = TRUE;
-			for (k = 0; k < node->num_output_pins; k++)
-			{
-				if (node->output_pins[k]->coverage < 3)
-				{
-					covered = FALSE;
-					break;
-				}
-			}
-
-			if (covered)
-				covered_nodes++;
-		}
-	}
-	return covered_nodes;
-}
-
-/*
- * Enqueues the node in the given queue if is_node_ready returns TRUE.
- */
-int enqueue_node_if_ready(queue_t* queue, nnode_t* node, int cycle)
-{
-	if (is_node_ready(node, cycle))
-	{
-		node->in_queue = TRUE;
-		queue->add(queue, node);
-		return TRUE;
-	}
-	else
-	{
-		return FALSE;
-	}
-}
-
-/*
- * Determines if the given node has been simulated for the given cycle.
- */
-inline int is_node_complete(nnode_t* node, int cycle)
-{
-	int i;
-	for (i = 0; i < node->num_output_pins; i++)
-		if (node->output_pins[i] && node->output_pins[i]->cycle < cycle)
-			return FALSE;			
-
-	return TRUE;
-}
-
-/*
- * Checks to see if the node is ready to be simulated for the given cycle.
- */
-inline int is_node_ready(nnode_t* node, int cycle)
-{
-	if (node->type == FF_NODE)
-		cycle--;
-
-	int i;
-	for (i = 0; i < node->num_input_pins; i++)
-		if (node->input_pins[i]->cycle < cycle)
-			return FALSE;
-
-	return TRUE;
-}
-
-/*
- * Gets the children of the given node. Returns the number of children via the num_children parameter. 
- */ 
-nnode_t **get_children_of(nnode_t *node, int *num_children)
-{
-	nnode_t **children = 0;
-	int count = 0;
-	int i; 
-	for (i = 0; i < node->num_output_pins; i++)
-	{
-		nnet_t *net = node->output_pins[i]->net;
-		if (net)
-		{
-			int j; 
-			for (j = 0; j < net->num_fanout_pins; j++)
-			{
-				npin_t *fanout_pin = net->fanout_pins[j];
-				if (fanout_pin && fanout_pin->type == INPUT && fanout_pin->node)
-				{
-					children = realloc(children, sizeof(nnode_t*) * (count + 1));
-					children[count++] = fanout_pin->node;
-				}
-			}
-		}
-	}
-	*num_children = count;
-	return children; 
-}
-
-/*
- * Sets the pin to the given value for the given cycle. Does not
- * propagate the value to the connected net.
- * 
- * CAUTION: Use update_pin_value to update pins. This function will not update
- *          the connected net. 
- */
-inline void set_pin(npin_t *pin, signed char value, int cycle)
-{
-	pin->values[get_values_offset(cycle)] = value;
-	pin->cycle = cycle;
-}
-
-/*
- * Updates the value of a pin and its cycle. Pins should be updated using 
- * only this function. 
- */
-inline void update_pin_value(npin_t *pin, signed char value, int cycle)
-{
-	set_pin(pin,value,cycle); 
-
-	if (pin->net)
-	{		
-		int i;
-		for (i = 0; i < pin->net->num_fanout_pins; i++)
-		{
-			npin_t *fanout_pin = pin->net->fanout_pins[i];
-			if (fanout_pin)
-				set_pin(fanout_pin,value,cycle);
-		}
-	}
-}
-
-/*
- * Gets the value of a pin. Pins should be checked using this function only. 
- */ 
-inline signed char get_pin_value(npin_t *pin, int cycle)
-{
-	if (cycle < 0) return -1;
-
-	return pin->values[get_values_offset(cycle)];
-}
-
-/*
- * Calculates the index in the values array for the given cycle. 
- */ 
-inline int get_values_offset(int cycle)
-{
-	if (cycle < 0) return SIM_WAVE_LENGTH-1;
-
-	return (((cycle) + (SIM_WAVE_LENGTH+1)) % (SIM_WAVE_LENGTH+1));
-}
-
-/*
  * Given a node, this function will simulate that node's new outputs,
  * and updates those pins.
- *
- * This function assumes that the input to the nodes has been updated to
- * reflect the values of the current cycle. As such, it doesn't check
- * to make sure this is the case.
  */
 void compute_and_store_value(nnode_t *node, int cycle)
 {
@@ -841,6 +671,172 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			node->output_pins[i]->coverage++;
 		}
 	}
+}
+
+/*
+ * Gets the number of nodes whose output pins have been sufficiently covered.
+ */
+int get_num_covered_nodes(stages *s)
+{
+	int covered_nodes = 0;
+
+	int i;
+	for(i = 0; i < s->count; i++)
+	{
+		int j;
+		for (j = 0; j < s->counts[i]; j++)
+		{	/*
+			 * To count as being covered, every pin should resolve, and
+			 * make at least one transition from one binary value to another
+			 * and back.
+			 * (That's three transitions total.)
+			 */
+			nnode_t *node = s->stages[i][j];
+			int k;
+			int covered = TRUE;
+			for (k = 0; k < node->num_output_pins; k++)
+			{
+				if (node->output_pins[k]->coverage < 3)
+				{
+					covered = FALSE;
+					break;
+				}
+			}
+
+			if (covered)
+				covered_nodes++;
+		}
+	}
+	return covered_nodes;
+}
+
+/*
+ * Enqueues the node in the given queue if is_node_ready returns TRUE.
+ */
+int enqueue_node_if_ready(queue_t* queue, nnode_t* node, int cycle)
+{
+	if (is_node_ready(node, cycle))
+	{
+		node->in_queue = TRUE;
+		queue->add(queue, node);
+		return TRUE;
+	}
+	else
+	{
+		return FALSE;
+	}
+}
+
+/*
+ * Determines if the given node has been simulated for the given cycle.
+ */
+int is_node_complete(nnode_t* node, int cycle)
+{
+	int i;
+	for (i = 0; i < node->num_output_pins; i++)
+		if (node->output_pins[i] && node->output_pins[i]->cycle < cycle)
+			return FALSE;
+
+	return TRUE;
+}
+
+/*
+ * Checks to see if the node is ready to be simulated for the given cycle.
+ */
+int is_node_ready(nnode_t* node, int cycle)
+{
+	if (node->type == FF_NODE)
+		cycle--;
+
+	int i;
+	for (i = 0; i < node->num_input_pins; i++)
+		if (node->input_pins[i]->cycle < cycle)
+			return FALSE;
+
+	return TRUE;
+}
+
+/*
+ * Gets the children of the given node. Returns the number of children via the num_children parameter.
+ */
+nnode_t **get_children_of(nnode_t *node, int *num_children)
+{
+	nnode_t **children = 0;
+	int count = 0;
+	int i;
+	for (i = 0; i < node->num_output_pins; i++)
+	{
+		nnet_t *net = node->output_pins[i]->net;
+		if (net)
+		{
+			int j;
+			for (j = 0; j < net->num_fanout_pins; j++)
+			{
+				npin_t *fanout_pin = net->fanout_pins[j];
+				if (fanout_pin && fanout_pin->type == INPUT && fanout_pin->node)
+				{
+					children = realloc(children, sizeof(nnode_t*) * (count + 1));
+					children[count++] = fanout_pin->node;
+				}
+			}
+		}
+	}
+	*num_children = count;
+	return children;
+}
+
+
+/*
+ * Updates the value of a pin and its cycle. Pins should be updated using
+ * only this function.
+ */
+void update_pin_value(npin_t *pin, signed char value, int cycle)
+{
+	set_pin(pin,value,cycle);
+
+	if (pin->net)
+	{
+		int i;
+		for (i = 0; i < pin->net->num_fanout_pins; i++)
+		{
+			npin_t *fanout_pin = pin->net->fanout_pins[i];
+			if (fanout_pin)
+				set_pin(fanout_pin,value,cycle);
+		}
+	}
+}
+
+/*
+ * Gets the value of a pin. Pins should be checked using this function only.
+ */
+signed char get_pin_value(npin_t *pin, int cycle)
+{
+	if (cycle < 0) return -1;
+
+	return pin->values[get_values_offset(cycle)];
+}
+
+/*
+ * Sets the pin to the given value for the given cycle. Does not
+ * propagate the value to the connected net.
+ *
+ * CAUTION: Use update_pin_value to update pins. This function will not update
+ *          the connected net.
+ */
+inline void set_pin(npin_t *pin, signed char value, int cycle)
+{
+	pin->values[get_values_offset(cycle)] = value;
+	pin->cycle = cycle;
+}
+
+/*
+ * Calculates the index in the values array for the given cycle.
+ */
+inline int get_values_offset(int cycle)
+{
+	if (cycle < 0) return SIM_WAVE_LENGTH-1;
+
+	return (((cycle) + (SIM_WAVE_LENGTH+1)) % (SIM_WAVE_LENGTH+1));
 }
 
 /*
@@ -1590,7 +1586,7 @@ test_vector *parse_test_vector(char *buffer)
 	test_vector *v = malloc(sizeof(test_vector));
 	v->values = 0;
 	v->counts = 0;
-	v->count = 0;
+	v->count  = 0;
 
 	string_trim(buffer,"\r\n");
 
@@ -1606,24 +1602,13 @@ test_vector *parse_test_vector(char *buffer)
 		if (token[0] == '0' && (token[1] == 'x' || token[1] == 'X'))
 		{
 			token += 2;
-			int token_length = strlen(token);
-
-			string_reverse(token, token_length);
-
-			int i;
-			for (i = 0; i < token_length; i++)
+			int value = strtol(token, NULL, 16);
+			while (value)
 			{
-				char temp[] = {token[i],'\0'};
-
-				int value = strtol(temp, NULL, 16);
-				int k;
-				for (k = 0; k < 4; k++)
-				{
-					signed char bit = value % 2;
-					value /= 2;
-					v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));
-					v->values[v->count][v->counts[v->count]++] = bit;
-				}
+				signed char bit = value % 2;
+				value /= 2;
+				v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));
+				v->values[v->count][v->counts[v->count]++] = bit;
 			}
 		}
 		else

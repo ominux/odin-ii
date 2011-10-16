@@ -11,7 +11,6 @@
 struct veri_Includes veri_includes;
 struct veri_Defines veri_defines;
 
-
 /*
  * Initialize the preprocessor by allocating sufficient memory and setting sane values
  */
@@ -279,6 +278,11 @@ FILE* open_source_file(char* filename)
 	else if(global_args.config_file != NULL) //ODIN_II was called with the -c option.
 	{
 		path = (char *) strdup(configuration.list_of_file_names[current_parse_file]);
+	}
+	else
+	{
+		path = NULL;
+		fprintf(stderr, "Invalid state in open_source_file.");
 	}
 	
 	char* last_slash = strrchr(path, '/') + 1;

@@ -14,7 +14,7 @@ EXEO = odin_II.exe
 
 DEBUG_FLAGS = -g 
 
-OPT_FLAGS = 
+OPT_FLAGS = -O2 
 # Use this value of OPT_FLAGS to simulate in parallel (requires GCC >= 4.2)
 #OPT_FLAGS = -O2 -fopenmp
 
