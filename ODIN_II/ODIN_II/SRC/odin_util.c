@@ -189,45 +189,7 @@ long long convert_hex_string_of_size_to_long(char *orig_string, int size)
 		return -1;
 	}
 
-	for (i = strlen(orig_string)-1; i > -1; i--)
-	{
-		if (isdigit(orig_string[i]))
-		{
-			sprintf(temp, "%c", orig_string[i]);
-			return_value += (long long)(atoi(temp) * current_base_value);
-		}
-		else if ((orig_string[i] == 'a') || (orig_string[i] == 'A'))
-		{
-			return_value += (long long)(10 * current_base_value);
-		}
-		else if ((orig_string[i] == 'b') || (orig_string[i] == 'B'))
-		{
-			return_value += (long long)(11 * current_base_value);
-		}
-		else if ((orig_string[i] == 'c') || (orig_string[i] == 'C'))
-		{
-			return_value += (long long)(11 * current_base_value);
-		}
-		else if ((orig_string[i] == 'd') || (orig_string[i] == 'D'))
-		{
-			return_value += (long long)(11 * current_base_value);
-		}
-		else if ((orig_string[i] == 'e') || (orig_string[i] == 'E'))
-		{
-			return_value += (long long)(11 * current_base_value);
-		}
-		else if ((orig_string[i] == 'f') || (orig_string[i] == 'F'))
-		{
-			return_value += (long long)(11 * current_base_value);
-		}
-		else
-		{
-			error_message(PARSE_ERROR, -1, -1, "This suspected hex number (%s) is not\n", orig_string);
-		}
-		current_base_value *= 16;
-	}
-	
-	return return_value;
+	return strtol(orig_string, NULL, 16);
 }
 
 /*---------------------------------------------------------------------------------------------
