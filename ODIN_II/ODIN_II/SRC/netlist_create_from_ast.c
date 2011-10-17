@@ -493,8 +493,8 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 			/* All these are input references that we need to grab their pins from by create_pin */
 			case CONCATENATE:
 				// Print an error for concatenation, until it's fixed.
-				error_message(NETLIST_ERROR, node->line_number, node->file_number, "Concatenation is currently not supported by ODIN\n");
-				break;
+				//error_message(NETLIST_ERROR, node->line_number, node->file_number, "Concatenation is currently not supported by ODIN\n");
+				//break;
 			case ARRAY_REF:
 			case IDENTIFIERS:
 			case RANGE_REF:

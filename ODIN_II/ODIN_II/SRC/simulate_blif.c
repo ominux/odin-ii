@@ -600,7 +600,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		case FF_NODE:
 			oassert(node->num_output_pins == 1);
 			oassert(node->num_input_pins == 2);
-			update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle-1), cycle);			
+			update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle-1), cycle);
 			break;
 		case MEMORY:
 			compute_memory_node(node,cycle);
@@ -1602,7 +1602,7 @@ test_vector *parse_test_vector(char *buffer)
 		if (token[0] == '0' && (token[1] == 'x' || token[1] == 'X'))
 		{
 			token += 2;
-			int value = strtol(token, NULL, 16);
+			unsigned long value = strtol(token, NULL, 16);
 			while (value)
 			{
 				signed char bit = value % 2;
