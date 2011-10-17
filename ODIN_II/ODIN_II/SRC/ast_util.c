@@ -477,6 +477,9 @@ void make_concat_into_list_of_strings(ast_node_t *concat_top, char *instance_nam
 				concat_top->types.concat.bit_strings[concat_top->types.concat.num_bit_strings-1] = get_name_of_pin_at_bit(concat_top->children[i], j, instance_name_prefix);
 			}
 		}
+		else {
+			error_message(NETLIST_ERROR, concat_top->line_number, concat_top->file_number, "Unsupported operation within a concatenation.\n");
+		}
 	}
 }
 
@@ -606,6 +609,8 @@ char *get_name_of_pin_at_bit(ast_node_t *var_node, int bit, char *instance_name_
 	else
 	{
 		return_string = NULL;
+
+		error_message(NETLIST_ERROR, var_node->line_number, var_node->file_number, "Unsupported variable type.\n");
 		oassert(FALSE);
 	}
 	
