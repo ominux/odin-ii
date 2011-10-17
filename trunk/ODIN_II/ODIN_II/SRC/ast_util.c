@@ -414,6 +414,7 @@ void make_concat_into_list_of_strings(ast_node_t *concat_top, char *instance_nam
 				rnode[1] = resolve_node(instance_name_prefix, ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[1]);
 				rnode[2] = resolve_node(instance_name_prefix, ((ast_node_t*)local_symbol_table_sc->data[sc_spot])->children[2]);
 				oassert(rnode[1]->type == NUMBERS && rnode[2]->type == NUMBERS);
+
 				for (j = rnode[1]->types.number.value - rnode[2]->types.number.value; j >= 0; j--)
 				{
 					concat_top->types.concat.num_bit_strings ++;
@@ -439,8 +440,11 @@ void make_concat_into_list_of_strings(ast_node_t *concat_top, char *instance_nam
 			rnode[2] = resolve_node(instance_name_prefix, concat_top->children[i]->children[2]);
 			oassert(rnode[1]->type == NUMBERS && rnode[2]->type == NUMBERS);
 			oassert(rnode[1]->types.number.value >= rnode[2]->types.number.value);
-			/* reverse thorugh the range since highest bit in index will be lower in the string indx */
-			for (j = rnode[1]->types.number.value - rnode[2]->types.number.value; j >= 0; j--)
+
+
+			//for (j = rnode[1]->types.number.value - rnode[2]->types.number.value; j >= 0; j--)
+			// Changed to forward to fix concatenation bug.
+			for (j = 0; j < rnode[1]->types.number.value - rnode[2]->types.number.value + 1; j++)
 			{
 				concat_top->types.concat.num_bit_strings ++;
 				concat_top->types.concat.bit_strings = (char**)realloc(concat_top->types.concat.bit_strings, sizeof(char*)*(concat_top->types.concat.num_bit_strings));
@@ -455,8 +459,8 @@ void make_concat_into_list_of_strings(ast_node_t *concat_top, char *instance_nam
 				error_message(NETLIST_ERROR, concat_top->line_number, concat_top->file_number, "Concatenation can't include decimal numbers due to conflict on bits\n");
 			}
 
-			/* forward through list since 0th bit of a number (get_name_of_pin) is the msb */
-			for (j = 0; j < concat_top->children[i]->types.number.binary_size; j++)
+			// Changed to reverse to fix concatenation bug.
+			for (j = concat_top->children[i]->types.number.binary_size-1; j>= 0; j--)
 			{
 				concat_top->types.concat.num_bit_strings ++;
 				concat_top->types.concat.bit_strings = (char**)realloc(concat_top->types.concat.bit_strings, sizeof(char*)*(concat_top->types.concat.num_bit_strings));
