@@ -286,8 +286,6 @@ stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, 
 	return s;
 }
 
-
-
 /*
  * Puts the ordered nodes in stages which can be computed in parallel.
  */
