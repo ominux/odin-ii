@@ -1600,13 +1600,25 @@ test_vector *parse_test_vector(char *buffer)
 		if (token[0] == '0' && (token[1] == 'x' || token[1] == 'X'))
 		{
 			token += 2;
-			unsigned long value = strtol(token, NULL, 16);
-			while (value)
+
+			int token_length = strlen(token);
+
+			string_reverse(token, token_length);
+
+			int i;
+			for (i = 0; i < token_length; i++)
 			{
-				signed char bit = value % 2;
-				value /= 2;
-				v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));
-				v->values[v->count][v->counts[v->count]++] = bit;
+					char temp[] = {token[i],'\0'};
+
+					int value = strtol(temp, NULL, 16);
+					int k;
+					for (k = 0; k < 4; k++)
+					{
+							signed char bit = value % 2;
+							value /= 2;
+							v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));
+							v->values[v->count][v->counts[v->count]++] = bit;
+					}
 			}
 		}
 		else
