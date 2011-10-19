@@ -46,6 +46,9 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 #define BUFFER_MAX_SIZE 1024
 
+// Minimum number of nodes to bother computing in parallel.
+#define SIM_PARALLEL_THRESHOLD 150
+
 #define INPUT_VECTOR_FILE_NAME "input_vectors"
 #define OUTPUT_VECTOR_FILE_NAME "output_vectors"
 
@@ -74,7 +77,10 @@ typedef struct {
 	nnode_t ***stages; // Stages.
 	int       *counts; // Number of nodes in each stage.
 	int 	   count;  // Number of stages.
-	int    num_nodes;  // The total number of nodes.
+	// Statistics.
+	int    num_nodes;          // The total number of nodes.
+	int    num_connections;    // The sum of all the children found under every node.
+	int    num_parallel_nodes; // The number of nodes in stages larger than SIM_PARALLEL_THRESHOLD
 } stages;
 
 typedef struct {

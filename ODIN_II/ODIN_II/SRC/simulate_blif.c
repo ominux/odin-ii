@@ -60,8 +60,6 @@ void simulate_netlist(netlist_t *netlist)
 	// Input vectors can either come from a file or be randomly generated.
 	if (input_vector_file)
 	{
-		printf("Simulating input vector file.\n"); fflush(stdout);
-
 		in = fopen(input_vector_file, "r");
 		if (!in) error_message(SIMULATION_ERROR, 0, -1, "Could not open vector input file: %s", input_vector_file);
 
@@ -70,16 +68,19 @@ void simulate_netlist(netlist_t *netlist)
 		// Read the vector headers and check to make sure they match the lines.
 		if (!verify_test_vector_headers(in, input_lines))
 			error_message(SIMULATION_ERROR, 0, -1, "Invalid vector header format in %s.", input_vector_file);
+
+		printf("Simulating %d existing vectors from \"%s\".\n", num_test_vectors, input_vector_file); fflush(stdout);
 	}
 	else
-	{	printf("Simulating using new vectors.\n"); fflush(stdout);
-
+	{
 		// Passed via the -g option.
-		num_test_vectors     = global_args.num_test_vectors;
+		num_test_vectors = global_args.num_test_vectors;
 
 		in  = fopen( INPUT_VECTOR_FILE_NAME, "w");
 		if (!in)
 			error_message(SIMULATION_ERROR, 0, -1, "Could not open input vector file.");
+
+		printf("Simulating %d new vectors.\n", num_test_vectors); fflush(stdout);
 	}
 
 	if (!num_test_vectors)
@@ -88,6 +89,9 @@ void simulate_netlist(netlist_t *netlist)
 	}
 	else
 	{
+		printf("\n");
+		int progress_bar_position = 0;
+		double total_time = 0;
 		double simulation_time = 0;
 		stages *stages = 0;
 
@@ -96,6 +100,8 @@ void simulate_netlist(netlist_t *netlist)
 		int  wave;
 		for (wave = 0; wave < num_waves; wave++)
 		{
+			double time1 = wall_time();
+
 			int cycle_offset = SIM_WAVE_LENGTH * wave;
 			int wave_length  = (wave < (num_waves-1))?SIM_WAVE_LENGTH:(num_test_vectors - cycle_offset);
 
@@ -125,8 +131,6 @@ void simulate_netlist(netlist_t *netlist)
 				write_wave_to_modelsim_file(netlist, input_lines, modelsim_out, cycle_offset, wave_length);
 			}
 
-			printf("%6d/%d",wave+1,num_waves);
-
 			double time = wall_time();
 
 			// Perform simulation
@@ -153,32 +157,60 @@ void simulate_netlist(netlist_t *netlist)
 			// Write the result of this wave to the output vector file.
 			write_wave_to_file(output_lines, out, cycle_offset, wave_length);
 
-			int wave_cols = wave_length+10;
-			int display_cols = 80;
-			if (!((wave+1) % (display_cols/wave_cols)))
-				printf("\n");
+			total_time += wall_time() - time1;
+
+			float completion = cycle/(float)num_test_vectors;
+			if (!cycle_offset || ((int)(completion * 64)) > progress_bar_position)
+			{
+				progress_bar_position = completion * 64;
+				printf("%3.0f%%|",completion * (float)100);
+				int i;
+				for (i = 0; i < progress_bar_position; i++)
+					printf("=");
+				printf(">");
+				for (; i < 64; i++)
+					printf("-");
+				printf("| Remaining: ");
+				float remaining_time = total_time/(float)completion - total_time;
+				if      (remaining_time > 3600) printf("%.1fh",remaining_time/3600.0);
+				else if (remaining_time > 60)   printf("%.1fm",remaining_time/60.0);
+				else                            printf("%.1fs",remaining_time);
+				printf("       \r");
+				fflush(stdout);
+			}
 		}
 
 		printf("\n");
 
 		fflush(out); 
 
+		fprintf(modelsim_out, "run %d\n", (num_test_vectors*100) + 100);
+
+		printf("\n");
 		// If a second output vector file was given via the -T option, verify that it matches.
 		char *output_vector_file = global_args.sim_vector_output_file;
 		if (output_vector_file)
+		{
 			if (verify_output_vectors(output_vector_file, num_test_vectors))
-				printf("Vectors match\n");
+				printf("Vector file \"%s\" matches output\n", output_vector_file);
+			printf("\n");
+		}
 
-
+		// Print statistics.
+		printf("Number of nodes:   %d\n",    stages->num_nodes);
+		printf("  Connections:     %d\n",    stages->num_connections);
+		printf("  Degree:          %3.2f\n", stages->num_connections/(float)stages->num_nodes);
+		printf("  Stages:          %d\n",    stages->count);
+		#ifdef _OPENMP
+		printf("  Parallel nodes:  %d (%4.1f%%)\n", stages->num_parallel_nodes, (stages->num_parallel_nodes/(double)stages->num_nodes) * 100);
+		#endif
+		printf("\n");
 		int covered_nodes = get_num_covered_nodes(stages);
-
-		printf("Number of levels:  %d\n",  stages->count);
-		printf("Number of nodes:   %d\n",  stages->num_nodes);
 		printf("Number of vectors: %d\n",  num_test_vectors);
-		printf("Covered nodes:     %d (%4.1f%%)\n", covered_nodes, (covered_nodes/(double)stages->num_nodes) * 100);
+		printf("  Coverage:        %d (%4.1f%%)\n", covered_nodes, (covered_nodes/(double)stages->num_nodes) * 100);
+		printf("\n");
 		printf("Simulation time:   %fs\n", simulation_time);
-
-		fprintf(modelsim_out, "run %d\n", (num_test_vectors*100) + 100);
+		printf("Elapsed time:      %fs\n", total_time);
 
 		free_stages(stages);
 	}
@@ -202,7 +234,7 @@ void simulate_cycle(int cycle, stages *s)
 	{
 		int j;
 		#ifdef _OPENMP
-		if (s->counts[i] < 150)
+		if (s->counts[i] < SIM_PARALLEL_THRESHOLD)
 		#endif
 		{
 			for (j = 0; j < s->counts[i]; j++)
@@ -219,7 +251,7 @@ void simulate_cycle(int cycle, stages *s)
 		#endif
 	}
 
-	printf("."); fflush(stdout);
+	//printf("."); fflush(stdout);
 }
 
 /*
@@ -249,6 +281,7 @@ stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, 
 	{
 		compute_and_store_value(node, cycle);
 
+		// Match node for items passed via -p and add to lines if there's a match.
 		add_additional_pins_to_lines(node, p, l);
 
 		// Enqueue child nodes which are ready, not already queued, and not already complete.
@@ -281,7 +314,7 @@ stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, 
 	stages *s = stage_ordered_nodes(ordered_nodes, num_ordered_nodes);
 	free(ordered_nodes);
 
-	printf("*"); fflush(stdout);
+	//printf("*"); fflush(stdout);
 
 	return s;
 }
@@ -290,10 +323,11 @@ stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, 
  * Puts the ordered nodes in stages which can be computed in parallel.
  */
 stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
-	stages *s = malloc(sizeof(s));
+	stages *s = malloc(sizeof(stages));
 	s->stages = calloc(1,sizeof(nnode_t**));
 	s->counts = calloc(1,sizeof(int));
 	s->count  = 1;
+	s->num_connections = 0;
 
 	const int index_table_size = (num_ordered_nodes/100)+10;
 
@@ -349,10 +383,21 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 		for (j = 0; j < num_children; j++)
 			stage_children->add(stage_children, children[j], sizeof(nnode_t*), children[j]);
 
+		// Record the number of children for computing the degree.
+		s->num_connections += num_children;
+
 		free(children);
 	}
 	stage_children->destroy(stage_children);
 	stage_nodes   ->destroy(stage_nodes);
+
+	// Record the number of nodes in parallelizable stages (for statistical purposes).
+	s->num_parallel_nodes = 0;
+	for (i = 0; i < s->count; i++)
+	{
+		if (s->counts[i] >= SIM_PARALLEL_THRESHOLD)
+			s->num_parallel_nodes += s->counts[i];
+	}
 
 	// Add the total number of nodes to the stages structure.
 	s->num_nodes = num_ordered_nodes;
@@ -1898,7 +1943,7 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 		if (!error && get_next_vector(existing_out, buffer1))
 		{
 			error = TRUE;
-			warning_message(SIMULATION_ERROR, 0, -1,"%s contains more vectors than %s.\n", output_vector_file, OUTPUT_VECTOR_FILE_NAME);			
+			warning_message(SIMULATION_ERROR, 0, -1,"%s contains more than %d vectors.\n", output_vector_file, num_test_vectors);
 		}
 
 		fclose(existing_out);
