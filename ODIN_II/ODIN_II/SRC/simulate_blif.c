@@ -91,6 +91,7 @@ void simulate_netlist(netlist_t *netlist)
 	{
 		printf("\n");
 		int progress_bar_position = 0;
+		int progress_bar_length   = 50;
 		double total_time = 0;
 		double simulation_time = 0;
 		stages *stages = 0;
@@ -100,7 +101,7 @@ void simulate_netlist(netlist_t *netlist)
 		int  wave;
 		for (wave = 0; wave < num_waves; wave++)
 		{
-			double time1 = wall_time();
+			double wave_start_time = wall_time();
 
 			int cycle_offset = SIM_WAVE_LENGTH * wave;
 			int wave_length  = (wave < (num_waves-1))?SIM_WAVE_LENGTH:(num_test_vectors - cycle_offset);
@@ -131,7 +132,7 @@ void simulate_netlist(netlist_t *netlist)
 				write_wave_to_modelsim_file(netlist, input_lines, modelsim_out, cycle_offset, wave_length);
 			}
 
-			double time = wall_time();
+			double simulation_start_time = wall_time();
 
 			// Perform simulation
 			int cycle;
@@ -152,35 +153,18 @@ void simulate_netlist(netlist_t *netlist)
 				}
 			}
 
-			simulation_time += wall_time() - time;
+			simulation_time += wall_time() - simulation_start_time;
 
 			// Write the result of this wave to the output vector file.
 			write_wave_to_file(output_lines, out, cycle_offset, wave_length);
 
-			total_time += wall_time() - time1;
+			total_time += wall_time() - wave_start_time;
 
-			float completion = cycle/(float)num_test_vectors;
-			if (!cycle_offset || ((int)(completion * 64)) > progress_bar_position)
-			{
-				progress_bar_position = completion * 64;
-				printf("%3.0f%%|",completion * (float)100);
-				int i;
-				for (i = 0; i < progress_bar_position; i++)
-					printf("=");
-				printf(">");
-				for (; i < 64; i++)
-					printf("-");
-				printf("| Remaining: ");
-				float remaining_time = total_time/(float)completion - total_time;
-				if      (remaining_time > 3600) printf("%.1fh",remaining_time/3600.0);
-				else if (remaining_time > 60)   printf("%.1fm",remaining_time/60.0);
-				else                            printf("%.1fs",remaining_time);
-				printf("       \r");
-				fflush(stdout);
-			}
+			if (!cycle_offset)
+				print_progress_bar(0, progress_bar_position, progress_bar_length, total_time);
+
+			progress_bar_position = print_progress_bar(cycle/(double)num_test_vectors, progress_bar_position, progress_bar_length, total_time);
 		}
-
-		printf("\n");
 
 		fflush(out); 
 
@@ -197,20 +181,7 @@ void simulate_netlist(netlist_t *netlist)
 		}
 
 		// Print statistics.
-		printf("Number of nodes:   %d\n",    stages->num_nodes);
-		printf("  Connections:     %d\n",    stages->num_connections);
-		printf("  Degree:          %3.2f\n", stages->num_connections/(float)stages->num_nodes);
-		printf("  Stages:          %d\n",    stages->count);
-		#ifdef _OPENMP
-		printf("  Parallel nodes:  %d (%4.1f%%)\n", stages->num_parallel_nodes, (stages->num_parallel_nodes/(double)stages->num_nodes) * 100);
-		#endif
-		printf("\n");
-		int covered_nodes = get_num_covered_nodes(stages);
-		printf("Number of vectors: %d\n",  num_test_vectors);
-		printf("  Coverage:        %d (%4.1f%%)\n", covered_nodes, (covered_nodes/(double)stages->num_nodes) * 100);
-		printf("\n");
-		printf("Simulation time:   %fs\n", simulation_time);
-		printf("Elapsed time:      %fs\n", total_time);
+		print_simulation_stats(stages,num_test_vectors, total_time, simulation_time);
 
 		free_stages(stages);
 	}
@@ -222,6 +193,8 @@ void simulate_netlist(netlist_t *netlist)
 	fclose(in);
 	fclose(out);
 }
+
+
 
 /*
  * This simulates a single cycle using the stages generated
@@ -2233,4 +2206,64 @@ void free_additional_pins(additional_pins *p)
 
 	free(p->pins);
 	free(p);
+}
+
+
+/*
+ * Prints/updates an ASCII progress bar of length "length" to position length * completion
+ * from previous position "position". Updates eta based on the elapsed time "time".
+ * Returns the new position. If the position is unchanged the bar is not redrawn. If
+ * completion is 0 the bar is drawn regardless of the position.
+ */
+int print_progress_bar(double completion, int position, int length, double time)
+{
+	if (!completion || ((int)(completion * length)) > position)
+	{
+		position = completion * length;
+		printf("%3.0f%%|",completion * (double)100);
+
+		int i;
+		for (i = 0; i < position; i++)
+			printf("=");
+
+		printf(">");
+
+		for (; i < length; i++)
+			printf("-");
+
+		printf("| Remaining: ");
+		double remaining_time = time/(double)completion - time;
+		if      (remaining_time > 3600) printf("%.1fh",remaining_time/3600.0);
+		else if (remaining_time > 60)   printf("%.1fm",remaining_time/60.0);
+		else                            printf("%.1fs",remaining_time);
+
+		printf("    \r");
+
+		if (position == length)
+			printf("\n");
+
+		fflush(stdout);
+	}
+	return position;
+}
+
+/*
+ * Prints statistics.
+ */
+void print_simulation_stats(stages *stages, int num_vectors, double total_time, double simulation_time)
+{
+	printf("Number of nodes:   %d\n",    stages->num_nodes);
+	printf("  Connections:     %d\n",    stages->num_connections);
+	printf("  Degree:          %3.2f\n", stages->num_connections/(float)stages->num_nodes);
+	printf("  Stages:          %d\n",    stages->count);
+	#ifdef _OPENMP
+	printf("  Parallel nodes:  %d (%4.1f%%)\n", stages->num_parallel_nodes, (stages->num_parallel_nodes/(double)stages->num_nodes) * 100);
+	#endif
+	printf("\n");
+	int covered_nodes = get_num_covered_nodes(stages);
+	printf("Number of vectors: %d\n",  num_vectors);
+	printf("  Coverage:        %d (%4.1f%%)\n", covered_nodes, (covered_nodes/(double)stages->num_nodes) * 100);
+	printf("\n");
+	printf("Simulation time:   %fs\n", simulation_time);
+	printf("Elapsed time:      %fs\n", total_time);
 }
