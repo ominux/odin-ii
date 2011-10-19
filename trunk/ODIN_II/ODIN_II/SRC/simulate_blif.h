@@ -161,7 +161,8 @@ void string_trim(char* string, char *chars);
 void string_reverse(char *token, int length);
 char *vector_value_to_hex(signed char *value, int length);
 
-
+int  print_progress_bar(double completion, int position, int length, double time);
+void print_simulation_stats(stages *stages, int num_vectors, double total_time, double simulation_time);
 
 #endif
 
