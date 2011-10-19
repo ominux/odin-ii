@@ -90,7 +90,7 @@ void simulate_netlist(netlist_t *netlist)
 	else
 	{
 		printf("\n");
-		int progress_bar_position = 0;
+		int progress_bar_position = -1;
 		int progress_bar_length   = 50;
 		double total_time = 0;
 		double simulation_time = 0;
@@ -160,9 +160,6 @@ void simulate_netlist(netlist_t *netlist)
 
 			total_time += wall_time() - wave_start_time;
 
-			if (!cycle_offset)
-				print_progress_bar(0, progress_bar_position, progress_bar_length, total_time);
-
 			progress_bar_position = print_progress_bar(cycle/(double)num_test_vectors, progress_bar_position, progress_bar_length, total_time);
 		}
 
@@ -181,7 +178,7 @@ void simulate_netlist(netlist_t *netlist)
 		}
 
 		// Print statistics.
-		print_simulation_stats(stages,num_test_vectors, total_time, simulation_time);
+		print_simulation_stats(stages, num_test_vectors, total_time, simulation_time);
 
 		free_stages(stages);
 	}
@@ -193,8 +190,6 @@ void simulate_netlist(netlist_t *netlist)
 	fclose(in);
 	fclose(out);
 }
-
-
 
 /*
  * This simulates a single cycle using the stages generated
@@ -223,8 +218,6 @@ void simulate_cycle(int cycle, stages *s)
 		}
 		#endif
 	}
-
-	//printf("."); fflush(stdout);
 }
 
 /*
@@ -286,8 +279,6 @@ stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, 
 	// Reorganise the ordered nodes into stages for parallel computation.
 	stages *s = stage_ordered_nodes(ordered_nodes, num_ordered_nodes);
 	free(ordered_nodes);
-
-	//printf("*"); fflush(stdout);
 
 	return s;
 }
@@ -2208,19 +2199,21 @@ void free_additional_pins(additional_pins *p)
 	free(p);
 }
 
-
 /*
  * Prints/updates an ASCII progress bar of length "length" to position length * completion
- * from previous position "position". Updates eta based on the elapsed time "time".
- * Returns the new position. If the position is unchanged the bar is not redrawn. If
- * completion is 0 the bar is drawn regardless of the position.
+ * from previous position "position". Updates ETA based on the elapsed time "time".
+ * Returns the new position. If the position is unchanged the bar is not redrawn.
+ *
+ * Call with position = -1 to draw for the first time. Returns the new
+ * position, calculated based on completion.
  */
 int print_progress_bar(double completion, int position, int length, double time)
 {
-	if (!completion || ((int)(completion * length)) > position)
+	if (position == -1 || ((int)(completion * length)) > position)
 	{
+		printf("%3.0f%%|", completion * (double)100);
+
 		position = completion * length;
-		printf("%3.0f%%|",completion * (double)100);
 
 		int i;
 		for (i = 0; i < position; i++)
@@ -2233,9 +2226,9 @@ int print_progress_bar(double completion, int position, int length, double time)
 
 		printf("| Remaining: ");
 		double remaining_time = time/(double)completion - time;
-		if      (remaining_time > 3600) printf("%.1fh",remaining_time/3600.0);
-		else if (remaining_time > 60)   printf("%.1fm",remaining_time/60.0);
-		else                            printf("%.1fs",remaining_time);
+		if      (remaining_time > 3600) printf("%.1fh", remaining_time/3600.0);
+		else if (remaining_time > 60)   printf("%.1fm", remaining_time/60.0);
+		else                            printf("%.1fs", remaining_time);
 
 		printf("    \r");
 
