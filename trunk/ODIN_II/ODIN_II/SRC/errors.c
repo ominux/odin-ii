@@ -42,7 +42,7 @@ void error_message(short error_type, int line_number, int file, char *message, .
 	fprintf(stderr,"ERROR:");
 	if (file != -1)
 		fprintf(stderr," (File: %s)", configuration.list_of_file_names[file]);
-	if (line_number != 0)
+	if (line_number > 0)
 		fprintf(stderr," (Line number: %d)", line_number);
 	if (message != NULL)
 	{
@@ -75,7 +75,7 @@ void warning_message(short error_type, int line_number, int file, char *message,
 	fprintf(stderr,"WARNING (%ld):", warning_count);
 	if (file != -1)
 		fprintf(stderr," (File: %s)", configuration.list_of_file_names[file]);
-	if (line_number != 0)
+	if (line_number > 0)
 		fprintf(stderr," (Line number: %d)", line_number);
 	if (message != NULL) {
 		fprintf(stderr," ");
