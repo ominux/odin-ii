@@ -421,15 +421,15 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			signed char pin1 = get_pin_value(node->input_pins[1],cycle);
 			signed char pin2 = get_pin_value(node->input_pins[2],cycle);
 
-			if (
+			if (pin0 < 0 || pin1 < 0 || pin2 < 0)
+				update_pin_value(node->output_pins[0], -1, cycle);
+			else if (
 					   (pin0 == 0 && pin1 == 0 && pin2 == 1)
 					|| (pin0 == 0 && pin1 == 1 && pin2 == 0)
 					|| (pin0 == 1 && pin1 == 0 && pin2 == 0)
 					|| (pin0 == 1 && pin1 == 1 && pin2 == 1)
 			)
 				update_pin_value(node->output_pins[0], 1, cycle);
-			else if (pin0 < 0 || pin1 < 0 || pin2 < 0)
-				update_pin_value(node->output_pins[0], -1, cycle);
 			else
 				update_pin_value(node->output_pins[0], 0, cycle);
 
@@ -444,13 +444,13 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			signed char pin1 = get_pin_value(node->input_pins[1],cycle);
 			signed char pin2 = get_pin_value(node->input_pins[2],cycle);
 
-			if (
+			if (pin0 < 0 || pin1 < 0 || pin2 < 0)
+				update_pin_value(node->output_pins[0], -1, cycle);
+			else if (
 				   (pin0 == 1 && (pin1 == 1 || pin2 == 1))
 				|| (pin1 == 1 && pin2 == 1)
 			)
 				update_pin_value(node->output_pins[0], 1, cycle);
-			else if (pin0 < 0 || pin1 < 0 || pin2 < 0)
-				update_pin_value(node->output_pins[0], -1, cycle);
 			else
 				update_pin_value(node->output_pins[0], 0, cycle);
 
@@ -545,7 +545,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			else              update_pin_value(node->output_pins[0],  1, cycle);
 			break;
 		}
-		case NOT_EQUAL:	// ==
+		case NOT_EQUAL:	// !==
 		case LOGICAL_XOR: // ^
 		{
 			oassert(node->num_output_pins == 1);
@@ -556,7 +556,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			{
 				signed char pin = get_pin_value(node->input_pins[i], cycle);
 
-				if (pin <  0) { unknown = 1; break; }
+				if (pin <  0) { unknown = TRUE; break; }
 				if (pin == 1) { ones++; }
 			}
 			if      (unknown)         update_pin_value(node->output_pins[0], -1, cycle);
@@ -564,7 +564,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			else                      update_pin_value(node->output_pins[0], 0, cycle);
 			break;
 		}
-		case LOGICAL_EQUAL:	// !=
+		case LOGICAL_EQUAL:	// ==
 		case LOGICAL_XNOR: // !^
 		{
 			oassert(node->num_output_pins == 1);
@@ -852,8 +852,6 @@ inline void set_pin(npin_t *pin, signed char value, int cycle)
  */
 inline int get_values_offset(int cycle)
 {
-	if (cycle < 0) return SIM_WAVE_LENGTH-1;
-
 	return (((cycle) + (SIM_WAVE_LENGTH+1)) % (SIM_WAVE_LENGTH+1));
 }
 
@@ -1040,22 +1038,12 @@ void compute_hard_ip_node(nnode_t *node, int cycle)
 // TODO: Needs to be verified.
 void compute_multiply_node(nnode_t *node, int cycle)
 {
-	int *a = malloc(sizeof(int)*node->input_port_sizes[0]);
-	int *b = malloc(sizeof(int)*node->input_port_sizes[1]);
-
 	int i;
 	int unknown = FALSE;
-
-	for (i = 0; i < node->input_port_sizes[0]; i++)
+	for (i = 0; i < node->input_port_sizes[0] + node->input_port_sizes[1]; i++)
 	{
-		a[i] = get_pin_value(node->input_pins[i],cycle);
-		if (a[i] < 0) unknown = TRUE;
-	}
-
-	for (i = 0; i < node->input_port_sizes[1]; i++)
-	{
-		b[i] = get_pin_value(node->input_pins[node->input_port_sizes[0] + i],cycle);
-		if (b[i] < 0) unknown = TRUE;
+		signed char pin = get_pin_value(node->input_pins[i],cycle);
+		if (pin < 0) { unknown = TRUE; break; }
 	}
 
 	if (unknown)
@@ -1063,15 +1051,27 @@ void compute_multiply_node(nnode_t *node, int cycle)
 		for (i = 0; i < node->num_output_pins; i++)
 			update_pin_value(node->output_pins[i], -1, cycle);
 	}
+	else
+	{
+		int *a = malloc(sizeof(int)*node->input_port_sizes[0]);
+		int *b = malloc(sizeof(int)*node->input_port_sizes[1]);
 
-	int *result = multiply_arrays(a, node->input_port_sizes[0], b, node->input_port_sizes[1]);
+		for (i = 0; i < node->input_port_sizes[0]; i++)
+			a[i] = get_pin_value(node->input_pins[i],cycle);
 
-	for (i = 0; i < node->num_output_pins; i++)
-		update_pin_value(node->output_pins[i], result[i], cycle);
+		for (i = 0; i < node->input_port_sizes[1]; i++)
+			b[i] = get_pin_value(node->input_pins[node->input_port_sizes[0] + i],cycle);
 
-	free(result);
-	free(a);
-	free(b);
+		int *result = multiply_arrays(a, node->input_port_sizes[0], b, node->input_port_sizes[1]);
+
+		for (i = 0; i < node->num_output_pins; i++)
+			update_pin_value(node->output_pins[i], result[i], cycle);
+
+		free(result);
+		free(a);
+		free(b);
+	}
+
 }
 
 // TODO: Needs to be verified.
@@ -1690,7 +1690,7 @@ test_vector *generate_random_test_vector(lines_t *l, int cycle)
 			v->values[v->count][v->counts[v->count]++] = (rand() % 2);
 			
 			// Generate random three valued logic. 
-			// v->values[v->count][v->counts[v->count]++] = (rand() % 3) - 1; 
+			//v->values[v->count][v->counts[v->count]++] = (rand() % 3) - 1;
 		}
 		v->count++;
 	}
@@ -1721,22 +1721,32 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 	int i; 
 	for (i = 0; i < l->count; i++)
 	{
+		char buffer[BUFFER_MAX_SIZE];
+
 		if (first) first = FALSE;
 		else       fprintf(file, " ");
 
 		if (line_has_unknown_pin(l->lines[i], cycle) || l->lines[i]->number_of_pins == 1)
 		{
+			buffer[0] = 0;
+
 			int j;
 			for (j = l->lines[i]->number_of_pins - 1; j >= 0 ; j--)
 			{
-				signed char value = get_line_pin_value(l->lines[i],j,cycle); 
-				if (value < 0) fprintf(file, "x");
-				else           fprintf(file, "%d", value);
+				signed char value = get_line_pin_value(l->lines[i],j,cycle);
+
+				if (value < 0) strcat(buffer, "x");
+				else
+				{
+					//char *b = strdup(buffer);
+					sprintf(buffer, "%s%d", buffer, value);
+					//free(*b);
+				}
 			}
 		}
 		else
 		{	
-			fprintf(file, "0X");
+			sprintf(buffer, "0X");
 
 			int value = 0;				
 			int j;
@@ -1747,11 +1757,19 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 				
 				if (j % 4 == 0)
 				{
-					fprintf(file, "%X", value);
+					//char *b = strdup(buffer);
+					sprintf(buffer, "%s%X", buffer, value);
+					//free(b);
 					value = 0;
 				}
 			}
 		}
+
+		// Expand the value to fill to space under the header.
+		while (strlen(buffer) < strlen(l->lines[i]->name))
+			strcat(buffer," ");
+
+		fprintf(file,"%s",buffer);
 	}
 	fprintf(file, "\n");
 }
