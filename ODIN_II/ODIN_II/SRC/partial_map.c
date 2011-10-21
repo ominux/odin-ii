@@ -842,8 +842,8 @@ void instantiate_EQUAL(nnode_t *node, short type, short mark, netlist_t *netlist
 	int width_max;
 	int i;
 	int port_B_offset;
-	nnode_t *xnor_gate;
-	nnode_t *logical_and_gate;
+	nnode_t *compare;
+	nnode_t *combine;
 
 	oassert(node->num_output_pins == 1);
 	oassert(node->num_input_pins > 0);
@@ -854,9 +854,18 @@ void instantiate_EQUAL(nnode_t *node, short type, short mark, netlist_t *netlist
 	port_B_offset = width_a;
 
 	/* build an xnor bitwise XNOR */
-	xnor_gate = make_2port_gate(LOGICAL_XNOR, width_a, width_b, width_max, node, mark);
+	if (type == LOGICAL_EQUAL)
+	{
+		compare = make_2port_gate(LOGICAL_XNOR, width_a, width_b, width_max, node, mark);
+		combine = make_1port_logic_gate(LOGICAL_AND, width_max, node, mark);
+	}
+	else
+	{
+		compare = make_2port_gate(LOGICAL_XOR, width_a, width_b, width_max, node, mark);
+		combine = make_1port_logic_gate(LOGICAL_OR, width_max, node, mark);
+	}
 	/* build an and bitwise AND */
-	logical_and_gate = make_1port_logic_gate(LOGICAL_AND, width_max, node, mark);
+
 
 	/* connect inputs.  In the case that a signal is smaller than the other then zero pad */
 	for(i = 0; i < width_max; i++)
@@ -867,12 +876,12 @@ void instantiate_EQUAL(nnode_t *node, short type, short mark, netlist_t *netlist
 			if (i < width_b)
 			{
 				/* IF - this current input will also have a corresponding b_port input then join it to the gate */
-				remap_pin_to_new_node(node->input_pins[i], xnor_gate, i);
+				remap_pin_to_new_node(node->input_pins[i], compare, i);
 			}
 			else
 			{
 				/* ELSE - the B input does not exist, so this answer goes right through */
-				add_a_input_pin_to_node_spot_idx(xnor_gate, get_a_zero_pin(netlist), i);
+				add_a_input_pin_to_node_spot_idx(compare, get_a_zero_pin(netlist), i);
 			}
 		}
 
@@ -882,29 +891,29 @@ void instantiate_EQUAL(nnode_t *node, short type, short mark, netlist_t *netlist
 			{
 				/* IF - this current input will also have a corresponding a_port input then join it to the gate */
 				/* Joining the inputs to the input 2 of that gate */
-				remap_pin_to_new_node(node->input_pins[i+port_B_offset], xnor_gate, i+port_B_offset);
+				remap_pin_to_new_node(node->input_pins[i+port_B_offset], compare, i+port_B_offset);
 			}
 			else
 			{
 				/* ELSE - the A input does not exist, so this answer goes right through */
-				add_a_input_pin_to_node_spot_idx(xnor_gate, get_a_zero_pin(netlist), i+port_B_offset);
+				add_a_input_pin_to_node_spot_idx(compare, get_a_zero_pin(netlist), i+port_B_offset);
 			}
 		}
 
 		/* hook it up to the logcial AND */
-		connect_nodes(xnor_gate, i, logical_and_gate, i);
+		connect_nodes(compare, i, combine, i);
 	}
 
 	/* join that gate to the output */
-	remap_pin_to_new_node(node->output_pins[0], logical_and_gate, 0);
+	remap_pin_to_new_node(node->output_pins[0], combine, 0);
 
 	if (type == LOGICAL_EQUAL)
-		instantiate_bitwise_logic(xnor_gate, BITWISE_XNOR, mark, netlist);
-	else if (type == NOT_EQUAL)
-		instantiate_bitwise_logic(xnor_gate, BITWISE_XOR, mark, netlist);
+		instantiate_bitwise_logic(compare, BITWISE_XNOR, mark, netlist);
+	else
+		instantiate_bitwise_logic(compare, BITWISE_XOR, mark, netlist);
 	/* Don't need to instantiate a Logic and gate since it is a function itself */
 
-	oassert(logical_and_gate->num_output_pins == 1);
+	oassert(combine->num_output_pins == 1);
 }
 
 /*---------------------------------------------------------------------------------------------
@@ -1068,7 +1077,7 @@ void instantiate_GE(nnode_t *node, short type, short mark, netlist_t *netlist)
 	int port_B_offset;
 	int port_A_offset;
 	nnode_t *equal;
-	nnode_t *gt;
+	nnode_t *compare;
 	nnode_t *logical_or_final_gate;
 
 	oassert(node->num_output_pins == 1);
@@ -1080,27 +1089,15 @@ void instantiate_GE(nnode_t *node, short type, short mark, netlist_t *netlist)
 	oassert(width_a == width_b);
 	width_max = width_a > width_b ? width_a : width_b;
 
-	/* swaps ports A and B */
-	if (type == GTE)
-	{
-		port_A_offset = 0;
-		port_B_offset = width_a;
-	}
-	else if (type == LTE)
-	{
-		port_A_offset = width_b;
-		port_B_offset = 0;
-	}
-	else
-	{
-		port_A_offset = 0;
-		port_B_offset = 0;
-		error_message(NETLIST_ERROR, node->related_ast_node->line_number, node->related_ast_node->file_number, "Invalid node type in instantiate_GE\n");
-	}
+	port_A_offset = 0;
+	port_B_offset = width_a;
 
 	/* build an xnor bitwise XNOR */
 	equal = make_2port_gate(LOGICAL_EQUAL, width_a, width_b, 1, node, mark);
-	gt = make_2port_gate(GT, width_a, width_b, 1, node, mark);
+
+	if (type == GTE) compare = make_2port_gate(GT, width_a, width_b, 1, node, mark);
+	else             compare = make_2port_gate(LT, width_a, width_b, 1, node, mark);
+
 	logical_or_final_gate = make_1port_logic_gate(LOGICAL_OR, 2, node, mark);
 
 	/* connect inputs.  In the case that a signal is smaller than the other then zero pad */
@@ -1111,13 +1108,13 @@ void instantiate_GE(nnode_t *node, short type, short mark, netlist_t *netlist)
 		{
 			/* IF - this current input will also have a corresponding b_port input then join it to the gate */
 			remap_pin_to_new_node(node->input_pins[i+port_A_offset], equal, i+port_A_offset);
-			add_a_input_pin_to_node_spot_idx(gt, copy_input_npin(equal->input_pins[i+port_A_offset]), i+port_A_offset);
+			add_a_input_pin_to_node_spot_idx(compare, copy_input_npin(equal->input_pins[i+port_A_offset]), i+port_A_offset);
 		}
 		else
 		{
 			/* ELSE - the B input does not exist, so this answer goes right through */
 			add_a_input_pin_to_node_spot_idx(equal, get_a_zero_pin(netlist), i+port_A_offset);
-			add_a_input_pin_to_node_spot_idx(gt, get_a_zero_pin(netlist), i+port_A_offset);
+			add_a_input_pin_to_node_spot_idx(compare, get_a_zero_pin(netlist), i+port_A_offset);
 		}
 
 		if (i < width_b)
@@ -1125,17 +1122,17 @@ void instantiate_GE(nnode_t *node, short type, short mark, netlist_t *netlist)
 			/* IF - this current input will also have a corresponding a_port input then join it to the gate */
 			/* Joining the inputs to the input 2 of that gate */
 			remap_pin_to_new_node(node->input_pins[i+port_B_offset], equal, i+port_B_offset);
-			add_a_input_pin_to_node_spot_idx(gt, copy_input_npin(equal->input_pins[i+port_B_offset]), i+port_B_offset);
+			add_a_input_pin_to_node_spot_idx(compare, copy_input_npin(equal->input_pins[i+port_B_offset]), i+port_B_offset);
 		}
 		else
 		{
 			/* ELSE - the A input does not exist, so this answer goes right through */
 			add_a_input_pin_to_node_spot_idx(equal, get_a_zero_pin(netlist), i+port_B_offset);
-			add_a_input_pin_to_node_spot_idx(gt, get_a_zero_pin(netlist), i+port_B_offset);
+			add_a_input_pin_to_node_spot_idx(compare, get_a_zero_pin(netlist), i+port_B_offset);
 		}
 	}
 	connect_nodes(equal, 0, logical_or_final_gate, 0);
-	connect_nodes(gt, 0, logical_or_final_gate, 1);
+	connect_nodes(compare, 0, logical_or_final_gate, 1);
 
 	/* join that gate to the output */
 	remap_pin_to_new_node(node->output_pins[0], logical_or_final_gate, 0);
@@ -1143,7 +1140,9 @@ void instantiate_GE(nnode_t *node, short type, short mark, netlist_t *netlist)
 
 	/* make the two intermediate gates */
 	instantiate_EQUAL(equal, LOGICAL_EQUAL, mark, netlist);
-	instantiate_GT(gt, GT, mark, netlist);
+
+	if (type == GTE) instantiate_GT(compare, GT, mark, netlist);
+	else             instantiate_GT(compare, LT, mark, netlist);
 }
 
 /*---------------------------------------------------------------------------------------------

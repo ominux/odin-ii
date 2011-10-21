@@ -220,9 +220,8 @@ void create_netlist()
 		if (ast_modules[i]->type == IDENTIFIERS)
 		{
 			// double check that it's in modules_names_to_idx
-			long sc_spot;
 			char *module_param_name = ast_modules[i]->types.identifier;
-			sc_spot = sc_lookup_string(module_names_to_idx, module_param_name);
+			long sc_spot = sc_lookup_string(module_names_to_idx, module_param_name);
 			oassert(sc_spot > -1);
 			// now isolate the original module name
 			char *underscores = strstr(module_param_name, "___");
@@ -232,8 +231,7 @@ void create_netlist()
 			strncpy(module_name, module_param_name, len);
 			module_name[len] = '\0';
 			// verify that it does exist
-			long sc_spot2;
-			sc_spot2 = sc_lookup_string(module_names_to_idx, module_name);
+			long sc_spot2 = sc_lookup_string(module_names_to_idx, module_name);
 			oassert(sc_spot2 > -1);
 			free(module_name);
 			// create a new MODULE node with new IDENTIFIER, but keep same ports and module_items
@@ -2326,7 +2324,7 @@ signal_list_t *create_operation_node(ast_node_t *op, signal_list_t **input_lists
 	{
 		clean_signal_list_structure(input_lists[i]);
 	}
-	
+
 	return return_list;
 }
 

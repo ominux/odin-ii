@@ -163,7 +163,9 @@ void output_blif(char *file_name, netlist_t *netlist)
 		depth_first_traversal_to_output(OUTPUT_TRAVERSE_VALUE, out, netlist);	
 	}
 	else
-		oassert(FALSE);
+	{
+		error_message(NETLIST_ERROR, 0, -1, "Invalid output file type.");
+	}
 
 	/* connect all the outputs up to the last gate */
 	for (i = 0; i < netlist->num_top_output_nodes; i++)
@@ -361,7 +363,7 @@ void output_node(nnode_t *node, short traverse_number, FILE *fp)
 		case MINUS:
 		default:
 			/* these nodes should have been converted to softer versions */
-			oassert(FALSE);
+			error_message(NETLIST_ERROR, 0,-1,"Output blif: node should have been converted to softer version.");
 			break;
 	}
 }
