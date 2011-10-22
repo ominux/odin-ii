@@ -94,6 +94,8 @@ void connect_hard_block_and_alias(ast_node_t* module_instance, char *instance_na
 void connect_module_instantiation_and_alias(short PASS, ast_node_t* module_instance, char *instance_name_prefix);
 void create_symbol_table_for_module(ast_node_t* module_items, char *module_name);
 
+signal_list_t *concatenate_signal_lists(signal_list_t **signal_lists, int num_signal_lists);
+
 signal_list_t *create_gate(ast_node_t* gate, char *instance_name_prefix);
 signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix);
 signal_list_t *create_pins(ast_node_t* var_declare, char *name, char *instance_name_prefix);
@@ -489,7 +491,6 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 				break;
 			/* ---------------------- */
 			/* All these are input references that we need to grab their pins from by create_pin */
-			case CONCATENATE:
 			case ARRAY_REF:
 			case IDENTIFIERS:
 			case RANGE_REF:
@@ -572,7 +573,10 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 		switch(node->type)
 		{
 			case FILE_ITEMS:
-				oassert(FALSE);
+				error_message(NETLIST_ERROR, node->line_number, node->file_number, "FILE_ITEMS are not supported by Odin.\n");
+				break;
+			case CONCATENATE:
+				return_sig_list = concatenate_signal_lists(children_signal_list, node->num_children);
 				break;
 			case MODULE_ITEMS: 
 			{
@@ -628,14 +632,14 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 			case BLOCK: 
 				return_sig_list = combine_lists(children_signal_list, node->num_children);
 				break;
-#ifdef VPR6
+			#ifdef VPR6
 			case RAM: 
 				connect_memory_and_alias(node, instance_name_prefix);
 				break;
 			case HARD_BLOCK: 
 				connect_hard_block_and_alias(node, instance_name_prefix);
 				break;
-#endif
+			#endif
 			case IF:
 			default:
 				break;
@@ -654,6 +658,23 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 	}
 
 	return return_sig_list;
+}
+
+
+signal_list_t *concatenate_signal_lists(signal_list_t **signal_lists, int num_signal_lists)
+{
+	int i, j;
+
+	for (i = num_signal_lists - 2; i >= 0; i--)
+	{
+		for (j = 0; j < signal_lists[i]->signal_list_size; j++)
+		{
+			add_pin_to_signal_list(signal_lists[num_signal_lists - 1], signal_lists[i]->signal_list[j]);
+		}
+		clean_signal_list_structure(signal_lists[i]);
+	}
+
+	return signal_lists[num_signal_lists - 1];
 }
 
 /*---------------------------------------------------------------------------------------------
@@ -1854,7 +1875,6 @@ void terminate_registered_assignment(ast_node_t *always_node, signal_list_t* ass
 {
 	int i;
 	long sc_spot;
-	npin_t *ff_input_pin;
 	npin_t *ff_output_pin;
 
 	oassert(potential_clocks != NULL);
@@ -1931,7 +1951,6 @@ void terminate_registered_assignment(ast_node_t *always_node, signal_list_t* ass
 		add_a_input_pin_to_node_spot_idx(ff_node, fanout_pin_of_clock, 1);
 
 		/* hookup the driver pin (the in_1) to to this net (the lookup) */
-		ff_input_pin = assignment->signal_list[i];
 		add_a_input_pin_to_node_spot_idx(ff_node, assignment->signal_list[i], 0);
 
 		/* finally hookup the output pin of the flip flop to the orginal driver net */
