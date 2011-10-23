@@ -452,15 +452,10 @@ ast_node_t *markAndProcessSymbolListWith(ids id, ast_node_t *symbol_list)
 			}
 			case PARAMETER:
 			{
-				int binary_range;
+				int binary_range = -1;
 				if (i == 0)
 				{
 					binary_range = get_range(symbol_list->children[i]);
-				}
-				else
-				{
-					binary_range = 0;
-					error_message(PARSE_ERROR, symbol_list->children[i]->line_number, current_parse_file, "Invalid internal state");
 				}
 				
 				/* fifth spot in the children list holds a parameter value */
