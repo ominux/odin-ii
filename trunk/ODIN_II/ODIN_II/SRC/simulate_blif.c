@@ -593,7 +593,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 
 			// Figure out which pin is being selected.
 			int unknown = FALSE;
-			int select = 0;
+			int select = -1;
 			int i;
 			for (i = 0; i < node->input_port_sizes[0]; i++)
 			{
@@ -608,8 +608,13 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			{
 				update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0], cycle-1), cycle);			
 			}
+			// If no selection is made (all 0) we output x.
+			else if (select < 0)
+			{
+				update_pin_value(node->output_pins[0], -1, cycle);
+			}
 			else 
-			{			
+			{
 				signed char pin = get_pin_value(node->input_pins[select + node->input_port_sizes[0]],cycle);
 				update_pin_value(node->output_pins[0], pin, cycle);						
 			}			
@@ -1726,23 +1731,31 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 		if (first) first = FALSE;
 		else       fprintf(file, " ");
 
-		if (line_has_unknown_pin(l->lines[i], cycle) || l->lines[i]->number_of_pins == 1)
+		int num_pins = l->lines[i]->number_of_pins;
+
+		if (line_has_unknown_pin(l->lines[i], cycle) || num_pins == 1)
 		{
 			buffer[0] = 0;
 
 			int j;
-			for (j = l->lines[i]->number_of_pins - 1; j >= 0 ; j--)
+			int known_values = 0;
+			for (j = num_pins - 1; j >= 0 ; j--)
 			{
 				signed char value = get_line_pin_value(l->lines[i],j,cycle);
 
-				if (value < 0) strcat(buffer, "x");
-				else
+				if (value < 0)
 				{
-					//char *b = strdup(buffer);
+					strcat(buffer, "x");
+				}
+				else
+				{	known_values++;
 					sprintf(buffer, "%s%d", buffer, value);
-					//free(*b);
 				}
 			}
+
+			// If there are no known values, print a single capital X.
+			//if (!known_values && num_pins > 1)
+			//	sprintf(buffer, "X");
 		}
 		else
 		{	
@@ -1750,24 +1763,22 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 
 			int value = 0;				
 			int j;
-			for (j = l->lines[i]->number_of_pins - 1; j >= 0; j--)
+			for (j = num_pins - 1; j >= 0; j--)
 			{
-				if (get_line_pin_value(l->lines[i],j,cycle) > 0) 
-					value += my_power(2, j % 4);
+				signed char pin = get_line_pin_value(l->lines[i],j,cycle);
+				value += pin << j % 4;
 				
-				if (j % 4 == 0)
+				if (!(j % 4))
 				{
-					//char *b = strdup(buffer);
 					sprintf(buffer, "%s%X", buffer, value);
-					//free(b);
 					value = 0;
 				}
 			}
 		}
 
 		// Expand the value to fill to space under the header.
-		while (strlen(buffer) < strlen(l->lines[i]->name))
-			strcat(buffer," ");
+		//while (strlen(buffer) < strlen(l->lines[i]->name))
+		//	strcat(buffer," ");
 
 		fprintf(file,"%s",buffer);
 	}
