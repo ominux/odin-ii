@@ -99,7 +99,7 @@ report_memory_distribution()
 		}
 
 		printf("SPRAM: %d width %d depth\n", width, depth);
-		total_memory_bits += width * ((1 << depth) >> 1);
+		total_memory_bits += width * (1 << depth);
 		
 		total_memory_block_counter++;
 		if (width > memory_max_width) {
@@ -138,7 +138,7 @@ report_memory_distribution()
 		}
 
 		printf("DPRAM: %d width %d depth\n", width, depth);
-		total_memory_bits += width * ((1 << depth) >> 1);
+		total_memory_bits += width * (1 << depth);
 		
 		total_memory_block_counter++;
 		if (width > memory_max_width) {
@@ -152,7 +152,7 @@ report_memory_distribution()
 	}
 	
 	printf("\nTotal Logical Memory Blocks = %d \n", total_memory_block_counter);
-	printf("\nTotal Logical Memory bits = %d \n", total_memory_bits);
+	printf("Total Logical Memory bits = %d \n", total_memory_bits);
 	printf("Max Memory Width = %d \n", memory_max_width);
 	printf("Max Memory Depth = %d \n", memory_max_depth);
 	
