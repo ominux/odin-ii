@@ -2542,7 +2542,10 @@ void create_if_control_signals(ast_node_t *if_expression, nnode_t *if_node, char
 	/* get the output pin of the not gate .... also adds a net inbetween and the linking output pin to node and net */
 	out_pin_list = make_output_pins_for_existing_node(not_node, 1);
 	oassert(out_pin_list->signal_list_size == 1);
-			
+
+	// Mark the else condition for the simulator.
+	out_pin_list->signal_list[0]->is_default = TRUE;
+
 	/* copy that output pin to be put into the default */
 	add_a_input_pin_to_node_spot_idx(if_node, out_pin_list->signal_list[0], 1);
 
@@ -2670,6 +2673,9 @@ void create_case_control_signals(ast_node_t *case_list_of_items, ast_node_t *com
 			default_node = make_1port_logic_gate_with_inputs(LOGICAL_NOR, case_list_of_items->num_children-1, other_expressions_pin_list, case_node, -1);
 			default_expression = make_output_pins_for_existing_node(default_node, 1);
 			
+			// Mark the "default" case for simulation.
+			default_expression->signal_list[0]->is_default = TRUE;
+
 			/* copy that output pin to be put into the default */
 			add_a_input_pin_to_node_spot_idx(case_node, default_expression->signal_list[0], i);
 		}

@@ -209,12 +209,11 @@ npin_t* allocate_npin() {
 	new_pin->mapping = NULL;
 	
 	new_pin->cycle  = -1;
-
 	int i; 
 	for (i = 0; i < SIM_WAVE_LENGTH; i++) {
 		new_pin->values[i] = -1;
 	}
-
+	new_pin->is_default = FALSE;
 	new_pin->coverage = 0;
 
 	return new_pin;
@@ -232,6 +231,7 @@ npin_t* copy_output_npin(npin_t* copy_pin)
 	new_pin->type = copy_pin->type;
 	new_pin->net = copy_pin->net;
 	new_pin->mapping = copy_pin->mapping;
+	new_pin->is_default = copy_pin->is_default;
 	return new_pin;
 }
 
@@ -247,6 +247,7 @@ npin_t* copy_input_npin(npin_t* copy_pin)
 	new_pin->name = copy_pin->name;
 	new_pin->type = copy_pin->type;
 	new_pin->mapping = copy_pin->mapping;
+	new_pin->is_default = copy_pin->is_default;
 	if (copy_pin->net != NULL)
 	{
 		add_a_fanout_pin_to_net(copy_pin->net, new_pin);
