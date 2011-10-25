@@ -594,13 +594,27 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			// Figure out which pin is being selected.
 			int unknown = FALSE;
 			int select = -1;
+			int default_select = -1;
 			int i;
 			for (i = 0; i < node->input_port_sizes[0]; i++)
 			{
 				signed char pin = get_pin_value(node->input_pins[i], cycle);
 
-				if (pin  < 0) { unknown = TRUE; break; }
-				if (pin == 1) { select  = i;    break; }
+				if (pin  < 0)
+					unknown = TRUE;
+				else if (pin == 1)
+					select  = i;
+
+				// If the pin comes from an "else" condition or a case "default" condition,
+				// we favour it in the case where there are unknowns.
+				if (node->input_pins[i]->is_default)
+					default_select = i;
+			}
+
+			if (unknown && default_select >= 0)
+			{
+				unknown = FALSE;
+				select = default_select;
 			}
 
 			// If any select pin is unknown, we take the value from the previous cycle.
