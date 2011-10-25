@@ -256,6 +256,7 @@ stmt_list: stmt_list statement 							{$$ = newList_entry($1, $2);}
 	;
 
 delay_control: '@' '(' event_expression_list ')' 				{$$ = $3;}
+	| '@' '(' '*' ')'							{$$ = NULL;}
 	;
 
 // 7 Expressions	{$$ = NULL;}

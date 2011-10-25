@@ -2357,6 +2357,16 @@ signal_list_t *evaluate_sensitivity_list(ast_node_t *delay_control, char *instan
 	signal_list_t *return_sig_list = init_signal_list_structure();
 	signal_list_t *temp_list;
 
+	if (delay_control == NULL)
+	{
+		/* Assume always @(*) */
+		clean_signal_list_structure(return_sig_list);
+		return_sig_list = NULL;
+		type_of_circuit = COMBINATIONAL;
+
+		return return_sig_list;
+	}
+
 	oassert(delay_control->type == DELAY_CONTROL);
 
 	for (i = 0; i < delay_control->num_children; i++)
