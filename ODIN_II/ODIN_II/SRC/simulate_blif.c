@@ -1328,10 +1328,7 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 		} 
 		else
 		{
-			l->lines[j]->number_of_pins = 1;
-			l->lines[j]->pins = malloc(sizeof(npin_t *));
-			l->lines[j]->pins[0] = node->output_pins[0];
-			l->lines[j]->type = type;
+			insert_pin_into_line(node->output_pins[0], 0, l->lines[j], type);
 		}		
 	}
 	else
@@ -1342,13 +1339,49 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 		} 
 		else
 		{
-			l->lines[j]->pins = realloc(l->lines[j]->pins, sizeof(npin_t*)* (l->lines[j]->number_of_pins + 1));
-			l->lines[j]->pins[l->lines[j]->number_of_pins++] = node->output_pins[0];
-			l->lines[j]->type = type;
+			insert_pin_into_line(node->output_pins[0], pin_number, l->lines[j], type);
 		}
 	}
 	free(port_name);
 }
+
+/*
+ * Inserts the given pin according to its pin number into the given line.
+ */
+void insert_pin_into_line(npin_t *pin, int pin_number, line_t *line, int type)
+{
+	line->pins        = realloc(line->pins,        sizeof(npin_t*)* (line->number_of_pins + 1));
+	line->pin_numbers = realloc(line->pin_numbers, sizeof(npin_t*)* (line->number_of_pins + 1));
+
+	int ascending = 1;
+
+	// Find the proper place to insert this pin, and make room for it.
+	int i;
+	for (i = 0; i < line->number_of_pins; i++)
+	{
+		if
+		(
+				    (ascending && (line->pin_numbers[i] > pin_number))
+				|| (!ascending && (line->pin_numbers[i] < pin_number))
+		)
+		{
+			// Move other pins to the right to make room.
+			int j;
+			for (j = line->number_of_pins; j > i; j--)
+			{
+				line->pins[j] = line->pins[j-1];
+				line->pin_numbers[j] = line->pin_numbers[j-1];
+			}
+			break;
+		}
+	}
+
+	line->pins[i] = pin;
+	line->pin_numbers[i] = pin_number;
+	line->type = type;
+	line->number_of_pins++;
+}
+
 
 /*
  * Given a netlist, this function maps the top_input_nodes
@@ -1518,6 +1551,7 @@ line_t *create_line(char *name)
 
 	line->number_of_pins = 0;
 	line->pins = 0;
+	line->pin_numbers = 0;
 	line->type = -1;
 	line->name = malloc(sizeof(char)*(strlen(name)+1));
 
@@ -1766,7 +1800,6 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 					sprintf(buffer, "%s%d", buffer, value);
 				}
 			}
-
 			// If there are no known values, print a single capital X.
 			//if (!known_values && num_pins > 1)
 			//	sprintf(buffer, "X");

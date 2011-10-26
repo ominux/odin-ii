@@ -64,12 +64,14 @@ typedef struct {
 	int number_of_pins;
 	int max_number_of_pins;
 	npin_t **pins;
+	int  *pin_numbers;
 	char *name;
 	int type;
 } line_t;
 
 typedef struct {
 	line_t **lines;
+	int    *pin_numbers;
 	int    count;
 } lines_t;
 
@@ -141,6 +143,7 @@ lines_t *create_output_test_vector_lines(netlist_t *netlist);
 
 void store_test_vector_in_lines(test_vector *v, lines_t *l, int cycle);
 void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin);
+void insert_pin_into_line(npin_t *pin, int pin_number, line_t *line, int type);
 
 char *generate_vector_header(lines_t *l);
 void write_vector_headers(FILE *file, lines_t *l);

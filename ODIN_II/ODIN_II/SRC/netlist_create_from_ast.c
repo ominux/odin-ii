@@ -608,9 +608,6 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 				/* attach the drivers to the driver nets */
 				if (type_of_circuit == COMBINATIONAL)
 				{
-					// These blocks are currently unsupported, as they do not work correctly.
-					warning_message(NETLIST_ERROR, node->line_number, node->file_number, "ODIN II currently does not support always blocks gated by non-posedge or non-clock signals.\n");
-
 					/* idx 1 element since always has DELAY Control first */
 					terminate_continuous_assignment(node, children_signal_list[1], instance_name_prefix); 	
 				}
