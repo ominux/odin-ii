@@ -336,8 +336,8 @@ void *my_malloc_struct(int bytes_to_alloc)
         void *allocated = NULL;
         static long int m_id = 0;
 
-	// ways to stop the execution at the point when a specific structure is built
-	//oassert(m_id != 1777);
+	// ways to stop the execution at the point when a specific structure is built...note it needs to be m_id - 1 ... it's unique_id in most data structures
+//	oassert(m_id != 7);
 
         allocated = malloc(bytes_to_alloc);
         if(allocated == NULL) 
