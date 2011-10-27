@@ -1953,6 +1953,11 @@ void terminate_registered_assignment(ast_node_t *always_node, signal_list_t* ass
 		/* finally hookup the output pin of the flip flop to the orginal driver net */
 		ff_output_pin = allocate_npin();
 		add_a_output_pin_to_node_spot_idx(ff_node, ff_output_pin, 0);
+
+		if(((nnet_t*)output_nets_sc->data[sc_spot])->driver_pin != NULL)
+		{
+			error_message(NETLIST_ERROR, always_node->line_number, always_node->file_number, "You've defined this driver %s twice (i.e. in the statement block you've probably put the statement as a <= b; a <= c; in some form that's incorrect)\n", assignment->signal_list[i]->name);
+		}
 		add_a_driver_pin_to_net((nnet_t*)output_nets_sc->data[sc_spot], ff_output_pin);
 
 		verilog_netlist->ff_nodes = (nnode_t**)realloc(verilog_netlist->ff_nodes, sizeof(nnode_t*)*(verilog_netlist->num_ff_nodes+1));
@@ -2007,11 +2012,12 @@ void terminate_continuous_assignment(ast_node_t *node, signal_list_t* assignment
 		add_a_input_pin_to_node_spot_idx(buf_node, buf_input_pin, 0);
 
 		/* finally hookup the output pin of the flip flop to the orginal driver net */
+		/* finally hookup the output pin of the buffer to the orginal driver net */
 		buf_output_pin = allocate_npin();
 		add_a_output_pin_to_node_spot_idx(buf_node, buf_output_pin, 0);
 		if(((nnet_t*)output_nets_sc->data[sc_spot])->driver_pin != NULL)
 		{
-			error_message(NETLIST_ERROR, node->line_number, node->file_number, "You've defined this driver %s twice (i.e. in the statement block you've probably put the statement as a = b; a = c; in some form that's incorrect)\n", assignment->signal_list[i]->name);
+			error_message(NETLIST_ERROR, node->line_number, node->file_number, "You've defined this driver %s twice (i.e. in the statement block you've probably put the statement as a = b; a = c; in some form that's incorrect).  Note that Odin II does not currently support combinational a = ? overiding for if and case blocks.\n", assignment->signal_list[i]->name);
 		}
 		add_a_driver_pin_to_net((nnet_t*)output_nets_sc->data[sc_spot], buf_output_pin);
 	}
@@ -2539,6 +2545,7 @@ void create_if_control_signals(ast_node_t *if_expression, nnode_t *if_node, char
 	/* get the output pin of the not gate .... also adds a net inbetween and the linking output pin to node and net */
 	out_pin_list = make_output_pins_for_existing_node(not_node, 1);
 	oassert(out_pin_list->signal_list_size == 1);
+			
 
 	// Mark the else condition for the simulator.
 	out_pin_list->signal_list[0]->is_default = TRUE;
