@@ -95,44 +95,51 @@ void simulate_netlist(netlist_t *netlist)
 		stages *stages = 0;
 
 		// Simulation is done in "waves" of SIM_WAVE_LENGTH cycles at a time.
-		int  num_waves = ceil(num_test_vectors / (double)SIM_WAVE_LENGTH);
+		int  num_cycles = num_test_vectors * 2;
+		int  num_waves = ceil(num_cycles / (double)SIM_WAVE_LENGTH);
 		int  wave;
 		for (wave = 0; wave < num_waves; wave++)
 		{
 			double wave_start_time = wall_time();
 
 			int cycle_offset = SIM_WAVE_LENGTH * wave;
-			int wave_length  = (wave < (num_waves-1))?SIM_WAVE_LENGTH:(num_test_vectors - cycle_offset);
+			int wave_length  = (wave < (num_waves-1))?SIM_WAVE_LENGTH:(num_cycles - cycle_offset);
 
 			// Assign vectors to lines, either by reading or generating them.
-			if (input_vector_file)
+			test_vector *v;
+			int cycle;
+			for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
 			{
-				int cycle = cycle_offset;
-				char buffer[BUFFER_MAX_SIZE];
-				while ((cycle < cycle_offset + wave_length) && get_next_vector(in, buffer))
+				if (!((cycle + 2) % 2))
 				{
-					test_vector *v = parse_test_vector(buffer);
-					store_test_vector_in_lines(v, input_lines, cycle++);
-					free_test_vector(v);
+					if (input_vector_file)
+					{
+						char buffer[BUFFER_MAX_SIZE];
+						if (!get_next_vector(in, buffer))
+							error_message(SIMULATION_ERROR, 0, -1, "Could not read next vector.");
+
+						v = parse_test_vector(buffer);
+					}
+					else
+					{
+						v = generate_random_test_vector(input_lines, cycle);
+					}
 				}
+
+				store_test_vector_in_lines(v, input_lines, cycle);
+
+				if (((cycle + 2) % 2))
+					free_test_vector(v);
 			}
-			else
-			{
-				int cycle;
-				for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
-				{
-					test_vector *v = generate_random_test_vector(input_lines, cycle);
-					store_test_vector_in_lines(v, input_lines, cycle);
-					free_test_vector(v);
-				}
+			if (!input_vector_file)
 				write_wave_to_file(input_lines, in, cycle_offset, wave_length);
-			}
+
 			write_wave_to_modelsim_file(netlist, input_lines, modelsim_out, cycle_offset, wave_length);
 
 			double simulation_start_time = wall_time();
 
 			// Perform simulation
-			int cycle;
+			//int cycle;
 			for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
 			{
 				if (!cycle)
@@ -161,7 +168,7 @@ void simulate_netlist(netlist_t *netlist)
 
 			// Delay drawing of the progress bar until the second wave to improve the accuracy of the ETA.
 			if ((num_waves == 1) || cycle_offset)
-				progress_bar_position = print_progress_bar(cycle/(double)num_test_vectors, progress_bar_position, progress_bar_length, total_time);
+				progress_bar_position = print_progress_bar(cycle/(double)num_cycles, progress_bar_position, progress_bar_length, total_time);
 		}
 
 		fflush(out); 
@@ -374,8 +381,23 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
  */
 void compute_and_store_value(nnode_t *node, int cycle)
 {
+
 	switch(node->type)
 	{
+		case FF_NODE:
+		{
+			oassert(node->num_output_pins == 1);
+			oassert(node->num_input_pins  == 2);
+
+			signed char clock_previous = get_pin_value(node->input_pins[1],cycle-1);
+			signed char clock_current  = get_pin_value(node->input_pins[1],cycle);
+
+			if (clock_current > clock_previous)
+				update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle-1), cycle);
+			else
+				update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0],cycle-1), cycle);
+			break;
+		}
 		case LT: // < 010 1
 		{
 			oassert(node->num_input_port_sizes == 3);
@@ -439,7 +461,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		{
 			oassert(node->num_input_port_sizes == 3);
 			oassert(node->num_output_port_sizes == 1);
-			
+
 			signed char pin0 = get_pin_value(node->input_pins[0],cycle);
 			signed char pin1 = get_pin_value(node->input_pins[1],cycle);
 			signed char pin2 = get_pin_value(node->input_pins[2],cycle);
@@ -620,25 +642,20 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			// If any select pin is unknown, we take the value from the previous cycle.
 			if (unknown)
 			{
-				update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0], cycle-1), cycle);			
+				update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0], cycle-1), cycle);
 			}
 			// If no selection is made (all 0) we output x.
 			else if (select < 0)
 			{
 				update_pin_value(node->output_pins[0], -1, cycle);
 			}
-			else 
+			else
 			{
 				signed char pin = get_pin_value(node->input_pins[select + node->input_port_sizes[0]],cycle);
-				update_pin_value(node->output_pins[0], pin, cycle);						
-			}			
+				update_pin_value(node->output_pins[0], pin, cycle);
+			}
 			break;
 		}
-		case FF_NODE:
-			oassert(node->num_output_pins == 1);
-			oassert(node->num_input_pins == 2);
-			update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle-1), cycle);
-			break;
 		case MEMORY:
 			compute_memory_node(node,cycle);
 			break;
@@ -1760,8 +1777,10 @@ void write_wave_to_file(lines_t *l, FILE* file, int cycle_offset, int wave_lengt
 		write_vector_headers(file, l);
 
 	int cycle;
-	for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle++)
+	for (cycle = cycle_offset + 1; cycle < (cycle_offset + wave_length); cycle += 2)
+	{
 		write_vector_to_file(l, file, cycle);
+	}
 }
 
 /*
@@ -1856,7 +1875,7 @@ void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_
 	}
 
 	int cycle;
-	for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle++)
+	for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle += 2)
 		write_vector_to_modelsim_file(l, modelsim_out, cycle);
 }
 
