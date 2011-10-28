@@ -1195,12 +1195,12 @@ void compute_memory(
 	{	// Compute which bit we are addressing.
 		long long bit_address = i + (address * data_width);
 
+		// Update the output.
+		update_pin_value(outputs[i], data[bit_address], cycle);
+
 		// If write is enabled, copy the input to memory.
 		if (write_enable)
 			data[bit_address] = get_pin_value(inputs[i],cycle);
-
-		// Update the output. 
-		update_pin_value(outputs[i], data[bit_address], cycle);
 	}
 }
 
@@ -1801,6 +1801,7 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 				}
 			}
 			// If there are no known values, print a single capital X.
+			// (Only for testing. Breaks machine readability.)
 			//if (!known_values && num_pins > 1)
 			//	sprintf(buffer, "X");
 		}
@@ -1823,7 +1824,7 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 			}
 		}
 
-		// Expand the value to fill to space under the header.
+		// Expand the value to fill to space under the header. (Gets ugly sometimes.)
 		//while (strlen(buffer) < strlen(l->lines[i]->name))
 		//	strcat(buffer," ");
 
