@@ -108,7 +108,7 @@ void simulate_netlist(netlist_t *netlist)
 
 			// Assign vectors to lines, either by reading or generating them.
 			// Every second cycle gets a new vector.
-			test_vector *v;
+			test_vector *v = 0;
 			int cycle;
 			for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
 			{
@@ -805,13 +805,21 @@ int is_node_complete(nnode_t* node, int cycle)
 int is_node_ready(nnode_t* node, int cycle)
 {
 	if (node->type == FF_NODE)
-		cycle--;
-
-	int i;
-	for (i = 0; i < node->num_input_pins; i++)
-		if (node->input_pins[i]->cycle < cycle)
+	{	// Flip-flops depend on the input from the previous cycle and the clock from this cycle.
+		if
+		(
+			   (node->input_pins[0]->cycle < cycle-1)
+			|| (node->input_pins[1]->cycle < cycle  )
+		)
 			return FALSE;
-
+	}
+	else
+	{
+		int i;
+		for (i = 0; i < node->num_input_pins; i++)
+			if (node->input_pins[i]->cycle < cycle)
+				return FALSE;
+	}
 	return TRUE;
 }
 
@@ -2380,7 +2388,6 @@ int print_progress_bar(double completion, int position, int length, double time)
  */
 void print_netlist_stats(stages *stages, int num_vectors)
 {
-
 	printf("%s:\n", get_circuit_filename());
 
 	printf("  Nodes:           %d\n",    stages->num_nodes);
