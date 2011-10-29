@@ -115,6 +115,7 @@ void update_pin_value(npin_t *pin, signed char value, int cycle);
 signed char get_pin_value(npin_t *pin, int cycle);
 inline void set_pin(npin_t *pin, signed char value, int cycle);
 inline int get_values_offset(int cycle); 
+int is_even_cycle(int cycle);
 
 signed char get_line_pin_value(line_t *line, int pin_num, int cycle);
 int line_has_unknown_pin(line_t *line, int cycle);
