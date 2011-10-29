@@ -95,6 +95,7 @@ void simulate_netlist(netlist_t *netlist)
 		stages *stages = 0;
 
 		// Simulation is done in "waves" of SIM_WAVE_LENGTH cycles at a time.
+		// Every second cycle gets a new vector.
 		int  num_cycles = num_test_vectors * 2;
 		int  num_waves = ceil(num_cycles / (double)SIM_WAVE_LENGTH);
 		int  wave;
@@ -106,11 +107,12 @@ void simulate_netlist(netlist_t *netlist)
 			int wave_length  = (wave < (num_waves-1))?SIM_WAVE_LENGTH:(num_cycles - cycle_offset);
 
 			// Assign vectors to lines, either by reading or generating them.
+			// Every second cycle gets a new vector.
 			test_vector *v;
 			int cycle;
 			for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
 			{
-				if (!((cycle + 2) % 2))
+				if (is_even_cycle(cycle))
 				{
 					if (input_vector_file)
 					{
@@ -128,9 +130,10 @@ void simulate_netlist(netlist_t *netlist)
 
 				store_test_vector_in_lines(v, input_lines, cycle);
 
-				if (((cycle + 2) % 2))
+				if (!is_even_cycle(cycle))
 					free_test_vector(v);
 			}
+
 			if (!input_vector_file)
 				write_wave_to_file(input_lines, in, cycle_offset, wave_length);
 
@@ -139,7 +142,6 @@ void simulate_netlist(netlist_t *netlist)
 			double simulation_start_time = wall_time();
 
 			// Perform simulation
-			//int cycle;
 			for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
 			{
 				if (!cycle)
@@ -150,7 +152,7 @@ void simulate_netlist(netlist_t *netlist)
 					// Make sure the output lines are still OK after adding custom lines.
 					if (!verify_lines(output_lines))
 						error_message(SIMULATION_ERROR, 0, -1, "Problem detected with the output lines after the first cycle.");
-
+					// Print netlist-specific statistics.
 					print_netlist_stats(stages, num_test_vectors);
 				}
 				else
@@ -381,7 +383,6 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
  */
 void compute_and_store_value(nnode_t *node, int cycle)
 {
-
 	switch(node->type)
 	{
 		case FF_NODE:
@@ -392,10 +393,14 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			signed char clock_previous = get_pin_value(node->input_pins[1],cycle-1);
 			signed char clock_current  = get_pin_value(node->input_pins[1],cycle);
 
-			if (clock_current > clock_previous)
+			if (clock_current > clock_previous) // Rising edge.
+			{	// Update the flip-flop from the input value of the previous cycle.
 				update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle-1), cycle);
+			}
 			else
+			{	// Maintain the flip-flop value.
 				update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0],cycle-1), cycle);
+			}
 			break;
 		}
 		case LT: // < 010 1
@@ -567,7 +572,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			else              update_pin_value(node->output_pins[0],  1, cycle);
 			break;
 		}
-		case NOT_EQUAL:	// !==
+		case NOT_EQUAL:	  // !=
 		case LOGICAL_XOR: // ^
 		{
 			oassert(node->num_output_pins == 1);
@@ -582,12 +587,12 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				if (pin == 1) { ones++; }
 			}
 			if      (unknown)         update_pin_value(node->output_pins[0], -1, cycle);
-			else if ((ones % 2) == 1) update_pin_value(node->output_pins[0], 1, cycle);
-			else                      update_pin_value(node->output_pins[0], 0, cycle);
+			else if ((ones % 2) == 1) update_pin_value(node->output_pins[0],  1, cycle);
+			else                      update_pin_value(node->output_pins[0],  0, cycle);
 			break;
 		}
 		case LOGICAL_EQUAL:	// ==
-		case LOGICAL_XNOR: // !^
+		case LOGICAL_XNOR:  // !^
 		{
 			oassert(node->num_output_pins == 1);
 			int unknown = FALSE;
@@ -601,8 +606,8 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				if (pin == 1) { ones++; }
 			}
 			if      (unknown)         update_pin_value(node->output_pins[0], -1, cycle);
-			else if ((ones % 2) == 1) update_pin_value(node->output_pins[0], 0, cycle);
-			else                      update_pin_value(node->output_pins[0], 1, cycle);
+			else if ((ones % 2) == 1) update_pin_value(node->output_pins[0],  0, cycle);
+			else                      update_pin_value(node->output_pins[0],  1, cycle);
 			break;
 		}
 		case MUX_2:
@@ -656,6 +661,29 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			}
 			break;
 		}
+		case INPUT_NODE:
+			break;
+		case OUTPUT_NODE:
+			oassert(node->num_output_pins == 1);
+			oassert(node->num_input_pins  == 1);
+			update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle), cycle);
+			break;
+		case PAD_NODE:
+			oassert(node->num_output_pins == 1);
+			update_pin_value(node->output_pins[0], 0, cycle);
+			break;
+		case CLOCK_NODE:
+			oassert(node->num_output_pins == 1);
+			update_pin_value(node->output_pins[0], is_even_cycle(cycle)?0:1, cycle);
+			break;
+		case GND_NODE:
+			oassert(node->num_output_pins == 1);
+			update_pin_value(node->output_pins[0], 0, cycle);
+			break;
+		case VCC_NODE:
+			oassert(node->num_output_pins == 1);
+			update_pin_value(node->output_pins[0], 1, cycle);
+			break;
 		case MEMORY:
 			compute_memory_node(node,cycle);
 			break;
@@ -671,29 +699,6 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			break;
 		case GENERIC :
 			compute_generic_node(node,cycle);
-			break;
-		case INPUT_NODE:
-			break;
-		case OUTPUT_NODE:
-			oassert(node->num_output_pins == 1);
-			oassert(node->num_input_pins  == 1);
-			update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle), cycle);
-			break;
-		case PAD_NODE:
-			oassert(node->num_output_pins == 1);
-			update_pin_value(node->output_pins[0], 0, cycle);
-			break;
-		case CLOCK_NODE:
-			oassert(node->num_output_pins == 1);
-			update_pin_value(node->output_pins[0], cycle % 2, cycle);
-			break;
-		case GND_NODE:
-			oassert(node->num_output_pins == 1);
-			update_pin_value(node->output_pins[0], 0, cycle);
-			break;
-		case VCC_NODE:
-			oassert(node->num_output_pins == 1);
-			update_pin_value(node->output_pins[0], 1, cycle);
 			break;
 		/* These should have already been converted to softer versions. */
 		case BITWISE_AND:
@@ -892,6 +897,14 @@ inline int get_values_offset(int cycle)
 }
 
 /*
+ * Returns FALSE if the cycle is odd.
+ */
+int is_even_cycle(int cycle)
+{
+	return !((cycle + 2) % 2);
+}
+
+/*
  * Computes the given memory node.
  */
 void compute_memory_node(nnode_t *node, int cycle)
@@ -917,7 +930,7 @@ void compute_memory_node(nnode_t *node, int cycle)
 	if (strcmp(node->related_ast_node->children[0]->types.identifier, SINGLE_PORT_MEMORY_NAME) == 0)
 	{
 		int we = 0;
-		int clock = 0;
+		int posedge = 0;
 		int data_width = 0;
 		int addr_width = 0;
 		npin_t **addr = NULL;
@@ -943,7 +956,9 @@ void compute_memory_node(nnode_t *node, int cycle)
 			}
 			else if (strcmp(node->input_pins[i]->mapping, clock_name) == 0)
 			{
-				clock = get_pin_value(node->input_pins[i],cycle);
+				int current_clock = get_pin_value(node->input_pins[i],cycle);
+				int previous_clock = get_pin_value(node->input_pins[i],cycle-1);
+				posedge = (current_clock > previous_clock) ? 1 : 0;
 			}
 		}
 		out = node->output_pins;
@@ -951,11 +966,11 @@ void compute_memory_node(nnode_t *node, int cycle)
 		if (node->type == MEMORY && !node->memory_data)
 			instantiate_memory(node, &(node->memory_data), data_width, addr_width);
 
-		compute_memory(data, out, data_width, addr, addr_width, we, clock, cycle, node->memory_data);
+		compute_memory(data, out, data_width, addr, addr_width, we, posedge, cycle, node->memory_data);
 	}
 	else
 	{
-		int clock = 0;
+		int posedge = 0;
 
 		int we1 = 0;
 		int data_width1 = 0;
@@ -1004,7 +1019,9 @@ void compute_memory_node(nnode_t *node, int cycle)
 			}
 			else if (strcmp(node->input_pins[i]->mapping, clock_name) == 0)
 			{
-				clock = get_pin_value(node->input_pins[i],cycle);
+				int current_clock = get_pin_value(node->input_pins[i],cycle);
+				int previous_clock = get_pin_value(node->input_pins[i],cycle-1);
+				posedge = (current_clock > previous_clock) ? 1 : 0;
 			}
 		}
 
@@ -1023,8 +1040,8 @@ void compute_memory_node(nnode_t *node, int cycle)
 		if (!node->memory_data)
 			instantiate_memory(node, &(node->memory_data), data_width2, addr_width2);
 
-		compute_memory(data1, out1, data_width1, addr1, addr_width1, we1, clock, cycle, node->memory_data);
-		compute_memory(data2, out2, data_width2, addr2, addr_width2, we2, clock, cycle, node->memory_data);
+		compute_memory(data1, out1, data_width1, addr1, addr_width1, we1, posedge, cycle, node->memory_data);
+		compute_memory(data2, out2, data_width2, addr2, addr_width2, we2, posedge, cycle, node->memory_data);
 	}
 }
 
@@ -1071,7 +1088,6 @@ void compute_hard_ip_node(nnode_t *node, int cycle)
 	free(output_pins);
 }
 
-// TODO: Needs to be verified.
 void compute_multiply_node(nnode_t *node, int cycle)
 {
 	int i;
@@ -1187,7 +1203,7 @@ void compute_memory(
 	npin_t **addr,
 	int addr_width,
 	int write_enable,
-	int clock,
+	int posedge,
 	int cycle,
 	signed char *data
 )
@@ -1216,7 +1232,7 @@ void compute_memory(
 		update_pin_value(outputs[i], data[bit_address], cycle);
 
 		// If write is enabled, copy the input to memory.
-		if (write_enable)
+		if (write_enable && posedge)
 			data[bit_address] = get_pin_value(inputs[i],cycle);
 	}
 }
@@ -1778,9 +1794,7 @@ void write_wave_to_file(lines_t *l, FILE* file, int cycle_offset, int wave_lengt
 
 	int cycle;
 	for (cycle = cycle_offset + 1; cycle < (cycle_offset + wave_length); cycle += 2)
-	{
 		write_vector_to_file(l, file, cycle);
-	}
 }
 
 /*
@@ -1875,7 +1889,7 @@ void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_
 	}
 
 	int cycle;
-	for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle += 2)
+	for (cycle = cycle_offset + 1; cycle < (cycle_offset + wave_length); cycle += 2)
 		write_vector_to_modelsim_file(l, modelsim_out, cycle);
 }
 
