@@ -234,7 +234,7 @@ long long convert_binary_string_of_size_to_long(char *orig_string, int size)
 	if (strlen(orig_string) > 63)
 	{
 		/* greater than our bit capacity so not a constant */
-		return -1;
+		error_message(PARSE_ERROR, -1, -1, "This suspected binary number (%s) is too long for odin\n", orig_string);
 	}
 
 	for (i = strlen(orig_string)-1; i > -1; i--)
@@ -242,7 +242,7 @@ long long convert_binary_string_of_size_to_long(char *orig_string, int size)
 		if ((tolower(orig_string[i]) == 'x') || (tolower(orig_string[i]) == 'z'))
 		{
 			/* this can't be converted to a decimal value */
-			return -1;
+			error_message(PARSE_ERROR, -1, -1, "This suspected binary number (%s) contains x's or z's which are not supported by Odin.\n", orig_string);
 		}
 		else if (isdigit(orig_string[i]))
 		{
