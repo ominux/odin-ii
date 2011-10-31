@@ -1237,10 +1237,11 @@ void compute_memory(
 		long long bit_address = i + (address * data_width);
 
 		// Update the output.
-		update_pin_value(outputs[i], data[bit_address], cycle);
+		if (!posedge) update_pin_value(outputs[i], data[bit_address], cycle);
+		else          update_pin_value(outputs[i], get_pin_value(outputs[i],cycle-1), cycle);
 
 		// If write is enabled, copy the input to memory.
-		if (write_enable && posedge)
+		if (write_enable && !posedge)
 			data[bit_address] = get_pin_value(inputs[i],cycle);
 	}
 }
@@ -1843,8 +1844,8 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 			}
 			// If there are no known values, print a single capital X.
 			// (Only for testing. Breaks machine readability.)
-			//if (!known_values && num_pins > 1)
-			//	sprintf(buffer, "X");
+			if (!known_values && num_pins > 1)
+				sprintf(buffer, "X");
 		}
 		else
 		{	
@@ -1897,7 +1898,7 @@ void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_
 	}
 
 	int cycle;
-	for (cycle = cycle_offset + 1; cycle < (cycle_offset + wave_length); cycle += 2)
+	for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle += 2)
 		write_vector_to_modelsim_file(l, modelsim_out, cycle);
 }
 
@@ -1921,7 +1922,7 @@ void write_vector_to_modelsim_file(lines_t *l, FILE *modelsim_out, int cycle)
 				if (value < 0)  fprintf(modelsim_out, "%s", "x");
 				else 		fprintf(modelsim_out, "%d", value);
 			}
-			fprintf(modelsim_out, " %d\n", cycle * 100);
+			fprintf(modelsim_out, " %d\n", cycle/2 * 100);
 		}
 		else
 		{
@@ -1940,7 +1941,7 @@ void write_vector_to_modelsim_file(lines_t *l, FILE *modelsim_out, int cycle)
 					value = 0;
 				}
 			}
-			fprintf(modelsim_out, " %d\n", cycle * 100);
+			fprintf(modelsim_out, " %d\n", cycle/2 * 100);
 		}
 
 	}
