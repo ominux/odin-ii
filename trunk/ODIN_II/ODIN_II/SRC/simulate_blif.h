@@ -121,7 +121,34 @@ signed char get_line_pin_value(line_t *line, int pin_num, int cycle);
 int line_has_unknown_pin(line_t *line, int cycle);
 
 int *multiply_arrays(int *a, int a_length, int *b, int b_length);
-void compute_memory(npin_t **inputs, npin_t **outputs, int data_width, npin_t **addr, int addr_width, int we, int clock, int cycle, signed char *data);
+void compute_single_port_memory(
+	npin_t **data,
+	npin_t **out,
+	int data_width,
+	npin_t **addr,
+	int addr_width,
+	int we,
+	int clock,
+	int cycle,
+	signed char *memory
+);
+void compute_dual_port_memory(
+	npin_t **data1,
+	npin_t **data2,
+	npin_t **out1,
+	npin_t **out2,
+	int data_width,
+	npin_t **addr1,
+	npin_t **addr2,
+	int addr_width,
+	int we1,
+	int we2,
+	int posedge,
+	int cycle,
+	signed char *memory
+);
+long compute_memory_address(npin_t **out, int data_width, npin_t **addr, int addr_width, int cycle);
+
 void instantiate_memory(nnode_t *node, signed char **memory, int data_width, int addr_width);
 
 int count_test_vectors(FILE *in);
