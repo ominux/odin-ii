@@ -932,11 +932,16 @@ void compute_memory_node(nnode_t *node, int cycle)
 	char *out_name1 = "out1";
 	char *out_name2 = "out2";
 
+
+
 	oassert(strcmp(node->related_ast_node->children[0]->types.identifier, SINGLE_PORT_MEMORY_NAME) == 0
 		|| strcmp(node->related_ast_node->children[0]->types.identifier, DUAL_PORT_MEMORY_NAME) == 0);
 
 	if (strcmp(node->related_ast_node->children[0]->types.identifier, SINGLE_PORT_MEMORY_NAME) == 0)
 	{
+
+		printf("S: %d\n",node->unique_id);
+
 		int we = 0;
 		int posedge = 0;
 		int data_width = 0;
@@ -974,10 +979,22 @@ void compute_memory_node(nnode_t *node, int cycle)
 		if (node->type == MEMORY && !node->memory_data)
 			instantiate_memory(node, &(node->memory_data), data_width, addr_width);
 
-		compute_memory(data, out, data_width, addr, addr_width, we, posedge, cycle, node->memory_data);
+		compute_single_port_memory(
+			data,
+			out,
+			data_width,
+			addr,
+			addr_width,
+			we,
+			posedge,
+			cycle,
+			node->memory_data
+		);
 	}
 	else
 	{
+		printf("D: %d\n",node->unique_id);
+
 		int posedge = 0;
 
 		int we1 = 0;
@@ -1048,8 +1065,27 @@ void compute_memory_node(nnode_t *node, int cycle)
 		if (!node->memory_data)
 			instantiate_memory(node, &(node->memory_data), data_width2, addr_width2);
 
-		compute_memory(data1, out1, data_width1, addr1, addr_width1, we1, posedge, cycle, node->memory_data);
-		compute_memory(data2, out2, data_width2, addr2, addr_width2, we2, posedge, cycle, node->memory_data);
+		if (addr_width1 != addr_width2)
+			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory addresses are not the same width.");
+
+		if (data_width1 != data_width2)
+			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory data ports are not the same width.");
+
+		compute_dual_port_memory(
+			data1,
+			data2,
+			out1,
+			out2,
+			data_width1,
+			addr1,
+			addr2,
+			addr_width1,
+			we1,
+			we2,
+			posedge,
+			cycle,
+			node->memory_data
+		);
 	}
 }
 
@@ -1202,48 +1238,121 @@ int *multiply_arrays(int *a, int a_length, int *b, int b_length)
 }
 
 /*
- * Computes memory.
+ * Computes single port memory.
  */
-void compute_memory(
-	npin_t **inputs,
-	npin_t **outputs,
+void compute_single_port_memory(
+	npin_t **data,
+	npin_t **out,
 	int data_width,
 	npin_t **addr,
 	int addr_width,
-	int write_enable,
+	int we,
 	int posedge,
 	int cycle,
-	signed char *data
+	signed char *memory
 )
 {
+	long address = compute_memory_address(out, data_width, addr, addr_width, cycle);
+
+	int address_ok = (address != -1)?1:0;
+
+	// Read (and write if we) data to memory.
+	int i;
+	for (i = 0; i < data_width; i++)
+	{	// Compute which bit we are addressing.
+		long long bit_address = address_ok?(i + (address * data_width)):-1;
+
+		// Update the output.
+		if (!posedge)
+		{
+			if (address_ok) update_pin_value(out[i], memory[bit_address], cycle);
+
+			// If write is enabled, copy the input to memory.
+			if (address_ok && we) memory[bit_address] = get_pin_value(data[i],cycle);
+		}
+		else
+		{
+			update_pin_value(out[i], get_pin_value(out[i],cycle-1), cycle);
+		}
+	}
+}
+
+/*
+ * Computes dual port memory.
+ */
+void compute_dual_port_memory(
+	npin_t **data1,
+	npin_t **data2,
+	npin_t **out1,
+	npin_t **out2,
+	int data_width,
+	npin_t **addr1,
+	npin_t **addr2,
+	int addr_width,
+	int we1,
+	int we2,
+	int posedge,
+	int cycle,
+	signed char *memory
+)
+{
+	long address1 = compute_memory_address(out1, data_width, addr1, addr_width, cycle);
+	long address2 = compute_memory_address(out2, data_width, addr2, addr_width, cycle);
+
+	int port1 = (address1 != -1)?1:0;
+	int port2 = (address2 != -1)?1:0;
+
+	printf("%d %d\n", address1, address2);
+
+	// Read (and write if we) data to memory.
+	int i;
+	for (i = 0; i < data_width; i++)
+	{	// Compute which bit we are addressing.
+		long long bit_address1 = port1?(i + (address1 * data_width)):-1;
+		long long bit_address2 = port2?(i + (address2 * data_width)):-1;
+
+		// Update the output.
+		if (!posedge)
+		{
+			if (port1) update_pin_value(out1[i], memory[bit_address1], cycle);
+			if (port2) update_pin_value(out2[i], memory[bit_address2], cycle);
+
+			if (port1 && we1) memory[bit_address1] = get_pin_value(data1[i],cycle);
+			if (port2 && we2) memory[bit_address2] = get_pin_value(data2[i],cycle);
+		}
+		else
+		{
+			update_pin_value(out1[i], get_pin_value(out1[i],cycle-1), cycle);
+			update_pin_value(out2[i], get_pin_value(out2[i],cycle-1), cycle);
+		}
+	}
+}
+
+/*
+ * Calculates the memory address. Updates the output to -1's and returns
+ * -1 if the address is unknown.
+ */
+long compute_memory_address(npin_t **out, int data_width, npin_t **addr, int addr_width, int cycle)
+{
 	long address = 0;
+	int unknown = FALSE;
 	int i;
 	for (i = 0; i < addr_width; i++)
-	{	// If any address pins are x's, write x's to the output and return. 
+	{	// If any address pins are x's, write x's to the output and return.
 		if (get_pin_value(addr[i],cycle) < 0)
 		{
 			int j;
 			for (j = 0; j < data_width; j++)
-				update_pin_value(outputs[j], -1, cycle);
+				update_pin_value(out[j], -1, cycle);
 
-			return;
+			unknown = TRUE;
+			break;
 		}
 		address += get_pin_value(addr[i],cycle) << (i);
 	}
 
-	// Read (and write if we) data to memory.
-	for (i = 0; i < data_width; i++)
-	{	// Compute which bit we are addressing.
-		long long bit_address = i + (address * data_width);
-
-		// Update the output.
-		if (!posedge) update_pin_value(outputs[i], data[bit_address], cycle);
-		else          update_pin_value(outputs[i], get_pin_value(outputs[i],cycle-1), cycle);
-
-		// If write is enabled, copy the input to memory.
-		if (write_enable && !posedge)
-			data[bit_address] = get_pin_value(inputs[i],cycle);
-	}
+	if (!unknown) return address;
+	else          return -1;
 }
 
 /*
@@ -1844,8 +1953,8 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 			}
 			// If there are no known values, print a single capital X.
 			// (Only for testing. Breaks machine readability.)
-			if (!known_values && num_pins > 1)
-				sprintf(buffer, "X");
+			//if (!known_values && num_pins > 1)
+			//	sprintf(buffer, "X");
 		}
 		else
 		{	
@@ -1867,8 +1976,8 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 		}
 
 		// Expand the value to fill to space under the header. (Gets ugly sometimes.)
-		//while (strlen(buffer) < strlen(l->lines[i]->name))
-		//	strcat(buffer," ");
+		while (strlen(buffer) < strlen(l->lines[i]->name))
+			strcat(buffer," ");
 
 		fprintf(file,"%s",buffer);
 	}
