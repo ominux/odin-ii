@@ -103,10 +103,9 @@ char *twos_complement(char *str)
 
 	for (i = length; i >= 0; i--)
 	{
-		if (flag == 0)
-			str[i] = str[i];
-		else
+		if (flag)
 			str[i] = (str[i] == '1') ? '0' : '1';
+
 		if ((str[i] == '1') && (flag == 0))
 			flag = 1;
 	}

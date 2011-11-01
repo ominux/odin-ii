@@ -383,7 +383,9 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
  */
 void compute_and_store_value(nnode_t *node, int cycle)
 {
-	switch(node->type)
+	operation_list type = is_clock_node(node)?CLOCK_NODE:node->type;
+
+	switch(type)
 	{
 		case FF_NODE:
 		{
@@ -628,9 +630,13 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				signed char pin = get_pin_value(node->input_pins[i], cycle);
 
 				if (pin  < 0)
+				{
 					unknown = TRUE;
+				}
 				else if (pin == 1)
-					select  = i;
+				{	// Deal with multiple selection by taking the first one.
+					select = (select == -1)?i:select;
+				}
 
 				// If the pin comes from an "else" condition or a case "default" condition,
 				// we favour it in the case where there are unknowns.
@@ -673,9 +679,12 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			update_pin_value(node->output_pins[0], 0, cycle);
 			break;
 		case CLOCK_NODE:
-			oassert(node->num_output_pins == 1);
-			update_pin_value(node->output_pins[0], is_even_cycle(cycle)?0:1, cycle);
+		{
+			int i;
+			for (i = 0; i < node->num_output_pins; i++)
+				update_pin_value(node->output_pins[i], is_even_cycle(cycle)?0:1, cycle);
 			break;
+		}
 		case GND_NODE:
 			oassert(node->num_output_pins == 1);
 			update_pin_value(node->output_pins[0], 0, cycle);
@@ -913,6 +922,18 @@ int is_even_cycle(int cycle)
 }
 
 /*
+ * Returns FALSE if the node is not a clock.
+ */
+int is_clock_node(nnode_t *node)
+{
+	return (
+		   (node->type == CLOCK_NODE)
+		|| !strcmp(node->name,"top^clk") // Strictly for memories.
+	);
+}
+
+
+/*
  * Computes the given memory node.
  */
 void compute_memory_node(nnode_t *node, int cycle)
@@ -939,11 +960,9 @@ void compute_memory_node(nnode_t *node, int cycle)
 
 	if (strcmp(node->related_ast_node->children[0]->types.identifier, SINGLE_PORT_MEMORY_NAME) == 0)
 	{
-
-		printf("S: %d\n",node->unique_id);
+		int posedge = 0;
 
 		int we = 0;
-		int posedge = 0;
 		int data_width = 0;
 		int addr_width = 0;
 		npin_t **addr = NULL;
@@ -993,8 +1012,6 @@ void compute_memory_node(nnode_t *node, int cycle)
 	}
 	else
 	{
-		printf("D: %d\n",node->unique_id);
-
 		int posedge = 0;
 
 		int we1 = 0;
@@ -1302,8 +1319,6 @@ void compute_dual_port_memory(
 	int port1 = (address1 != -1)?1:0;
 	int port2 = (address2 != -1)?1:0;
 
-	printf("%d %d\n", address1, address2);
-
 	// Read (and write if we) data to memory.
 	int i;
 	for (i = 0; i < data_width; i++)
@@ -1458,6 +1473,8 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 	 * treat it as a single pin, get the pin number, and truncate the
 	 * port name by placing null in the position of the tilde.
 	 */
+	int tilde_1 = tilde ? 1:0;
+
 	int pin_number;
 	if (tilde && !single_pin) {
 		pin_number = atoi(tilde+1);
@@ -1470,27 +1487,32 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 
 	int j = find_portname_in_lines(port_name, l);
 
-	if (!tilde)
-	{	// Treat the pin as a lone single pin.
-		if (j == -1)
-		{
-			if (!(node->type == GND_NODE || node->type == VCC_NODE || node->type == PAD_NODE || node->type == CLOCK_NODE))
-				warning_message(SIMULATION_ERROR, 0, -1, "Could not map single-bit top-level input node '%s' to input vector", node->name);
-		} 
+	int already_added = ((!tilde) && (j != -1) && (l->lines[j]->number_of_pins >= 1));
+
+	if (!already_added)
+	{
+		if (!tilde)
+		{	// Treat the pin as a lone single pin.
+			if (j == -1)
+			{
+				//if (!(node->type == GND_NODE || node->type == VCC_NODE || node->type == PAD_NODE || is_clock_node(node)))
+					warning_message(SIMULATION_ERROR, 0, -1, "Could not map single-bit top-level input node '%s' to input vector", node->name);
+			}
+			else
+			{
+				insert_pin_into_line(node->output_pins[0], 0, l->lines[j], type);
+			}
+		}
 		else
-		{
-			insert_pin_into_line(node->output_pins[0], 0, l->lines[j], type);
-		}		
-	}
-	else
-	{	// Treat the pin as part of a multi-pin port.
-		if (j == -1)
-		{
-			warning_message(SIMULATION_ERROR, 0, -1, "Could not map multi-bit top-level input node '%s' to input vector", node->name);
-		} 
-		else
-		{
-			insert_pin_into_line(node->output_pins[0], pin_number, l->lines[j], type);
+		{	// Treat the pin as part of a multi-pin port.
+			if (j == -1)
+			{
+				warning_message(SIMULATION_ERROR, 0, -1, "Could not map multi-bit top-level input node '%s' to input vector", node->name);
+			}
+			else
+			{
+				insert_pin_into_line(node->output_pins[0], pin_number, l->lines[j], type);
+			}
 		}
 	}
 	free(port_name);
@@ -1552,7 +1574,7 @@ lines_t *create_input_test_vector_lines(netlist_t *netlist)
 
 		if (tilde) *tilde = '\0';
 
-		if (node->type != CLOCK_NODE)
+		if (!is_clock_node(node))
 		{
 			if (find_portname_in_lines(port_name, l) == -1)
 			{
@@ -1976,8 +1998,8 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 		}
 
 		// Expand the value to fill to space under the header. (Gets ugly sometimes.)
-		while (strlen(buffer) < strlen(l->lines[i]->name))
-			strcat(buffer," ");
+		//while (strlen(buffer) < strlen(l->lines[i]->name))
+		//	strcat(buffer," ");
 
 		fprintf(file,"%s",buffer);
 	}
@@ -1998,7 +2020,7 @@ void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_
 		for (i = 0; i < netlist->num_top_input_nodes; i++)
 		{
 			nnode_t *node = netlist->top_input_nodes[i];
-			if (node->type == CLOCK_NODE)
+			if (is_clock_node(node))
 			{
 				char *port_name = strdup(strchr(node->name, '^') + 1);
 				fprintf(modelsim_out, "force %s 1 0, 0 50 -repeat 100\n", port_name);
