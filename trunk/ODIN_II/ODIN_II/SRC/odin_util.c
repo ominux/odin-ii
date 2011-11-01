@@ -153,7 +153,7 @@ long long convert_dec_string_of_size_to_long(char *orig_string, int size)
 	if (strlen(orig_string) > 19)
 	{
 		/* greater than our bit capacity so not a constant 64 bits */
-		return -1;
+		error_message(PARSE_ERROR, -1, -1, "This suspected decimal number (%s) is too long for Odin\n", orig_string);
 	}
 
 	for (i = strlen(orig_string)-1; i > -1; i--)
@@ -181,7 +181,7 @@ long long convert_hex_string_of_size_to_long(char *orig_string, int size)
 	if (strlen(orig_string) > 16)
 	{
 		/* greater than our bit capacity so not a constant */
-		return -1;
+		error_message(PARSE_ERROR, -1, -1, "This suspected hex number (%s) is too long for Odin\n", orig_string);
 	}
 
 	return strtol(orig_string, NULL, 16);
@@ -200,7 +200,7 @@ long long convert_oct_string_of_size_to_long(char *orig_string, int size)
 	if (strlen(orig_string) > 21)
 	{
 		/* greater than our bit capacity so not a constant */
-		return -1;
+		error_message(PARSE_ERROR, -1, -1, "This suspected octal number (%s) is too long for Odin\n", orig_string);
 	}
 
 	for (i = strlen(orig_string)-1; i > -1; i--)
@@ -234,7 +234,7 @@ long long convert_binary_string_of_size_to_long(char *orig_string, int size)
 	if (strlen(orig_string) > 63)
 	{
 		/* greater than our bit capacity so not a constant */
-		error_message(PARSE_ERROR, -1, -1, "This suspected binary number (%s) is too long for odin\n", orig_string);
+		error_message(PARSE_ERROR, -1, -1, "This suspected binary number (%s) is too long for Odin\n", orig_string);
 	}
 
 	for (i = strlen(orig_string)-1; i > -1; i--)
