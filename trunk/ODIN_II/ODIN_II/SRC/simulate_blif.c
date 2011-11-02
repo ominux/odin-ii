@@ -383,8 +383,9 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
  */
 void compute_and_store_value(nnode_t *node, int cycle)
 {
-	operation_list type = is_clock_node(node)?CLOCK_NODE:node->type;
+	update_undriven_input_pins(node,cycle);
 
+	operation_list type = is_clock_node(node)?CLOCK_NODE:node->type;
 	switch(type)
 	{
 		case FF_NODE:
@@ -743,12 +744,63 @@ void compute_and_store_value(nnode_t *node, int cycle)
 }
 
 /*
+ * Updates all pins which have been flagged as undriven
+ * to -1 for the given cycle.
+ */
+void update_undriven_input_pins(nnode_t *node, int cycle)
+{
+	int i;
+	for (i = 0; i < node->num_input_pins; i++)
+	{
+		npin_t *pin = node->input_pins[i];
+		if (pin->is_undriven)
+		{
+			update_pin_value(pin, -1, cycle);
+		}
+
+		if (cycle > 3 && pin->cycle < cycle-1)
+		{	pin->is_undriven = TRUE;
+			char *parent_node_name = get_pin_name(pin->net->driver_pin->node->name);
+			char *node_name        = get_pin_name(node->name);
+			char *pin_name         = get_pin_name(pin->name);
+
+			warning_message(SIMULATION_ERROR,0,-1,"Odin has detected that an input pin attached to %s isn't being updated. "
+					"Pin name: %s attached to %s", node_name, pin_name, parent_node_name);
+
+			free(pin_name);
+			free(node_name);
+			free(parent_node_name);
+
+			//set_pin(pin, get_pin_value(pin,cycle-1), cycle);
+			update_pin_value(pin, -1, cycle);
+		}
+	}
+}
+
+/*
+ * Flags any inputs pins which are undriven and have
+ * not already been flagged.
+ */
+void flag_undriven_input_pins(nnode_t *node)
+{
+	int i;
+	for (i = 0; i < node->num_input_pins; i++)
+	{
+		npin_t *pin = node->input_pins[i];
+		if (!pin->is_undriven && (!pin->net || !pin->net->driver_pin || !pin->net->driver_pin->node))
+		{
+			pin->is_undriven = TRUE;
+			warning_message(SIMULATION_ERROR,0,-1,"A node (%s) has an undriven input pin.", node->name);
+		}
+	}
+}
+
+/*
  * Gets the number of nodes whose output pins have been sufficiently covered.
  */
 int get_num_covered_nodes(stages *s)
 {
 	int covered_nodes = 0;
-
 	int i;
 	for(i = 0; i < s->count; i++)
 	{
@@ -813,6 +865,9 @@ int is_node_complete(nnode_t* node, int cycle)
  */
 int is_node_ready(nnode_t* node, int cycle)
 {
+	flag_undriven_input_pins(node);
+	update_undriven_input_pins(node, cycle);
+
 	if (node->type == FF_NODE)
 	{	// Flip-flops depend on the input from the previous cycle and the clock from this cycle.
 		if
@@ -1437,19 +1492,7 @@ void instantiate_memory(nnode_t *node, signed char **memory, int data_width, int
 	fclose(mif);
 }
 
-/*
- * Searches for a line with the given name in the lines. Returns the index
- * or -1 if no such line was found.
- */
-int find_portname_in_lines(char* port_name, lines_t *l)
-{
-	int j;
-	for (j = 0; j < l->count; j++)	
-		if (!strcmp(l->lines[j]->name, port_name))		
-			return  j;
-	
-	return -1;
-}
+
 
 /*
  * Assigns the given node to its corresponding line in the given array of line.
@@ -1464,55 +1507,41 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 		add_a_output_pin_to_node_spot_idx(node, pin, 0);
 	}
 
-	// Grab the portion of the name ater the ^
-	char *port_name = strdup(strchr(node->name, '^') + 1);
-	// Find out if there is a ~
-	char *tilde = strchr(port_name, '~');
-	/*
-	 * If there's a ~, this is a multi-pin port. Unless we want to forcibly
-	 * treat it as a single pin, get the pin number, and truncate the
-	 * port name by placing null in the position of the tilde.
-	 */
-	int tilde_1 = tilde ? 1:0;
-
-	int pin_number;
-	if (tilde && !single_pin) {
-		pin_number = atoi(tilde+1);
-		*tilde = '\0';
+	int pin_number = get_pin_number(node->name);
+	char *port_name;
+	if (pin_number != -1 && !single_pin) {
+		port_name = get_port_name(node->name);
 	}
-	// Otherwise, pretend there is no tilde.
 	else {
-		tilde = 0;
+		port_name = get_pin_name(node->name);
+		single_pin = TRUE;
 	}
 
 	int j = find_portname_in_lines(port_name, l);
 
-	int already_added = ((!tilde) && (j != -1) && (l->lines[j]->number_of_pins >= 1));
-
-	if (!already_added)
-	{
-		if (!tilde)
-		{	// Treat the pin as a lone single pin.
-			if (j == -1)
-			{
-				//if (!(node->type == GND_NODE || node->type == VCC_NODE || node->type == PAD_NODE || is_clock_node(node)))
-					warning_message(SIMULATION_ERROR, 0, -1, "Could not map single-bit top-level input node '%s' to input vector", node->name);
-			}
-			else
-			{
-				insert_pin_into_line(node->output_pins[0], 0, l->lines[j], type);
-			}
+	if (single_pin)
+	{	// Treat the pin as a lone single pin.
+		if (j == -1)
+		{
+			//if (!(node->type == GND_NODE || node->type == VCC_NODE || node->type == PAD_NODE || is_clock_node(node)))
+				warning_message(SIMULATION_ERROR, 0, -1, "Could not map single-bit top-level input node '%s' to input vector", node->name);
 		}
 		else
-		{	// Treat the pin as part of a multi-pin port.
-			if (j == -1)
-			{
-				warning_message(SIMULATION_ERROR, 0, -1, "Could not map multi-bit top-level input node '%s' to input vector", node->name);
-			}
-			else
-			{
-				insert_pin_into_line(node->output_pins[0], pin_number, l->lines[j], type);
-			}
+		{
+			int already_added = l->lines[j]->number_of_pins >= 1;
+			if (!already_added)
+				insert_pin_into_line(node->output_pins[0], 0, l->lines[j], type);
+		}
+	}
+	else
+	{	// Treat the pin as part of a multi-pin port.
+		if (j == -1)
+		{
+			warning_message(SIMULATION_ERROR, 0, -1, "Could not map multi-bit top-level input node '%s' to input vector", node->name);
+		}
+		else
+		{
+			insert_pin_into_line(node->output_pins[0], pin_number, l->lines[j], type);
 		}
 	}
 	free(port_name);
@@ -1569,11 +1598,7 @@ lines_t *create_input_test_vector_lines(netlist_t *netlist)
 	for (i = 0; i < netlist->num_top_input_nodes; i++)
 	{
 		nnode_t *node = netlist->top_input_nodes[i];
-		char *port_name = strdup(strchr(node->name, '^') + 1);
-		char *tilde = strchr(port_name, '~');
-
-		if (tilde) *tilde = '\0';
-
+		char *port_name = get_port_name(node->name);
 		if (!is_clock_node(node))
 		{
 			if (find_portname_in_lines(port_name, l) == -1)
@@ -1602,11 +1627,7 @@ lines_t *create_output_test_vector_lines(netlist_t *netlist)
 	for (i = 0; i < netlist->num_top_output_nodes; i++)
 	{
 		nnode_t *node = netlist->top_output_nodes[i];
-		char *port_name = strdup(strchr(node->name, '^') + 1);
-		char *tilde = strchr(port_name, '~');
-
-		if (tilde) *tilde = '\0';
-
+		char *port_name = get_port_name(node->name);
 		if (find_portname_in_lines(port_name, l) == -1)
 		{
 			line_t *line = create_line(port_name);
@@ -1713,6 +1734,20 @@ int verify_lines (lines_t *l)
 		}
 	}
 	return TRUE; 
+}
+
+/*
+ * Searches for a line with the given name in the lines. Returns the index
+ * or -1 if no such line was found.
+ */
+int find_portname_in_lines(char* port_name, lines_t *l)
+{
+	int j;
+	for (j = 0; j < l->count; j++)
+		if (!strcmp(l->lines[j]->name, port_name))
+			return  j;
+
+	return -1;
 }
 
 /*
@@ -2022,8 +2057,9 @@ void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_
 			nnode_t *node = netlist->top_input_nodes[i];
 			if (is_clock_node(node))
 			{
-				char *port_name = strdup(strchr(node->name, '^') + 1);
+				char *port_name = get_port_name(node->name);
 				fprintf(modelsim_out, "force %s 1 0, 0 50 -repeat 100\n", port_name);
+				free(port_name);
 			}
 		}
 	}
@@ -2251,11 +2287,11 @@ void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l)
 
 			if (strchr(node->name, '^'))
 			{
-				char *port_name = strdup(strchr(node->name, '^') + 1);
-
-				char *tilde = strchr(port_name, '~');
-				if (tilde && !single_pin)
-					*tilde = '\0';
+				char *port_name;
+				if (single_pin)
+					port_name = get_pin_name(node->name);
+				else
+					port_name = get_port_name(node->name);
 
 				if (find_portname_in_lines(port_name, l) == -1)
 				{
@@ -2267,6 +2303,54 @@ void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l)
 				free(port_name);
 			}
 		}
+	}
+}
+
+/*
+ * Gets the port name (everything after the ^ character0 from the
+ * given name.
+ */
+char *get_pin_name(char *name)
+{	// Remove everything before the ^
+	return strdup(strchr(name, '^') + 1);
+}
+
+
+/*
+ * Gets the port name (everything after the ^ and before the ~)
+ * from the given name.
+ */
+char *get_port_name(char *name)
+{
+	// Remove everything before the ^
+	char *port_name = get_pin_name(name);
+	// Find out if there is a ~ and remove everything after it.
+	char *tilde = strchr(port_name, '~');
+	if (tilde) {
+		*tilde = '\0';
+	}
+	return port_name;
+}
+
+/*
+ * Gets the pin number (the number after the ~)
+ * from the given name.
+ *
+ * Returns -1 if there is no ~.
+ */
+int get_pin_number(char *name)
+{
+	// Grab the portion of the name ater the ^
+	char *pin_name = get_pin_name(name);
+	char *tilde = strchr(pin_name, '~');
+	// The pin number is everything after the ~
+	if (tilde) {
+		free(pin_name);
+		return atoi(tilde+1);
+	}
+	else {
+		free(pin_name);
+		return -1;
 	}
 }
 
