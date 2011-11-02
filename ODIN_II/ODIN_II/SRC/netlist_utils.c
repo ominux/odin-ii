@@ -213,8 +213,10 @@ npin_t* allocate_npin() {
 	for (i = 0; i < SIM_WAVE_LENGTH; i++) {
 		new_pin->values[i] = -1;
 	}
-	new_pin->is_default = FALSE;
 	new_pin->coverage = 0;
+
+	new_pin->is_default = FALSE;
+	new_pin->is_undriven = FALSE;
 
 	return new_pin;
 }

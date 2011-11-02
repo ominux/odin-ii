@@ -397,11 +397,13 @@ struct npin_t_t
 	int pin_node_idx; // pin on the node where we're located
 	char *mapping;    // name of mapped port from hard block
 
+	////////////////////
 	// For simulation
 	int  cycle;       // The last cycle the pin was computed for.
 	signed char values[SIM_WAVE_LENGTH]; // The values for the current wave.
 	unsigned long coverage;
-	signed char is_default;
+	signed char is_default;  // The pin is feeding a mux from logic representing an else or default.
+	signed char is_undriven;    // The pin has been found by the simulator to have no driver.
 };
 
 struct nnet_t_t
