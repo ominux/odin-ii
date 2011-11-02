@@ -765,13 +765,12 @@ void update_undriven_input_pins(nnode_t *node, int cycle)
 			char *pin_name         = get_pin_name(pin->name);
 
 			warning_message(SIMULATION_ERROR,0,-1,"Odin has detected that an input pin attached to %s isn't being updated. "
-					"Pin name: %s attached to %s", node_name, pin_name, parent_node_name);
+					"Pin name: %s driven by %s", node_name, pin_name, parent_node_name);
 
 			free(pin_name);
 			free(node_name);
 			free(parent_node_name);
 
-			//set_pin(pin, get_pin_value(pin,cycle-1), cycle);
 			update_pin_value(pin, -1, cycle);
 		}
 	}
@@ -971,7 +970,7 @@ inline int get_values_offset(int cycle)
 /*
  * Returns FALSE if the cycle is odd.
  */
-int is_even_cycle(int cycle)
+inline int is_even_cycle(int cycle)
 {
 	return !((cycle + 2) % 2);
 }
@@ -979,14 +978,13 @@ int is_even_cycle(int cycle)
 /*
  * Returns FALSE if the node is not a clock.
  */
-int is_clock_node(nnode_t *node)
+inline int is_clock_node(nnode_t *node)
 {
 	return (
 		   (node->type == CLOCK_NODE)
 		|| !strcmp(node->name,"top^clk") // Strictly for memories.
 	);
 }
-
 
 /*
  * Computes the given memory node.
