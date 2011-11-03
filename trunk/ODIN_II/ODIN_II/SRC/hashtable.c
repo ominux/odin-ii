@@ -38,6 +38,12 @@ unsigned int ___hashtable_hash               (void *key, size_t key_len, int max
 
 hashtable_t* create_hashtable(int store_size)
 {
+	if (store_size < 1)
+	{
+		printf("ERROR: Attempted to create a hashtable_t with a store size less than 1.\n");
+		exit(1);
+	}
+
 	hashtable_t *h = (hashtable_t *)malloc(sizeof(hashtable_t));
 	
 	h->store_size = store_size; 

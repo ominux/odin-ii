@@ -126,7 +126,7 @@ int main(int argc, char **argv)
 	return 0;
 } 
 
-static const char *optString = "hc:V:h:o:a:B:b:N:f:s:S:p:g:t:T:"; // list must end in ":"
+static const char *optString = "hc:V:h:o:a:B:b:N:f:s:S:p:g:t:T:L:H:"; // list must end in ":"
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
@@ -147,6 +147,8 @@ void get_options(int argc, char **argv)
 	global_args.sim_vector_output_file = NULL;
 	global_args.sim_additional_pins = NULL;
 	global_args.num_test_vectors = 0;
+	global_args.sim_hold_low = NULL;
+	global_args.sim_hold_high = NULL;
 
 	/* set up the global configuration ahead of time */
 	configuration.list_of_file_names = NULL;
@@ -204,6 +206,12 @@ void get_options(int argc, char **argv)
 			case 'g':
 				global_args.num_test_vectors = atoi(optarg);
 			break;
+			case 'L':
+				global_args.sim_hold_low = optarg;
+			break;
+			case 'H':
+				global_args.sim_hold_high = optarg;
+			break;
 			case 't':
 				global_args.sim_vector_input_file = optarg;
 			break;
@@ -253,13 +261,16 @@ void print_usage()
 				"\t\t-a <architecture_file_in_VPR6.0_form>\n"
 				"\t\t-B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n"
 			"\tSimulation options:\n"
-				"\t\t -g <number of random test vectors>\n"
+				"\t\t -g <Number of random test vectors>\n"
+					"\t\t\t -L <Comma-separated list of primary inputs to hold high at cycle 0, and low for all subsequent cycles.>\n"
+					"\t\t\t -H <Comma-separated list of primary inputs to hold low at cycle 0, and high for all subsequent cycles.>\n"
 				"\t\t -t <input vectors file>: Supply an input vector file\n"
 				"\t\t -T <output vectors file>: Supply an output vector file to check output vectors against.\n"
 				"\t\t -p Supply a comma separated list of additional pins or nodes to monitor during simulation.\n"
 					"\t\t\t Eg: -p input~0,input~1 monitors pin 0 and 1 of input, or -p input monitors all pins of input as a single port. \n"
 					"\t\t\t - Note: Non-existent pins are ignored. \n"
 					"\t\t\t - Matching is done via strstr so general strings will match all similar pins and nodes. (Eg: FF_NODE will create a single port will all flipflops) \n"
+
 			"\tOther options:\n"
 				"\t\t -h Print help\n"
 	);
@@ -276,10 +287,10 @@ void do_high_level_synthesis()
 	printf("High-level synthesis Begin\n");
 
 	/* Perform any initialization routines here */
-#ifdef VPR6
+	#ifdef VPR6
 	find_hard_multipliers();
 	register_hard_blocks();
-#endif
+	#endif
 	global_param_table_sc = sc_new_string_cache();
 
 	/* parse to abstract syntax tree */
@@ -313,9 +324,9 @@ void do_high_level_synthesis()
 
 	/* check for problems in the partial mapped netlist */
 	printf("Check for liveness and combinational loops\n");
-#ifdef VPR5
+	#ifdef VPR5
 	levelize_and_check_for_combinational_loop_and_liveness(TRUE, verilog_netlist);
-#endif
+	#endif
 
 	/* point for outputs.  This includes soft and hard mapping all structures to the target format.  Some of these could be considred optimizations */
 	printf("Outputting the netlist to the specified output format\n");

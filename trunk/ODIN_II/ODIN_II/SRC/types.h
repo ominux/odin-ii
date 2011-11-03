@@ -127,10 +127,14 @@ struct global_args_t_t
 	char *activation_blif_file;
 	char *activation_netlist_file;
 	char *high_level_block;
+
+	// For simulation.
+	int num_test_vectors;
 	char *sim_vector_input_file;   // Input vectors to simulate.
 	char *sim_vector_output_file;  // Existing output to verify against.
 	char *sim_additional_pins;
-	int num_test_vectors;
+	char *sim_hold_high;           // Comma-separated list of primary input pins to hold high for all cycles but the first.
+	char *sim_hold_low;            // Comma-separated list of primary input pins to hold low for all cycles but the first.
 };
 
 #endif // TYPES_H

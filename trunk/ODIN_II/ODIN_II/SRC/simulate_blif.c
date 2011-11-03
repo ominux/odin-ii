@@ -94,6 +94,12 @@ void simulate_netlist(netlist_t *netlist)
 
 		stages *stages = 0;
 
+		// Parse -L and -H options containing lists of pins to hold high or low during random vector generation.
+		pin_names *hold_high = parse_pin_name_list(global_args.sim_hold_high);
+		pin_names *hold_low  = parse_pin_name_list(global_args.sim_hold_low);
+		hashtable_t *hold_high_index = index_pin_name_list(hold_high);
+		hashtable_t *hold_low_index  = index_pin_name_list(hold_low);
+
 		// Simulation is done in "waves" of SIM_WAVE_LENGTH cycles at a time.
 		// Every second cycle gets a new vector.
 		int  num_cycles = num_test_vectors * 2;
@@ -124,7 +130,7 @@ void simulate_netlist(netlist_t *netlist)
 					}
 					else
 					{
-						v = generate_random_test_vector(input_lines, cycle);
+						v = generate_random_test_vector(input_lines, cycle, hold_high_index, hold_low_index);
 					}
 				}
 
@@ -146,14 +152,12 @@ void simulate_netlist(netlist_t *netlist)
 			{
 				if (!cycle)
 				{	// The first cycle produces the stages, and adds additional lines as specified by the -p option.
-					additional_pins *p = parse_additional_pins();
+					pin_names *p = parse_pin_name_list(global_args.sim_additional_pins);
 					stages = simulate_first_cycle(netlist, cycle, p, output_lines);
-					free_additional_pins(p);
+					free_pin_name_list(p);
 					// Make sure the output lines are still OK after adding custom lines.
 					if (!verify_lines(output_lines))
 						error_message(SIMULATION_ERROR, 0, -1, "Problem detected with the output lines after the first cycle.");
-					// Print netlist-specific statistics.
-					print_netlist_stats(stages, num_test_vectors);
 				}
 				else
 				{
@@ -168,10 +172,19 @@ void simulate_netlist(netlist_t *netlist)
 
 			total_time += wall_time() - wave_start_time;
 
+			// Print netlist-specific statistics.
+			if (!cycle_offset)
+				print_netlist_stats(stages, num_test_vectors);
+
 			// Delay drawing of the progress bar until the second wave to improve the accuracy of the ETA.
 			if ((num_waves == 1) || cycle_offset)
 				progress_bar_position = print_progress_bar(cycle/(double)num_cycles, progress_bar_position, progress_bar_length, total_time);
 		}
+
+		free_pin_name_list(hold_high);
+		free_pin_name_list(hold_low);
+		hold_high_index->destroy_free_items(hold_high_index);
+		hold_low_index ->destroy_free_items(hold_low_index);
 
 		fflush(out); 
 
@@ -237,7 +250,7 @@ void simulate_cycle(int cycle, stages *s)
  * the nodes organised into parallelizable stages. Also adds lines to
  * custom pins and nodes as requested via the -p option.
  */
-stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, lines_t *l)
+stages *simulate_first_cycle(netlist_t *netlist, int cycle, pin_names *p, lines_t *l)
 {
 	queue_t *queue = create_queue();
 	// Enqueue top input nodes
@@ -1526,9 +1539,10 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 		}
 		else
 		{
+			pin_number = (pin_number == -1)?0:pin_number;
 			int already_added = l->lines[j]->number_of_pins >= 1;
 			if (!already_added)
-				insert_pin_into_line(node->output_pins[0], 0, l->lines[j], type);
+				insert_pin_into_line(node->output_pins[0], pin_number, l->lines[j], type);
 		}
 	}
 	else
@@ -1927,7 +1941,7 @@ test_vector *parse_test_vector(char *buffer)
  *
  * If you want better randomness, call srand at some point.
  */
-test_vector *generate_random_test_vector(lines_t *l, int cycle)
+test_vector *generate_random_test_vector(lines_t *l, int cycle, hashtable_t *hold_high_index, hashtable_t *hold_low_index)
 {
 	test_vector *v = malloc(sizeof(test_vector));
 	v->values = 0;
@@ -1945,11 +1959,27 @@ test_vector *generate_random_test_vector(lines_t *l, int cycle)
 		int j;
 		for (j = 0; j < l->lines[i]->number_of_pins; j++)
 		{
+			char *name = l->lines[i]->name;
+			signed char value;
+			if (hold_high_index->get(hold_high_index,name,sizeof(char)*strlen(name)))
+			{
+				if (!cycle) value = 0;
+				else        value = 1;
+			}
+			else if (hold_low_index->get(hold_low_index,name,sizeof(char)*strlen(name)))
+			{
+				if (!cycle) value = 1;
+				else        value = 0;
+			}
+			else
+			{
+				value = (rand() % 2);
+				// Generate random three-valued logic.
+				//value = (rand() % 3) - 1;
+			}
+
 			v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));		
-			v->values[v->count][v->counts[v->count]++] = (rand() % 2);
-			
-			// Generate random three valued logic. 
-			//v->values[v->count][v->counts[v->count]++] = (rand() % 3) - 1;
+			v->values[v->count][v->counts[v->count]++] = value;
 		}
 		v->count++;
 	}
@@ -2213,19 +2243,37 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 }
 
 /*
- * Parses a comma separated list of additional pins
- * passed via -p into an additional_pins struct.
+ * Creates a hastable_t index of the given pin names list
+ * of the form pin name hashes to pin name array index.
  */
-additional_pins *parse_additional_pins()
+hashtable_t *index_pin_name_list(pin_names *list)
 {
-	additional_pins *p = malloc(sizeof(additional_pins));
+	hashtable_t *index = create_hashtable(list->count * 2+1);
+	int i;
+	for (i = 0; i < list->count; i++)
+	{
+		int *id = malloc(sizeof(int));
+		*id = i;
+		index->add(index, list->pins[i], sizeof(char)*strlen(list->pins[i]), id);
+	}
+	return index;
+}
+
+/*
+ * Parses the given comma separated list into a
+ * pin_names struct. If the list is empty or null
+ * an empty struct is returned.
+ */
+pin_names *parse_pin_name_list(char *list)
+{
+	pin_names *p = malloc(sizeof(pin_names));
 	p->pins  = 0;
 	p->count = 0;
 
 	// Parse the list of additional pins passed via the -p option.
-	if (global_args.sim_additional_pins)
+	if (list)
 	{
-		char *pin_list = strdup(global_args.sim_additional_pins);
+		char *pin_list = strdup(list);
 		char *token    = strtok(pin_list, ",");
 		while (token)
 		{
@@ -2242,7 +2290,7 @@ additional_pins *parse_additional_pins()
  * If the given node matches one of the additional_pins (passed via -p),
  * it's added to the lines. (Matches on output pin names, and node name).
  */
-void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l)
+void add_additional_pins_to_lines(nnode_t *node, pin_names *p, lines_t *l)
 {
 	if (p->count)
 	{
@@ -2546,9 +2594,9 @@ void free_test_vector(test_vector* v)
 }
 
 /*
- * Frees additional_pins struct.
+ * Frees pin_names struct.
  */
-void free_additional_pins(additional_pins *p)
+void free_pin_name_list(pin_names *p)
 {
 	while (p->count--)
 		free(p->pins[p->count]);
