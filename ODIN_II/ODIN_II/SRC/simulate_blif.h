@@ -58,7 +58,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 typedef struct {
 	char **pins;
 	int   count;
-} additional_pins;
+} pin_names;
 
 typedef struct {
 	int number_of_pins;
@@ -93,7 +93,7 @@ typedef struct {
 
 void simulate_netlist(netlist_t *netlist);
 void simulate_cycle(int cycle, stages *s);
-stages *simulate_first_cycle(netlist_t *netlist, int cycle, additional_pins *p, lines_t *output_lines);
+stages *simulate_first_cycle(netlist_t *netlist, int cycle, pin_names *p, lines_t *output_lines);
 
 stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes);
 void free_stages(stages *s);
@@ -156,7 +156,7 @@ int count_test_vectors(FILE *in);
 int is_vector(char *buffer);
 int get_next_vector(FILE *file, char *buffer);
 test_vector *parse_test_vector(char *buffer);
-test_vector *generate_random_test_vector(lines_t *l, int cycle);
+test_vector *generate_random_test_vector(lines_t *l, int cycle, hashtable_t *hold_high_index, hashtable_t *hold_low_index);
 int compare_test_vectors(test_vector *v1, test_vector *v2);
 
 int verify_test_vector_headers(FILE *in, lines_t *l);
@@ -185,9 +185,10 @@ void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_
 
 int verify_output_vectors(char* output_vector_file, int num_test_vectors);
 
-void add_additional_pins_to_lines(nnode_t *node, additional_pins *p, lines_t *l);
-additional_pins *parse_additional_pins();
-void free_additional_pins(additional_pins *p);
+void add_additional_pins_to_lines(nnode_t *node, pin_names *p, lines_t *l);
+pin_names *parse_pin_name_list(char *list);
+void free_pin_name_list(pin_names *p);
+hashtable_t *index_pin_name_list(pin_names *list);
 
 void string_trim(char* string, char *chars);
 void string_reverse(char *token, int length);
