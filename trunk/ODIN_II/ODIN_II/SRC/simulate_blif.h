@@ -123,6 +123,7 @@ int line_has_unknown_pin(line_t *line, int cycle);
 
 int *multiply_arrays(int *a, int a_length, int *b, int b_length);
 void compute_single_port_memory(
+	nnode_t *node,
 	npin_t **data,
 	npin_t **out,
 	int data_width,
@@ -130,10 +131,10 @@ void compute_single_port_memory(
 	int addr_width,
 	int we,
 	int clock,
-	int cycle,
-	signed char *memory
+	int cycle
 );
 void compute_dual_port_memory(
+	nnode_t *node,
 	npin_t **data1,
 	npin_t **data2,
 	npin_t **out1,
@@ -145,12 +146,11 @@ void compute_dual_port_memory(
 	int we1,
 	int we2,
 	int posedge,
-	int cycle,
-	signed char *memory
+	int cycle
 );
 long compute_memory_address(npin_t **out, int data_width, npin_t **addr, int addr_width, int cycle);
-
-void instantiate_memory(nnode_t *node, signed char **memory, int data_width, int addr_width);
+void instantiate_memory(nnode_t *node, int data_width, int addr_width);
+char *get_mif_filename(nnode_t *node);
 
 int count_test_vectors(FILE *in);
 int is_vector(char *buffer);
@@ -167,10 +167,9 @@ int verify_lines(lines_t *l);
 void free_lines(lines_t *l);
 
 int find_portname_in_lines(char* port_name, lines_t *l);
-lines_t *create_input_test_vector_lines(netlist_t *netlist);
-lines_t *create_output_test_vector_lines(netlist_t *netlist);
+lines_t *create_test_vector_lines(netlist_t *netlist, int type);
 
-void store_test_vector_in_lines(test_vector *v, lines_t *l, int cycle);
+void add_test_vector_to_lines(test_vector *v, lines_t *l, int cycle);
 void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin);
 void insert_pin_into_line(npin_t *pin, int pin_number, line_t *line, int type);
 

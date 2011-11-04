@@ -357,10 +357,7 @@ ast_node_t *find_top_module()
  *-------------------------------------------------------------------------------------------*/
 void convert_ast_to_netlist_recursing_via_modules(ast_node_t* current_module, char *instance_name, int level)
 {
-	int i;
-	long sc_spot;
 	signal_list_t *list = NULL;
-	ast_node_t *parent_parameter_list;
 
 	/* BASE CASE is when there are no other instantiations of modules in this module */
 	if (current_module->types.module.size_module_instantiations == 0)
@@ -369,22 +366,21 @@ void convert_ast_to_netlist_recursing_via_modules(ast_node_t* current_module, ch
 	}
 	else
 	{
-		/* ELSE - we need to visit all the children before */ 	
+		/* ELSE - we need to visit all the children before */
+		int i;
 		for (i = 0; i < current_module->types.module.size_module_instantiations; i++)
 		{
-			char *temp_instance_name;
 			/* make the stringed up module instance name - instance name is MODULE_INSTANCE->MODULE_NAMED_INSTANCE(child[1])->IDENTIFIER(child[0]).  module name is MODULE_INSTANCE->IDENTIFIER(child[0]) */
-			temp_instance_name = make_full_ref_name(instance_name, current_module->types.module.module_instantiations_instance[i]->children[0]->types.identifier, current_module->types.module.module_instantiations_instance[i]->children[1]->children[0]->types.identifier, NULL, -1);
+			char *temp_instance_name = make_full_ref_name(instance_name, current_module->types.module.module_instantiations_instance[i]->children[0]->types.identifier, current_module->types.module.module_instantiations_instance[i]->children[1]->children[0]->types.identifier, NULL, -1);
 
-			printf("t%s\n", temp_instance_name);
-
+			long sc_spot;
 			/* lookup the name of the module associated with this instantiated point */
 			if ((sc_spot = sc_lookup_string(module_names_to_idx, current_module->types.module.module_instantiations_instance[i]->children[0]->types.identifier)) == -1)
 			{
 				error_message(NETLIST_ERROR, current_module->line_number, current_module->file_number, "Can't find module name %s\n", current_module->types.module.module_instantiations_instance[i]->children[0]->types.identifier);
 			}
 
-			parent_parameter_list = current_module->types.module.module_instantiations_instance[i]->children[1]->children[2];
+			ast_node_t *parent_parameter_list = current_module->types.module.module_instantiations_instance[i]->children[1]->children[2];
 			// create the parameter table for the instantiated module
 			create_param_table_for_module(parent_parameter_list,
 				/* module_items */
@@ -402,8 +398,7 @@ void convert_ast_to_netlist_recursing_via_modules(ast_node_t* current_module, ch
 		list = netlist_expand_ast_of_module(current_module, instance_name);
 	}
 
-	if (list != NULL)
-		clean_signal_list_structure(list);
+	if (list) clean_signal_list_structure(list);
 }
 
 /*---------------------------------------------------------------------------
