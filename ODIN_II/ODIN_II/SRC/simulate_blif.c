@@ -30,11 +30,11 @@ void simulate_netlist(netlist_t *netlist)
 	printf("Beginning simulation.\n"); fflush(stdout);
 
 	// Create and verify the lines.
-	lines_t *input_lines = create_input_test_vector_lines(netlist);
+	lines_t *input_lines = create_test_vector_lines(netlist, INPUT);
 	if (!verify_lines(input_lines))
 		error_message(SIMULATION_ERROR, 0, -1, "Input lines could not be assigned.");
 
-	lines_t *output_lines = create_output_test_vector_lines(netlist);
+	lines_t *output_lines = create_test_vector_lines(netlist, OUTPUT);
 	if (!verify_lines(output_lines))
 		error_message(SIMULATION_ERROR, 0, -1, "Output lines could not be assigned.");
 
@@ -134,7 +134,7 @@ void simulate_netlist(netlist_t *netlist)
 					}
 				}
 
-				store_test_vector_in_lines(v, input_lines, cycle);
+				add_test_vector_to_lines(v, input_lines, cycle);
 
 				if (!is_even_cycle(cycle))
 					free_test_vector(v);
@@ -1019,8 +1019,6 @@ void compute_memory_node(nnode_t *node, int cycle)
 	char *out_name1 = "out1";
 	char *out_name2 = "out2";
 
-
-
 	oassert(strcmp(node->related_ast_node->children[0]->types.identifier, SINGLE_PORT_MEMORY_NAME) == 0
 		|| strcmp(node->related_ast_node->children[0]->types.identifier, DUAL_PORT_MEMORY_NAME) == 0);
 
@@ -1061,10 +1059,11 @@ void compute_memory_node(nnode_t *node, int cycle)
 		}
 		out = node->output_pins;
 
-		if (node->type == MEMORY && !node->memory_data)
-			instantiate_memory(node, &(node->memory_data), data_width, addr_width);
+		if (!node->memory_data)
+			instantiate_memory(node, data_width, addr_width);
 
 		compute_single_port_memory(
+			node,
 			data,
 			out,
 			data_width,
@@ -1072,8 +1071,7 @@ void compute_memory_node(nnode_t *node, int cycle)
 			addr_width,
 			we,
 			posedge,
-			cycle,
-			node->memory_data
+			cycle
 		);
 	}
 	else
@@ -1145,16 +1143,17 @@ void compute_memory_node(nnode_t *node, int cycle)
 			}
 		}
 
-		if (!node->memory_data)
-			instantiate_memory(node, &(node->memory_data), data_width2, addr_width2);
-
 		if (addr_width1 != addr_width2)
 			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory addresses are not the same width.");
 
 		if (data_width1 != data_width2)
 			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory data ports are not the same width.");
 
+		if (!node->memory_data)
+			instantiate_memory(node, data_width2, addr_width2);
+
 		compute_dual_port_memory(
+			node,
 			data1,
 			data2,
 			out1,
@@ -1166,8 +1165,7 @@ void compute_memory_node(nnode_t *node, int cycle)
 			we1,
 			we2,
 			posedge,
-			cycle,
-			node->memory_data
+			cycle
 		);
 	}
 }
@@ -1324,6 +1322,7 @@ int *multiply_arrays(int *a, int a_length, int *b, int b_length)
  * Computes single port memory.
  */
 void compute_single_port_memory(
+	nnode_t *node,
 	npin_t **data,
 	npin_t **out,
 	int data_width,
@@ -1331,27 +1330,26 @@ void compute_single_port_memory(
 	int addr_width,
 	int we,
 	int posedge,
-	int cycle,
-	signed char *memory
+	int cycle
 )
 {
 	long address = compute_memory_address(out, data_width, addr, addr_width, cycle);
 
-	int address_ok = (address != -1)?1:0;
+	char address_ok = (address != -1)?1:0;
 
 	// Read (and write if we) data to memory.
 	int i;
 	for (i = 0; i < data_width; i++)
 	{	// Compute which bit we are addressing.
-		long long bit_address = address_ok?(i + (address * data_width)):-1;
+		long bit_address = address_ok?(i + (address * data_width)):-1;
 
 		// Update the output.
 		if (!posedge)
 		{
-			if (address_ok) update_pin_value(out[i], memory[bit_address], cycle);
+			if (address_ok) update_pin_value(out[i], node->memory_data[bit_address], cycle);
 
 			// If write is enabled, copy the input to memory.
-			if (address_ok && we) memory[bit_address] = get_pin_value(data[i],cycle);
+			if (address_ok && we) node->memory_data[bit_address] = get_pin_value(data[i],cycle);
 		}
 		else
 		{
@@ -1364,6 +1362,7 @@ void compute_single_port_memory(
  * Computes dual port memory.
  */
 void compute_dual_port_memory(
+	nnode_t *node,
 	npin_t **data1,
 	npin_t **data2,
 	npin_t **out1,
@@ -1375,31 +1374,30 @@ void compute_dual_port_memory(
 	int we1,
 	int we2,
 	int posedge,
-	int cycle,
-	signed char *memory
+	int cycle
 )
 {
 	long address1 = compute_memory_address(out1, data_width, addr1, addr_width, cycle);
 	long address2 = compute_memory_address(out2, data_width, addr2, addr_width, cycle);
 
-	int port1 = (address1 != -1)?1:0;
-	int port2 = (address2 != -1)?1:0;
+	char port1 = (address1 != -1)?1:0;
+	char port2 = (address2 != -1)?1:0;
 
 	// Read (and write if we) data to memory.
 	int i;
 	for (i = 0; i < data_width; i++)
 	{	// Compute which bit we are addressing.
-		long long bit_address1 = port1?(i + (address1 * data_width)):-1;
-		long long bit_address2 = port2?(i + (address2 * data_width)):-1;
+		long bit_address1 = port1?(i + (address1 * data_width)):-1;
+		long bit_address2 = port2?(i + (address2 * data_width)):-1;
 
 		// Update the output.
 		if (!posedge)
 		{
-			if (port1) update_pin_value(out1[i], memory[bit_address1], cycle);
-			if (port2) update_pin_value(out2[i], memory[bit_address2], cycle);
+			if (port1) update_pin_value(out1[i], node->memory_data[bit_address1], cycle);
+			if (port2) update_pin_value(out2[i], node->memory_data[bit_address2], cycle);
 
-			if (port1 && we1) memory[bit_address1] = get_pin_value(data1[i],cycle);
-			if (port2 && we2) memory[bit_address2] = get_pin_value(data2[i],cycle);
+			if (port1 && we1) node->memory_data[bit_address1] = get_pin_value(data1[i],cycle);
+			if (port2 && we2) node->memory_data[bit_address2] = get_pin_value(data2[i],cycle);
 		}
 		else
 		{
@@ -1441,68 +1439,64 @@ long compute_memory_address(npin_t **out, int data_width, npin_t **addr, int add
  * file is found, it is initialised to x's.
  */
 // TODO: This obviously won't work with mif files, as it doesn't even write the values to the memory.
-void instantiate_memory(nnode_t *node, signed char **memory, int data_width, int addr_width)
+void instantiate_memory(nnode_t *node, int data_width, int addr_width)
 {
-	char *filename = node->name;
-	char *input = (char *)malloc(sizeof(char)*BUFFER_MAX_SIZE);
-	long long int max_address = my_power(2, addr_width);
+	long max_address = 1 << addr_width;
+	node->memory_data = malloc(sizeof(signed char) * max_address * data_width);
 
-	*memory = malloc(sizeof(signed char)*max_address*data_width);
 	// Initialise the memory to -1.
 	int i;
 	for (i = 0; i < max_address * data_width; i++)
-		(*memory)[i] = -1;
+		node->memory_data[i] = -1;
 
-	filename = strrchr(filename, '+') + 1;
-	strcat(filename, ".mif");
-	if (!filename)
-		error_message(SIMULATION_ERROR, 0, -1, "Couldn't parse node name");
-
+	char *filename = get_mif_filename(node);
 	FILE *mif = fopen(filename, "r");
 	if (!mif)
 	{
 		warning_message(SIMULATION_ERROR, 0, -1, "Couldn't open MIF file %s",filename);
-		return;
 	}
-
-	error_message(SIMULATION_ERROR, 0, -1, "MIF file support is current broken and needs developer attention.");
-
-	while (fgets(input, BUFFER_MAX_SIZE, mif))
-		if (strcmp(input, "Content\n") == 0)
-			break;
-
-	while (fgets(input, BUFFER_MAX_SIZE, mif))
+	else
 	{
-		char *addr = malloc(sizeof(char)*BUFFER_MAX_SIZE);
-		char *data = malloc(sizeof(char)*BUFFER_MAX_SIZE);
+		error_message(SIMULATION_ERROR, 0, -1, "MIF file support is current broken and needs developer attention.");
 
-		if (!(strcmp(input, "Begin\n") == 0 || strcmp(input, "End;") == 0 || strcmp(input, "End;\n") == 0))
+		char input[BUFFER_MAX_SIZE];
+		while (fgets(input, BUFFER_MAX_SIZE, mif))
+			if (strcmp(input, "Content\n") == 0)
+				break;
+
+		while (fgets(input, BUFFER_MAX_SIZE, mif))
 		{
-			char *colon = strchr(input, ':');
+			char *addr = malloc(sizeof(char)*BUFFER_MAX_SIZE);
+			char *data = malloc(sizeof(char)*BUFFER_MAX_SIZE);
 
-			strncpy(addr, input, (colon-input));
-			colon += 2;
-
-			char *semicolon = strchr(input, ';');
-			strncpy(data, colon, (semicolon-colon));
-
-			long long int addr_val = strtol(addr, 0, 10);
-			long long int data_val = strtol(data, 0, 16);
-
-			int i;
-			for (i = 0; i < data_width; i++)
+			if (!(strcmp(input, "Begin\n") == 0 || strcmp(input, "End;") == 0 || strcmp(input, "End;\n") == 0))
 			{
-				int mask = (1 << ((data_width - 1) - i));
-				signed char val = (mask & data_val) > 0 ? 1 : 0;
-				int write_address = i + (addr_val * data_width);
-				// TODO: This is obviously incorrect, as it's writing the value to a small char buffer which isn't connected to the memory.
-				data[write_address] = val;
+				char *colon = strchr(input, ':');
+
+				strncpy(addr, input, (colon-input));
+				colon += 2;
+
+				char *semicolon = strchr(input, ';');
+				strncpy(data, colon, (semicolon-colon));
+
+				long addr_val = strtol(addr, 0, 10);
+				long data_val = strtol(data, 0, 16);
+
+				int i;
+				for (i = 0; i < data_width; i++)
+				{
+					int mask = (1 << ((data_width - 1) - i));
+					signed char val = (mask & data_val) > 0 ? 1 : 0;
+					int write_address = i + (addr_val * data_width);
+					// TODO: This is obviously incorrect, as it's writing the value to a small char buffer which isn't connected to the memory.
+					data[write_address] = val;
+				}
 			}
 		}
+		fclose(mif);
 	}
-	fclose(mif);
+	free(filename);
 }
-
 
 
 /*
@@ -1511,6 +1505,7 @@ void instantiate_memory(nnode_t *node, signed char **memory, int data_width, int
  */
 void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 {
+	// Make sure the node has an output pin.
 	if (!node->num_output_pins)
 	{
 		npin_t *pin = allocate_npin();
@@ -1518,6 +1513,7 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 		add_a_output_pin_to_node_spot_idx(node, pin, 0);
 	}
 
+	// Parse the node name into a pin number and a port name.
 	int pin_number = get_pin_number(node->name);
 	char *port_name;
 	if (pin_number != -1 && !single_pin) {
@@ -1527,15 +1523,15 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 		port_name = get_pin_name(node->name);
 		single_pin = TRUE;
 	}
-
+	// Search the lines for the port name.
 	int j = find_portname_in_lines(port_name, l);
+	free(port_name);
 
 	if (single_pin)
-	{	// Treat the pin as a lone single pin.
+	{
 		if (j == -1)
 		{
-			//if (!(node->type == GND_NODE || node->type == VCC_NODE || node->type == PAD_NODE || is_clock_node(node)))
-				warning_message(SIMULATION_ERROR, 0, -1, "Could not map single-bit top-level input node '%s' to input vector", node->name);
+			warning_message(SIMULATION_ERROR, 0, -1, "Could not map single-bit top-level input node '%s' to input vector", node->name);
 		}
 		else
 		{
@@ -1546,17 +1542,13 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 		}
 	}
 	else
-	{	// Treat the pin as part of a multi-pin port.
+	{
 		if (j == -1)
-		{
 			warning_message(SIMULATION_ERROR, 0, -1, "Could not map multi-bit top-level input node '%s' to input vector", node->name);
-		}
 		else
-		{
 			insert_pin_into_line(node->output_pins[0], pin_number, l->lines[j], type);
-		}
 	}
-	free(port_name);
+
 }
 
 /*
@@ -1564,20 +1556,14 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
  */
 void insert_pin_into_line(npin_t *pin, int pin_number, line_t *line, int type)
 {
-	line->pins        = realloc(line->pins,        sizeof(npin_t*)* (line->number_of_pins + 1));
-	line->pin_numbers = realloc(line->pin_numbers, sizeof(npin_t*)* (line->number_of_pins + 1));
-
-	int ascending = 1;
+	line->pins        = realloc(line->pins,        sizeof(npin_t*) * (line->number_of_pins + 1));
+	line->pin_numbers = realloc(line->pin_numbers, sizeof(npin_t*) * (line->number_of_pins + 1));
 
 	// Find the proper place to insert this pin, and make room for it.
 	int i;
 	for (i = 0; i < line->number_of_pins; i++)
 	{
-		if
-		(
-				    (ascending && (line->pin_numbers[i] > pin_number))
-				|| (!ascending && (line->pin_numbers[i] < pin_number))
-		)
+		if (line->pin_numbers[i] > pin_number)
 		{
 			// Move other pins to the right to make room.
 			int j;
@@ -1596,22 +1582,28 @@ void insert_pin_into_line(npin_t *pin, int pin_number, line_t *line, int type)
 	line->number_of_pins++;
 }
 
-
 /*
  * Given a netlist, this function maps the top_input_nodes
- * to a line_t* each. It stores them in a lines_t struct.
+ * or top_output_nodes depending on the value of type
+ * (INPUT or OUTPUT) to a line_t each. It stores them in a
+ * lines_t struct and returns a pointer to it.
  */
-lines_t *create_input_test_vector_lines(netlist_t *netlist)
+lines_t *create_test_vector_lines(netlist_t *netlist, int type)
 {
 	lines_t *l = malloc(sizeof(lines_t));
 	l->lines = 0;
 	l->count = 0;
-	int i; 	
-	for (i = 0; i < netlist->num_top_input_nodes; i++)
+
+	int num_nodes   = (type == INPUT)?netlist->num_top_input_nodes:netlist->num_top_output_nodes;
+	nnode_t **nodes = (type == INPUT)?netlist->top_input_nodes    :netlist->top_output_nodes;
+
+	int i;
+	for (i = 0; i < num_nodes; i++)
 	{
-		nnode_t *node = netlist->top_input_nodes[i];
+		nnode_t *node = nodes[i];
 		char *port_name = get_port_name(node->name);
-		if (!is_clock_node(node))
+
+		if (type == OUTPUT || !is_clock_node(node))
 		{
 			if (find_portname_in_lines(port_name, l) == -1)
 			{
@@ -1619,34 +1611,8 @@ lines_t *create_input_test_vector_lines(netlist_t *netlist)
 				l->lines = realloc(l->lines, sizeof(line_t *)*(l->count + 1));
 				l->lines[l->count++] = line;
 			}
-			assign_node_to_line(node, l, INPUT, 0);
+			assign_node_to_line(node, l, type, 0);
 		}
-		free(port_name);
-	}
-	return l;
-}
-
-/*
- * Given a netlist, this function maps the top_output_nodes
- * to a line_t* each. It stores them in a lines_t struct.
- */
-lines_t *create_output_test_vector_lines(netlist_t *netlist)
-{
-	lines_t *l = malloc(sizeof(lines_t));
-	l->lines = 0;
-	l->count = 0;
-	int i; 
-	for (i = 0; i < netlist->num_top_output_nodes; i++)
-	{
-		nnode_t *node = netlist->top_output_nodes[i];
-		char *port_name = get_port_name(node->name);
-		if (find_portname_in_lines(port_name, l) == -1)
-		{
-			line_t *line = create_line(port_name);
-			l->lines = realloc(l->lines, sizeof(line_t *)*(l->count + 1));
-			l->lines[l->count++] = line;
-		}
-		assign_node_to_line(node, l, OUTPUT, 0);
 		free(port_name);
 	}
 	return l;
@@ -1785,12 +1751,16 @@ line_t *create_line(char *name)
  */
 char *generate_vector_header(lines_t *l)
 {
-	char *header = calloc(BUFFER_MAX_SIZE, sizeof(char *));
+	char *header = calloc(BUFFER_MAX_SIZE, sizeof(char));
 	if (l->count)
 	{
 		int j;
 		for (j = 0; j < l->count; j++)
 		{
+			// "+ 2" for null and newline/space.
+			if ((strlen(header) + strlen(l->lines[j]->name) + 2) > BUFFER_MAX_SIZE)
+				error_message(SIMULATION_ERROR, 0, -1, "Buffer overflow anticipated while generating vector header.");
+
 			strcat(header,l->lines[j]->name);
 			strcat(header," ");
 		}
@@ -1800,6 +1770,7 @@ char *generate_vector_header(lines_t *l)
 	{
 		header[0] = '\n';
 	}
+	header = realloc(header, sizeof(char)*(strlen(header)+1));
 	return header;
 }
 
@@ -1807,7 +1778,7 @@ char *generate_vector_header(lines_t *l)
  * Stores the given test vector in the given lines, with some sanity checking to ensure that it
  * has a compatible geometry.
  */
-void store_test_vector_in_lines(test_vector *v, lines_t *l, int cycle)
+void add_test_vector_to_lines(test_vector *v, lines_t *l, int cycle)
 {
 	if (l->count < v->count) 
 		error_message(SIMULATION_ERROR, 0, -1, "Fewer lines (%d) than values (%d).", l->count, v->count);
@@ -2006,12 +1977,11 @@ void write_wave_to_file(lines_t *l, FILE* file, int cycle_offset, int wave_lengt
  */
 void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 {
+	char buffer[BUFFER_MAX_SIZE];
 	int first = TRUE;
 	int i; 
 	for (i = 0; i < l->count; i++)
 	{
-		char buffer[BUFFER_MAX_SIZE];
-
 		if (first) first = FALSE;
 		else       fprintf(file, " ");
 
@@ -2350,6 +2320,22 @@ void add_additional_pins_to_lines(nnode_t *node, pin_names *p, lines_t *l)
 			}
 		}
 	}
+}
+
+/*
+ * Parses the given (memory) node name into a corresponding
+ * mif file name.
+ */
+char *get_mif_filename(nnode_t *node)
+{
+	char buffer[BUFFER_MAX_SIZE];
+	strcat(buffer, node->name);
+
+	char *filename = strrchr(buffer, '+') + 1;
+	strcat(filename, ".mif");\
+
+	filename = strdup(filename);
+	return filename;
 }
 
 /*
