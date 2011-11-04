@@ -654,8 +654,13 @@ void compute_and_store_value(nnode_t *node, int cycle)
 
 				// If the pin comes from an "else" condition or a case "default" condition,
 				// we favour it in the case where there are unknowns.
-				if (node->input_pins[i]->is_default)
+				if (
+						  (node->related_ast_node->type == IF || node->related_ast_node->type == CASE)
+						&& node->input_pins[i]->is_default
+				)
+				{
 					default_select = i;
+				}
 			}
 
 			if (unknown && default_select >= 0)
@@ -667,7 +672,12 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			// If any select pin is unknown, we take the value from the previous cycle.
 			if (unknown)
 			{
-				update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0], cycle-1), cycle);
+				// Conform to ModelSim's behaviour where in-line ifs are concerned.
+				if (node->related_ast_node->type == IF_Q)
+					update_pin_value(node->output_pins[0], -1, cycle);
+				else
+					update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0], cycle-1), cycle);
+
 			}
 			// If no selection is made (all 0) we output x.
 			else if (select < 0)
