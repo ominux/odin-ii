@@ -188,7 +188,7 @@ void simulate_netlist(netlist_t *netlist)
 
 		fflush(out); 
 
-		fprintf(modelsim_out, "run %d\n", (num_test_vectors*100) + 100);
+		fprintf(modelsim_out, "run %d\n", num_test_vectors*100);
 
 		printf("\n");
 		// If a second output vector file was given via the -T option, verify that it matches.
@@ -227,21 +227,10 @@ void simulate_cycle(int cycle, stages *s)
 	{
 		int j;
 		#ifdef _OPENMP
-		if (s->counts[i] < SIM_PARALLEL_THRESHOLD)
+		#pragma omp parallel for if (s->counts[i] < SIM_PARALLEL_THRESHOLD)
 		#endif
-		{
-			for (j = 0; j < s->counts[i]; j++)
-				compute_and_store_value(s->stages[i][j], cycle);
-
-		}
-		#ifdef _OPENMP
-		else
-		{
-			#pragma omp parallel for
-			for (j = 0; j < s->counts[i]; j++)
-				compute_and_store_value(s->stages[i][j], cycle);
-		}
-		#endif
+		for (j = 0; j < s->counts[i]; j++)
+			compute_and_store_value(s->stages[i][j], cycle);
 	}
 }
 
