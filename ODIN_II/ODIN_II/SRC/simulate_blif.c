@@ -227,7 +227,7 @@ void simulate_cycle(int cycle, stages *s)
 	{
 		int j;
 		#ifdef _OPENMP
-		#pragma omp parallel for if (s->counts[i] < SIM_PARALLEL_THRESHOLD)
+		#pragma omp parallel for if (s->counts[i] >= SIM_PARALLEL_THRESHOLD)
 		#endif
 		for (j = 0; j < s->counts[i]; j++)
 			compute_and_store_value(s->stages[i][j], cycle);
