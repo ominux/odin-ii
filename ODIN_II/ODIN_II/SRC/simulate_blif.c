@@ -1931,12 +1931,12 @@ test_vector *generate_random_test_vector(lines_t *l, int cycle, hashtable_t *hol
 		{
 			char *name = l->lines[i]->name;
 			signed char value;
-			if (hold_high_index->get(hold_high_index,name,sizeof(char)*strlen(name)))
+			if      (hold_high_index->count && hold_high_index->get(hold_high_index,name,sizeof(char)*strlen(name)))
 			{
 				if (!cycle) value = 0;
 				else        value = 1;
 			}
-			else if (hold_low_index->get(hold_low_index,name,sizeof(char)*strlen(name)))
+			else if (hold_low_index->count  && hold_low_index->get(hold_low_index,name,sizeof(char)*strlen(name)))
 			{
 				if (!cycle) value = 1;
 				else        value = 0;
