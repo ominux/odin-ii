@@ -964,7 +964,6 @@ nnet_t* define_nets_with_driver(ast_node_t* var_declare, char *instance_name_pre
 
 		/* FOR array driver  since sport 3 and 4 are NULL */
 		oassert((node_max->type == NUMBERS) && (node_min->type == NUMBERS)) ;
-		
 		/* This register declaration is a range as opposed to a single bit so we need to define each element */
 		/* assume digit 1 is largest */
 		for (i = node_min->types.number.value; i <= node_max->types.number.value; i++)

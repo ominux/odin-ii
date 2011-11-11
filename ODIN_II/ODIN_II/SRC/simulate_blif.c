@@ -2184,12 +2184,12 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 				// Compare them and print an appropriate message if they differ.
 				if (!compare_test_vectors(v1,v2))
 				{
+					string_trim(buffer1, "\n\t");
+					string_trim(buffer2, "\n\t");
 					error = TRUE;
-					warning_message(SIMULATION_ERROR, 0, -1, "Cycle %d mismatch: \n"
-							"\t%s"
-							"in %s does not match\n"
-							"\t%s"
-							"in %s.\n\n",
+					warning_message(SIMULATION_ERROR, 0, -1, "Cycle %d mismatch:\n"
+							"\t%s in %s\n"
+							"\t%s in %s\n",
 							cycle, buffer2, OUTPUT_VECTOR_FILE_NAME, buffer1, output_vector_file
 					);
 				}
@@ -2462,23 +2462,6 @@ char *vector_value_to_hex(signed char *value, int length)
 	free(string);
 
 	return hex_string;
-}
-
-/*
- * Reverses the given string.
- */
-void string_reverse(char *string, int length)
-{
-	int i = 0;
-	int j = length - 1;
-	while(i < j)
-	{
-		char temp = string[i];
-		string[i] = string [j];
-		string[j] = temp;
-		i++;
-		j--;
-	}
 }
 
 /*

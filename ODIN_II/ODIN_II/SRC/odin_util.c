@@ -26,6 +26,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <limits.h>
 #include "types.h"
 #include "globals.h"
 #include "errors.h"
@@ -116,7 +117,7 @@ char *twos_complement(char *str)
  * (function: convert_int_to_bit_string)
  * Outputs a string msb to lsb.  For example, 3 becomes "011"
  *-------------------------------------------------------------------------------------------*/
-char *convert_long_to_bit_string(long long orig_long, int num_bits)
+char *convert_long_long_to_bit_string(long long orig_long, int num_bits)
 {
 	int i;
 	char *return_val = (char*)malloc(sizeof(char)*(num_bits+1));
@@ -144,119 +145,209 @@ char *convert_long_to_bit_string(long long orig_long, int num_bits)
  *-------------------------------------------------------------------------------------------*/
 long long convert_dec_string_of_size_to_long(char *orig_string, int size)
 {
-	int i;
-	long long return_value = 0;
-	long long current_base_value = 1;
-	char temp[2];
+	if (!is_decimal_string(orig_string))
+		error_message(PARSE_ERROR, -1, -1, "Invalid decimal number: %s.\n", orig_string);
 
-	if (strlen(orig_string) > 19)
+	long long number = strtoll(orig_string, NULL, 10);
+
+	if (number == LLONG_MAX || number == LLONG_MIN)
 	{
 		/* greater than our bit capacity so not a constant 64 bits */
 		error_message(PARSE_ERROR, -1, -1, "This suspected decimal number (%s) is too long for Odin\n", orig_string);
 	}
 
-	for (i = strlen(orig_string)-1; i > -1; i--)
-	{
-		if (isdigit(orig_string[i]))
-		{
-			sprintf(temp, "%c", orig_string[i]);
-			return_value += (long long)(atoi(temp) * current_base_value);
-		}
-		else
-		{
-			error_message(PARSE_ERROR, -1, -1, "This suspected decimal number (%s) is not\n", orig_string);
-		}
-		current_base_value *= 10;
-	}
-	
-	return return_value;
+	return number;
 }
 
 /*---------------------------------------------------------------------------------------------
  * (function: convert_hex_string_of_size_to_int)
  *-------------------------------------------------------------------------------------------*/
-long long convert_hex_string_of_size_to_long(char *orig_string, int size)
+char *convert_hex_string_of_size_to_bit_string(char *orig_string, int binary_size)
 {
-	if (strlen(orig_string) > 16)
+	if (!is_hex_string(orig_string))
+		error_message(PARSE_ERROR, -1, -1, "Invalid hex number: %s.\n", orig_string);
+
+	char *bit_string = calloc(1,sizeof(char));
+	char *string     = strdup(orig_string);
+
+	int size = strlen(string);
+
+	string_reverse(string, size);
+
+	int count = 0;
+	int i;
+	for (i = 0; i < size; i++)
 	{
-		/* greater than our bit capacity so not a constant */
-		error_message(PARSE_ERROR, -1, -1, "This suspected hex number (%s) is too long for Odin\n", orig_string);
+		char temp[] = {string[i],'\0'};
+
+		unsigned long value = strtoul(temp, NULL, 16);
+		int k;
+		for (k = 0; k < 4; k++)
+		{
+			char bit = value % 2;
+			value /= 2;
+			bit_string = realloc(bit_string, sizeof(char) * (count + 2));
+			bit_string[count++] = '0' + bit;
+			bit_string[count]   = '\0';
+		}
 	}
 
-	return strtol(orig_string, NULL, 16);
+	// Pad with zeros to binary_size.
+	while (count < binary_size)
+	{
+		bit_string = realloc(bit_string, sizeof(char) * (count + 2));
+		bit_string[count++] = '0';
+		bit_string[count]   = '\0';
+	}
+
+	string_reverse(bit_string, count);
+
+	free(string);
+	return bit_string;
 }
 
 /*---------------------------------------------------------------------------------------------
  * (function: convert_oct_string_of_size_to_int)
  *-------------------------------------------------------------------------------------------*/
-long long convert_oct_string_of_size_to_long(char *orig_string, int size)
+char *convert_oct_string_of_size_to_bit_string(char *orig_string, int binary_size)
 {
+	if (!is_octal_string(orig_string))
+		error_message(PARSE_ERROR, -1, -1, "Invalid octal number: %s.\n", orig_string);
+
+	char *bit_string = calloc(1,sizeof(char));
+	char *string     = strdup(orig_string);
+
+	int size = strlen(string);
+
+	string_reverse(string, size);
+
+	int count = 0;
 	int i;
-	long long return_value = 0;
-	long long current_base_value = 1;
-	char temp[2];
-
-	if (strlen(orig_string) > 21)
+	for (i = 0; i < size; i++)
 	{
-		/* greater than our bit capacity so not a constant */
-		error_message(PARSE_ERROR, -1, -1, "This suspected octal number (%s) is too long for Odin\n", orig_string);
+		char temp[] = {string[i],'\0'};
+
+		unsigned long value = strtoul(temp, NULL, 8);
+		int k;
+		for (k = 0; k < 3; k++)
+		{
+			char bit = value % 2;
+			value /= 2;
+			bit_string = realloc(bit_string, sizeof(char) * (count + 2));
+			bit_string[count++] = '0' + bit;
+			bit_string[count]   = '\0';
+		}
 	}
 
-	for (i = strlen(orig_string)-1; i > -1; i--)
+	// Pad with zeros to binary_size.
+	while (count < binary_size)
 	{
-		if (isdigit(orig_string[i]))
-		{
-			oassert(atoi(temp) < 8);
-			sprintf(temp, "%c", orig_string[i]);
-			return_value += (long long)(atoi(temp) * current_base_value);
-		}
-		else
-		{
-			error_message(PARSE_ERROR, -1, -1, "This suspected oct number (%s) is not\n", orig_string);
-		}
-		current_base_value *= 8;
+		bit_string = realloc(bit_string, sizeof(char) * (count + 2));
+		bit_string[count++] = '0';
+		bit_string[count]   = '\0';
 	}
-	
-	return return_value;
+
+	string_reverse(bit_string, count);
+
+	free(string);
+	return bit_string;
 }
 
 /*---------------------------------------------------------------------------------------------
  * (function: convert_binary_string_of_size_to_int)
  *-------------------------------------------------------------------------------------------*/
-long long convert_binary_string_of_size_to_long(char *orig_string, int size)
+char *convert_binary_string_of_size_to_bit_string(char *orig_string, int binary_size)
+{
+	if (!is_binary_string(orig_string))
+		error_message(PARSE_ERROR, -1, -1, "Invalid binary number: %s.\n", orig_string);
+
+	char *bit_string = calloc(1,sizeof(char));
+	char *string     = strdup(orig_string);
+
+	int size = strlen(string);
+
+	string_reverse(string, size);
+
+	int count = 0;
+	int i;
+	for (i = 0; i < size; i++)
+	{
+		bit_string = realloc(bit_string, sizeof(char) * (count + 2));
+		bit_string[count++] = string[i];
+		bit_string[count]   = '\0';
+	}
+
+	// Pad with zeros to binary_size.
+	while (count < binary_size)
+	{
+		bit_string = realloc(bit_string, sizeof(char) * (count + 2));
+		bit_string[count++] = '0';
+		bit_string[count]   = '\0';
+	}
+
+	string_reverse(bit_string, count);
+
+	free(string);
+	return bit_string;
+}
+
+int is_hex_string(char *string)
 {
 	int i;
-	long long return_value = 0;
-	long long current_base_value = 1;
-	char temp[2];
-
-	if (strlen(orig_string) > 63)
+	for (i = 0; i < strlen(string); i++)
 	{
-		/* greater than our bit capacity so not a constant */
-		error_message(PARSE_ERROR, -1, -1, "This suspected binary number (%s) is too long for Odin\n", orig_string);
-	}
+		if (!(
+				   (string[i] >= '0' && string[i] <= '9')
+				|| (tolower(string[i]) >= 'a' && tolower(string[i]) <= 'f')
+		))
+		{
+			return FALSE;
+		}
 
-	for (i = strlen(orig_string)-1; i > -1; i--)
-	{
-		if ((tolower(orig_string[i]) == 'x') || (tolower(orig_string[i]) == 'z'))
-		{
-			/* this can't be converted to a decimal value */
-			error_message(PARSE_ERROR, -1, -1, "This suspected binary number (%s) contains x's or z's which are not supported by Odin.\n", orig_string);
-		}
-		else if (isdigit(orig_string[i]))
-		{
-			sprintf(temp, "%c", orig_string[i]);
-			oassert(atoi(temp) < 2);
-			return_value += (long long)(atoi(temp) * current_base_value);
-		}
-		else
-		{
-			error_message(PARSE_ERROR, -1, -1, "This suspected binary number (%s) is not\n", orig_string);
-		}
-		current_base_value *= 2;
 	}
-	
-	return return_value;
+	return TRUE;
+}
+
+int is_decimal_string(char *string)
+{
+	int i;
+	for (i = 0; i < strlen(string); i++)
+	{
+		if (!(string[i] >= '0' && string[i] <= '9'))
+		{
+			return FALSE;
+		}
+
+	}
+	return TRUE;
+}
+
+int is_octal_string(char *string)
+{
+	int i;
+	for (i = 0; i < strlen(string); i++)
+	{
+		if (!(string[i] >= '0' && string[i] <= '7'))
+		{
+			return FALSE;
+		}
+
+	}
+	return TRUE;
+}
+
+int is_binary_string(char *string)
+{
+	int i;
+	for (i = 0; i < strlen(string); i++)
+	{
+		if (!(string[i] >= '0' && string[i] <= '1'))
+		{
+			return FALSE;
+		}
+
+	}
+	return TRUE;
 }
 
 /*---------------------------------------------------------------------------------------------
@@ -335,8 +426,8 @@ void *my_malloc_struct(int bytes_to_alloc)
         void *allocated = NULL;
         static long int m_id = 0;
 
-	// ways to stop the execution at the point when a specific structure is built...note it needs to be m_id - 1 ... it's unique_id in most data structures
-//	oassert(m_id != 7);
+        // ways to stop the execution at the point when a specific structure is built...note it needs to be m_id - 1 ... it's unique_id in most data structures
+        //	oassert(m_id != 7);
 
         allocated = malloc(bytes_to_alloc);
         if(allocated == NULL) 
@@ -345,7 +436,7 @@ void *my_malloc_struct(int bytes_to_alloc)
                 oassert (0);
         }
 
-	/* mark the unique_id */
+        /* mark the unique_id */
         *((long int*)allocated) = m_id; 
 
         m_id++;
@@ -367,3 +458,21 @@ long long int pow2(int to_the_power)
 
 	return return_val;
 }
+
+/*
+ * Reverses the given string.
+ */
+void string_reverse(char *string, int length)
+{
+	int i = 0;
+	int j = length - 1;
+	while(i < j)
+	{
+		char temp = string[i];
+		string[i] = string [j];
+		string[j] = temp;
+		i++;
+		j--;
+	}
+}
+

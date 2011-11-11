@@ -487,7 +487,7 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 			{
 				if ((i % 8 == 1) || (i % 8 == 2) || (i % 8 == 4) || (i % 8 == 7))
 				{
-					temp_string = convert_long_to_bit_string(i, node->num_input_pins);
+					temp_string = convert_long_long_to_bit_string(i, node->num_input_pins);
 					fprintf(out, "%s", temp_string);
 					free(temp_string);
 					fprintf(out, " 1\n");
@@ -503,7 +503,7 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 			{
 				if ((i % 8 == 0) || (i % 8 == 3) || (i % 8 == 5) || (i % 8 == 6))
 				{
-					temp_string = convert_long_to_bit_string(i, node->num_input_pins);
+					temp_string = convert_long_long_to_bit_string(i, node->num_input_pins);
 					fprintf(out, "%s", temp_string);
 					free(temp_string);
 					fprintf(out, " 1\n");

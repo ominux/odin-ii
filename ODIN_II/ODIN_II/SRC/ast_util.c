@@ -192,7 +192,7 @@ ast_node_t *create_tree_node_long_long_number(long long number, int constant_bit
 	oassert (ceil((log(number+1))/log(2)) <= constant_bit_size);
 	new_node->types.number.binary_size = constant_bit_size;
 
-	new_node->types.number.binary_string = convert_long_to_bit_string(number, new_node->types.number.binary_size);
+	new_node->types.number.binary_string = convert_long_long_to_bit_string(number, new_node->types.number.binary_size);
 	if (flag == 1)
 		twos_complement(new_node->types.number.binary_string);
 
@@ -291,20 +291,27 @@ ast_node_t *create_tree_node_number(char* number, int line_number, int file_numb
 	switch (new_node->types.number.base)
 	{
 		case(DEC):
+			// This will have limited width.
 			new_node->types.number.value = convert_dec_string_of_size_to_long(new_node->types.number.number, new_node->types.number.size);
-			new_node->types.number.binary_string = convert_long_to_bit_string(new_node->types.number.value, new_node->types.number.binary_size);
+			new_node->types.number.binary_string = convert_long_long_to_bit_string(new_node->types.number.value, new_node->types.number.binary_size);
 			break;
 		case(HEX):
-			new_node->types.number.value = convert_hex_string_of_size_to_long(new_node->types.number.number, strlen(new_node->types.number.number));
-			new_node->types.number.binary_string = convert_long_to_bit_string(new_node->types.number.value, new_node->types.number.binary_size);
+			new_node->types.number.binary_size *= 4;
+			new_node->types.number.value = strtoll(new_node->types.number.number,NULL,16); // This will have limited width.
+			// This will have full width.
+			new_node->types.number.binary_string = convert_hex_string_of_size_to_bit_string(new_node->types.number.number, new_node->types.number.binary_size);
 			break;
 		case(OCT):
-			new_node->types.number.value = convert_oct_string_of_size_to_long(new_node->types.number.number, strlen(new_node->types.number.number)); 
-			new_node->types.number.binary_string = convert_long_to_bit_string(new_node->types.number.value, new_node->types.number.binary_size);
+			new_node->types.number.binary_size *= 3;
+			new_node->types.number.value = strtoll(new_node->types.number.number,NULL,8); // This will have limited width.
+			// This will have full width.
+			new_node->types.number.binary_string = convert_oct_string_of_size_to_bit_string(new_node->types.number.number, new_node->types.number.binary_size);
 			break;
 		case(BIN):
-			new_node->types.number.value = convert_binary_string_of_size_to_long(new_node->types.number.number,  strlen(new_node->types.number.number));// a -1 is in case of x or z's
-			new_node->types.number.binary_string = convert_long_to_bit_string(new_node->types.number.value, new_node->types.number.binary_size);
+			// This will have limited width.
+			new_node->types.number.value = strtoll(new_node->types.number.number,NULL,2);
+			// This will have full width.
+			new_node->types.number.binary_string = convert_binary_string_of_size_to_bit_string(new_node->types.number.number,  new_node->types.number.binary_size);
 			break;
 	}
 
@@ -638,7 +645,7 @@ char **get_name_of_pins_number(ast_node_t *var_node, int start, int width)
 			{
 			case '1': return_string[i] = strdup("ONE_VCC_CNS"); break;
 			case '0': return_string[i] = strdup("ZERO_GND_ZERO"); break;
-			default: error_message(NETLIST_ERROR, var_node->line_number, var_node->file_number, "Unrecognised character %c in binary string!\n", c);
+			default: error_message(NETLIST_ERROR, var_node->line_number, var_node->file_number, "Unrecognised character %c in binary string \"%s\"!\n", c, var_node->types.number.binary_string);
 			}
 		}
 		else
@@ -895,6 +902,7 @@ char *make_module_param_name(ast_node_t *module_param_list, char *module_name)
 		for (i = 0; i < module_param_list->num_children; i++)
 		{
 			oassert(module_param_list->children[i]->children[5]->type == NUMBERS);
+
 			sprintf(module_param_name, "%s_%lld", module_param_name, module_param_list->children[i]->children[5]->types.number.value);
 		}
 	}
