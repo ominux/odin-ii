@@ -9,7 +9,7 @@ char *make_full_ref_name(char *previous, char *module_name, char *module_instanc
 
 char *twos_complement(char *str);
 char *convert_long_long_to_bit_string(long long orig_long, int num_bits);
-long long convert_dec_string_of_size_to_long(char *orig_string, int size);
+long long convert_dec_string_of_size_to_long_long(char *orig_string, int size);
 char *convert_hex_string_of_size_to_bit_string(char *orig_string, int size);
 char *convert_oct_string_of_size_to_bit_string(char *orig_string, int size);
 char *convert_binary_string_of_size_to_bit_string(char *orig_string, int size);
