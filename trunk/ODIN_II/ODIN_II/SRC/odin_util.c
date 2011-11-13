@@ -125,14 +125,8 @@ char *convert_long_long_to_bit_string(long long orig_long, int num_bits)
 
 	for (i = num_bits-1; i >= 0; i--)
 	{
-		if((mask & orig_long) > 0)
-		{
-			return_val[i] = '1';	
-		}
-		else
-		{
-			return_val[i] = '0';	
-		}
+		if((mask & orig_long) > 0) { return_val[i] = '1'; }
+		else                       { return_val[i] = '0'; }
 		mask = mask << 1;
 	}
 	return_val[num_bits] = '\0';
@@ -140,10 +134,11 @@ char *convert_long_long_to_bit_string(long long orig_long, int num_bits)
 	return return_val;
 }
 
-/*---------------------------------------------------------------------------------------------
- * (function: convert_dec_string_of_size_to_int)
- *-------------------------------------------------------------------------------------------*/
-long long convert_dec_string_of_size_to_long(char *orig_string, int size)
+/*
+ * Turns the given little endian decimal string into a long long. Throws an error if the
+ * string contains non-digits or is larger or smaller than the allowable range of long long.
+ */
+long long convert_dec_string_of_size_to_long_long(char *orig_string, int size)
 {
 	if (!is_decimal_string(orig_string))
 		error_message(PARSE_ERROR, -1, -1, "Invalid decimal number: %s.\n", orig_string);
@@ -151,17 +146,18 @@ long long convert_dec_string_of_size_to_long(char *orig_string, int size)
 	long long number = strtoll(orig_string, NULL, 10);
 
 	if (number == LLONG_MAX || number == LLONG_MIN)
-	{
-		/* greater than our bit capacity so not a constant 64 bits */
 		error_message(PARSE_ERROR, -1, -1, "This suspected decimal number (%s) is too long for Odin\n", orig_string);
-	}
 
 	return number;
 }
 
-/*---------------------------------------------------------------------------------------------
- * (function: convert_hex_string_of_size_to_int)
- *-------------------------------------------------------------------------------------------*/
+/*
+ * Parses the given little endian hex string into a little endian bit string padded to
+ * binary_size bits. Throws an error if there are non-hex characters in the input string.
+ *
+ * Note: the resulting bit string will may be longer than binary_size depending on the length
+ * of orig_string.
+ */
 char *convert_hex_string_of_size_to_bit_string(char *orig_string, int binary_size)
 {
 	if (!is_hex_string(orig_string))
@@ -169,9 +165,9 @@ char *convert_hex_string_of_size_to_bit_string(char *orig_string, int binary_siz
 
 	char *bit_string = calloc(1,sizeof(char));
 	char *string     = strdup(orig_string);
+	int   size       = strlen(string);
 
-	int size = strlen(string);
-
+	// Change to big endian. (We want to add higher order bits at the end.)
 	string_reverse(string, size);
 
 	int count = 0;
@@ -191,6 +187,7 @@ char *convert_hex_string_of_size_to_bit_string(char *orig_string, int binary_siz
 			bit_string[count]   = '\0';
 		}
 	}
+	free(string);
 
 	// Pad with zeros to binary_size.
 	while (count < binary_size)
@@ -200,15 +197,18 @@ char *convert_hex_string_of_size_to_bit_string(char *orig_string, int binary_siz
 		bit_string[count]   = '\0';
 	}
 
+	// Change to little endian.
 	string_reverse(bit_string, count);
-
-	free(string);
 	return bit_string;
 }
 
-/*---------------------------------------------------------------------------------------------
- * (function: convert_oct_string_of_size_to_int)
- *-------------------------------------------------------------------------------------------*/
+/*
+ * Parses the given little endian octal string into a little endian bit string padded to
+ * binary_size bits. Throws an error if the string contains non-octal digits.
+ *
+ * Note: the resulting bit string will may be longer than binary_size depending on the length
+ * of orig_string.
+ */
 char *convert_oct_string_of_size_to_bit_string(char *orig_string, int binary_size)
 {
 	if (!is_octal_string(orig_string))
@@ -216,9 +216,9 @@ char *convert_oct_string_of_size_to_bit_string(char *orig_string, int binary_siz
 
 	char *bit_string = calloc(1,sizeof(char));
 	char *string     = strdup(orig_string);
+	int   size       = strlen(string);
 
-	int size = strlen(string);
-
+	// Change to big endian. (We want to add higher order bits at the end.)
 	string_reverse(string, size);
 
 	int count = 0;
@@ -238,6 +238,7 @@ char *convert_oct_string_of_size_to_bit_string(char *orig_string, int binary_siz
 			bit_string[count]   = '\0';
 		}
 	}
+	free(string);
 
 	// Pad with zeros to binary_size.
 	while (count < binary_size)
@@ -247,35 +248,31 @@ char *convert_oct_string_of_size_to_bit_string(char *orig_string, int binary_siz
 		bit_string[count]   = '\0';
 	}
 
+	// Change to little endian.
 	string_reverse(bit_string, count);
-
-	free(string);
 	return bit_string;
 }
 
-/*---------------------------------------------------------------------------------------------
- * (function: convert_binary_string_of_size_to_int)
- *-------------------------------------------------------------------------------------------*/
+/*
+ * Parses the given little endian bit string into a bit string padded to
+ * binary_size bits.
+ *
+ * Note: the resulting bit string will may be longer than binary_size depending on the length
+ * of orig_string.
+ */
 char *convert_binary_string_of_size_to_bit_string(char *orig_string, int binary_size)
 {
 	if (!is_binary_string(orig_string))
 		error_message(PARSE_ERROR, -1, -1, "Invalid binary number: %s.\n", orig_string);
 
-	char *bit_string = calloc(1,sizeof(char));
-	char *string     = strdup(orig_string);
+	int   count      = strlen(orig_string);
+	char *bit_string = calloc(count + 1, sizeof(char));
 
-	int size = strlen(string);
+	// Copy the original string into the buffer.
+	strcat(bit_string, orig_string);
 
-	string_reverse(string, size);
-
-	int count = 0;
-	int i;
-	for (i = 0; i < size; i++)
-	{
-		bit_string = realloc(bit_string, sizeof(char) * (count + 2));
-		bit_string[count++] = string[i];
-		bit_string[count]   = '\0';
-	}
+	// Change to big endian.
+	string_reverse(bit_string, count);
 
 	// Pad with zeros to binary_size.
 	while (count < binary_size)
@@ -285,68 +282,60 @@ char *convert_binary_string_of_size_to_bit_string(char *orig_string, int binary_
 		bit_string[count]   = '\0';
 	}
 
+	// Change to little endian
 	string_reverse(bit_string, count);
-
-	free(string);
 	return bit_string;
 }
 
+/*
+ * Returns TRUE if the given string contains only '0' to '9' and 'a' through 'f'
+ */
 int is_hex_string(char *string)
 {
 	int i;
 	for (i = 0; i < strlen(string); i++)
-	{
-		if (!(
-				   (string[i] >= '0' && string[i] <= '9')
-				|| (tolower(string[i]) >= 'a' && tolower(string[i]) <= 'f')
-		))
-		{
+		if (!((string[i] >= '0' && string[i] <= '9') || (tolower(string[i]) >= 'a' && tolower(string[i]) <= 'f')))
 			return FALSE;
-		}
 
-	}
 	return TRUE;
 }
 
+/*
+ * Returns TRUE if the string contains only '0' to '9'
+ */
 int is_decimal_string(char *string)
 {
 	int i;
 	for (i = 0; i < strlen(string); i++)
-	{
 		if (!(string[i] >= '0' && string[i] <= '9'))
-		{
 			return FALSE;
-		}
 
-	}
 	return TRUE;
 }
 
+/*
+ * Returns TRUE if the string contains only '0' to '7'
+ */
 int is_octal_string(char *string)
 {
 	int i;
 	for (i = 0; i < strlen(string); i++)
-	{
 		if (!(string[i] >= '0' && string[i] <= '7'))
-		{
 			return FALSE;
-		}
 
-	}
 	return TRUE;
 }
 
+/*
+ * Returns true if the string contains only '0's and '1's.
+ */
 int is_binary_string(char *string)
 {
 	int i;
 	for (i = 0; i < strlen(string); i++)
-	{
 		if (!(string[i] >= '0' && string[i] <= '1'))
-		{
 			return FALSE;
-		}
 
-	}
 	return TRUE;
 }
 
@@ -356,20 +345,13 @@ int is_binary_string(char *string)
  *-------------------------------------------------------------------------------------------*/
 long long int my_power(long long int x, long long int y)
 {
-	int i;
-	long long int value;
-
 	if (y == 0)
-	{
 		return 1;
-	}
 
-	value = x;
-
+	long long int value = x;
+	int i;
 	for (i = 1; i < y; i++)
-	{
 		value *= x;
-	}
 
 	return value;
 }
@@ -379,9 +361,7 @@ long long int my_power(long long int x, long long int y)
  *-------------------------------------------------------------------------------------------*/
 char *make_string_based_on_id(nnode_t *node)
 {
-	char *return_string;
-
-	return_string = (char*)malloc(sizeof(char)*(20+2)); // any unique id greater than 20 characters means trouble
+	char *return_string = (char*)malloc(sizeof(char)*(20+2)); // any unique id greater than 20 characters means trouble
 
 	sprintf(return_string, "n%ld", node->unique_id);
 
@@ -419,8 +399,8 @@ char *make_simple_name(char *input, char *flatten_string, char flatten_char)
 }
 
 /*-----------------------------------------------------------------------
- *  * (function: my_malloc_struct )
- *   *-----------------------------------------------------------------*/
+ * (function: my_malloc_struct )
+ *-----------------------------------------------------------------*/
 void *my_malloc_struct(int bytes_to_alloc)
 {
         void *allocated = NULL;
@@ -430,9 +410,9 @@ void *my_malloc_struct(int bytes_to_alloc)
         //	oassert(m_id != 7);
 
         allocated = malloc(bytes_to_alloc);
-        if(allocated == NULL) 
+        if(allocated == NULL)
         {
-                fprintf(stderr,"MEMORY FAILURE\n"); 
+                fprintf(stderr,"MEMORY FAILURE\n");
                 oassert (0);
         }
 
@@ -443,6 +423,7 @@ void *my_malloc_struct(int bytes_to_alloc)
 
         return(allocated);
 }
+
 /*---------------------------------------------------------------------------------------------
  * (function: pow2 )
  *-------------------------------------------------------------------------------------------*/
@@ -460,7 +441,8 @@ long long int pow2(int to_the_power)
 }
 
 /*
- * Reverses the given string.
+ * Reverses the given string. (Reverses only 'length'
+ * chars from index 0 to length-1.)
  */
 void string_reverse(char *string, int length)
 {
@@ -469,10 +451,7 @@ void string_reverse(char *string, int length)
 	while(i < j)
 	{
 		char temp = string[i];
-		string[i] = string [j];
-		string[j] = temp;
-		i++;
-		j--;
+		string[i++] = string [j];
+		string[j--] = temp;
 	}
 }
-
