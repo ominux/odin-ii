@@ -29,5 +29,9 @@ int is_octal_string(char *string);
 int is_decimal_string(char *string);
 int is_hex_string(char *string);
 
+char *get_pin_name  (char *name);
+char *get_port_name (char *name);
+int get_pin_number  (char *name);
+
 #endif
 

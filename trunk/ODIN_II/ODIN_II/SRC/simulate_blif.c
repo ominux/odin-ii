@@ -2338,54 +2338,6 @@ char *get_mif_filename(nnode_t *node)
 }
 
 /*
- * Gets the port name (everything after the ^ character0 from the
- * given name.
- */
-char *get_pin_name(char *name)
-{	// Remove everything before the ^
-	return strdup(strchr(name, '^') + 1);
-}
-
-
-/*
- * Gets the port name (everything after the ^ and before the ~)
- * from the given name.
- */
-char *get_port_name(char *name)
-{
-	// Remove everything before the ^
-	char *port_name = get_pin_name(name);
-	// Find out if there is a ~ and remove everything after it.
-	char *tilde = strchr(port_name, '~');
-	if (tilde) {
-		*tilde = '\0';
-	}
-	return port_name;
-}
-
-/*
- * Gets the pin number (the number after the ~)
- * from the given name.
- *
- * Returns -1 if there is no ~.
- */
-int get_pin_number(char *name)
-{
-	// Grab the portion of the name ater the ^
-	char *pin_name = get_pin_name(name);
-	char *tilde = strchr(pin_name, '~');
-	// The pin number is everything after the ~
-	if (tilde) {
-		free(pin_name);
-		return atoi(tilde+1);
-	}
-	else {
-		free(pin_name);
-		return -1;
-	}
-}
-
-/*
  * Trims characters in the given "chars" string
  * from the end of the given string.
  */

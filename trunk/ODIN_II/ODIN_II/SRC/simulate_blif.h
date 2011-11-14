@@ -204,9 +204,5 @@ char *get_circuit_filename();
 void update_undriven_input_pins(nnode_t *node, int cycle);
 void flag_undriven_input_pins(nnode_t *node);
 
-char *get_pin_name  (char *name);
-char *get_port_name (char *name);
-int get_pin_number  (char *name);
-
 #endif
 

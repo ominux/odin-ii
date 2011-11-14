@@ -1950,7 +1950,7 @@ void terminate_registered_assignment(ast_node_t *always_node, signal_list_t* ass
 
 		if(((nnet_t*)output_nets_sc->data[sc_spot])->driver_pin != NULL)
 		{
-			error_message(NETLIST_ERROR, always_node->line_number, always_node->file_number, "You've defined this driver %s twice (i.e. in the statement block you've probably put the statement as a <= b; a <= c; in some form that's incorrect)\n", assignment->signal_list[i]->name);
+			error_message(NETLIST_ERROR, always_node->line_number, always_node->file_number, "You've defined the driver \"%s\" twice\n", get_pin_name(assignment->signal_list[i]->name));
 		}
 		add_a_driver_pin_to_net((nnet_t*)output_nets_sc->data[sc_spot], ff_output_pin);
 
