@@ -56,7 +56,7 @@ int block_tag;
 void get_options(int argc, char **argv);
 void do_high_level_synthesis();
 void do_simulation_of_netlist();
-void do_activation_estimation( int num_types, t_type_descriptor * type_descriptors);
+void do_activation_estimation(int num_types, t_type_descriptor * type_descriptors);
 
 void print_usage();
 
@@ -126,7 +126,7 @@ int main(int argc, char **argv)
 	return 0;
 } 
 
-static const char *optString = "hc:V:h:o:a:B:b:N:f:s:S:p:g:t:T:L:H:"; // list must end in ":"
+static const char *optString = "hc:V:h:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA"; // list must end in ":"
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
@@ -221,6 +221,12 @@ void get_options(int argc, char **argv)
 			case 'p':
 				global_args.sim_additional_pins = optarg;
 			break;
+			case 'G':
+				configuration.output_netlist_graphs = 1;
+			break;
+			case 'A':
+				configuration.output_ast_graphs = 1;
+			break;
 			default :
 				print_usage();
 				error_message(0, 0, -1, "Invalid arguments.\n");
@@ -256,23 +262,26 @@ void print_usage()
 				"\t\t-c <config_file_name.xml>\n"
 				"\t\t-V <verilog_file_name.v>\n"
 				"\t\t-b <input_blif_fil_name.blif>\n"
-			"\tAlso options of:\n"
+			"\tOther options:\n"
 				"\t\t-o <output_path and file name>\n"
 				"\t\t-a <architecture_file_in_VPR6.0_form>\n"
 				"\t\t-B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n"
+				"\t\t-G Output netlist graph in .dot format. (net.dot)\n"
+				"\t\t-A Output AST graph in .dot format.\n"
+				"\t\t-h Print help\n"
 			"\tSimulation options:\n"
-				"\t\t -g <Number of random test vectors>\n"
-					"\t\t\t -L <Comma-separated list of primary inputs to hold high at cycle 0, and low for all subsequent cycles.>\n"
-					"\t\t\t -H <Comma-separated list of primary inputs to hold low at cycle 0, and high for all subsequent cycles.>\n"
-				"\t\t -t <input vectors file>: Supply an input vector file\n"
-				"\t\t -T <output vectors file>: Supply an output vector file to check output vectors against.\n"
-				"\t\t -p Supply a comma separated list of additional pins or nodes to monitor during simulation.\n"
-					"\t\t\t Eg: -p input~0,input~1 monitors pin 0 and 1 of input, or -p input monitors all pins of input as a single port. \n"
+				"\t\t-g <Number of random test vectors>\n"
+				"\t\t -L <Comma-separated list of primary inputs to hold high at cycle 0, and low for all subsequent cycles.>\n"
+				"\t\t -H <Comma-separated list of primary inputs to hold low at cycle 0, and high for all subsequent cycles.>\n"
+				"\t\t-t <input vectors file>: Supply an input vector file\n"
+				"\t\t-T <output vectors file>: Supply an output vector file to check output vectors against.\n"
+				"\t\t-p <Comma-separated list of additional pins/nodes to monitor during simulation.>\n"
+					"\t\t\tEg: \"-p input~0,input~1\" monitors pin 0 and 1 of input, \n"
+					"\t\t\t or \"-p input\" monitors all pins of input as a single port. \n"
+					"\t\t\t or \"-p input~\" monitors all pins of input as separate ports. (split) \n"
 					"\t\t\t - Note: Non-existent pins are ignored. \n"
-					"\t\t\t - Matching is done via strstr so general strings will match all similar pins and nodes. (Eg: FF_NODE will create a single port will all flipflops) \n"
-
-			"\tOther options:\n"
-				"\t\t -h Print help\n"
+					"\t\t\t - Matching is done via strstr so general strings will match \n"
+					"\t\t\t   all similar pins and nodes. (Eg: FF_NODE will create a single port with all flipflops) \n"
 	);
 	fflush(stdout);
 }
