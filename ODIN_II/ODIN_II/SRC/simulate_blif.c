@@ -388,6 +388,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 	update_undriven_input_pins(node,cycle);
 
 	operation_list type = is_clock_node(node)?CLOCK_NODE:node->type;
+
 	switch(type)
 	{
 		case FF_NODE:
@@ -643,8 +644,8 @@ void compute_and_store_value(nnode_t *node, int cycle)
 
 				// If the pin comes from an "else" condition or a case "default" condition,
 				// we favour it in the case where there are unknowns.
-				if (
-						  (node->related_ast_node->type == IF || node->related_ast_node->type == CASE)
+				if (	   node->related_ast_node
+						&& (node->related_ast_node->type == IF || node->related_ast_node->type == CASE)
 						&& node->input_pins[i]->is_default
 				)
 				{
@@ -662,10 +663,17 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			if (unknown)
 			{
 				// Conform to ModelSim's behaviour where in-line ifs are concerned.
-				if (node->related_ast_node->type == IF_Q)
+				if (
+						   node->related_ast_node
+						&& node->related_ast_node->type == IF_Q
+				)
+				{
 					update_pin_value(node->output_pins[0], -1, cycle);
+				}
 				else
+				{
 					update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0], cycle-1), cycle);
+				}
 
 			}
 			// If no selection is made (all 0) we output x.
@@ -777,7 +785,7 @@ void update_undriven_input_pins(nnode_t *node, int cycle)
 			char *pin_name         = get_pin_name(pin->name);
 
 			warning_message(SIMULATION_ERROR,0,-1,"Odin has detected that an input pin attached to %s isn't being updated. "
-					"Pin name: %s driven by %s", node_name, pin_name, parent_node_name);
+					"Pin name: %s driven by %s, driving %s, driving %s", node_name, pin_name, parent_node_name, node->output_pins[0]->name, node->output_pins[0]->net?node->output_pins[0]->net->fanout_pins[0]->node?node->output_pins[0]->net->fanout_pins[0]->node->name:"NULL":"NULL");
 
 			free(pin_name);
 			free(node_name);

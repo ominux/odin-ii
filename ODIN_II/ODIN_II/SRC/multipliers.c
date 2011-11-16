@@ -190,7 +190,8 @@ void instantiate_simple_soft_multiplier(nnode_t *node, short mark, netlist_t *ne
 	{
 		if (multiplicand_width == 1)
 		{
-			oassert(FALSE); // this is undealt with
+			// this is undealt with
+			error_message(1,-1,-1,"Cannot create soft multiplier with multiplicand width of 1.\n");
 		}
 		else if (i == 0)
 		{
@@ -417,7 +418,7 @@ void instantiate_hard_multiplier(nnode_t *node, short mark, netlist_t *netlist)
 	/* Give names to the output pins */
 	for (i = 0; i < node->num_output_pins;  i++)
 	{
-		if (node->output_pins[i]->name != NULL)
+		if (node->output_pins[i]->name)
 		{
 			free(node->output_pins[i]->name);
 		}
@@ -479,19 +480,16 @@ void add_the_blackbox_for_mults(FILE *out)
 			if (i < muls->size_a)
 			{
 				count = count + sprintf(buffer, " %s[%d]", pa, i);
-				if (count > 78)
-					count = fprintf(out, " \\\n%s", buffer) - 3;
-				else
-					fprintf(out, "%s", buffer);
 			}
 			else
 			{
 				count = count + sprintf(buffer, " %s[%d]", pb, i - muls->size_a);
-				if (count > 78)
-					count = fprintf(out, " \\\n %s", buffer) - 3;
-				else
-					fprintf(out, " %s", buffer);
 			}
+
+			if (count > 78)
+				count = fprintf(out, " \\\n %s", buffer) - 3;
+			else
+				fprintf(out, " %s", buffer);
 		}
 		fprintf(out, "\n");
 
@@ -532,6 +530,8 @@ void define_mult_function(nnode_t *node, short type, FILE *out)
 	oassert(node->input_port_sizes[1] > 0);
 	oassert(node->output_port_sizes[0] > 0);
 
+	int flip = FALSE;
+
 	if (configuration.fixed_hard_multiplier != 0)
 	{
 		count += fprintf(out, " multiply");
@@ -542,29 +542,46 @@ void define_mult_function(nnode_t *node, short type, FILE *out)
 		{
 			count += fprintf(out, " mult_%d_%d_%d", node->input_port_sizes[0],
 				node->input_port_sizes[1], node->output_port_sizes[0]);
+
+			flip = FALSE;
 		}
 		else
 		{
 			count += fprintf(out, " mult_%d_%d_%d", node->input_port_sizes[1],
 				node->input_port_sizes[0], node->output_port_sizes[0]);
+
+			flip = TRUE;
 		}
 	}
 
+
 	for (i = 0;  i < node->num_input_pins; i++)
 	{
-		if (i < node->input_port_sizes[0])
+		if (i < node->input_port_sizes[flip?1:0])
 		{
-			if (node->input_pins[i]->net->driver_pin->name == NULL)
-				j = sprintf(buffer, " %s[%d]=%s", hard_multipliers->inputs->next->name, i, node->input_pins[i]->net->driver_pin->node->name);
+			npin_t *driver_pin = flip
+						?node->input_pins[i+node->input_port_sizes[0]]->net->driver_pin
+						:node->input_pins[i                          ]->net->driver_pin;
+
+			if (!driver_pin->name)
+				j = sprintf(buffer, " %s[%d]=%s", hard_multipliers->inputs->next->name, i, driver_pin->node->name);
 			else
-				j = sprintf(buffer, " %s[%d]=%s", hard_multipliers->inputs->next->name, i, node->input_pins[i]->net->driver_pin->name);
+				j = sprintf(buffer, " %s[%d]=%s", hard_multipliers->inputs->next->name, i, driver_pin->name);
 		}
 		else
 		{
-			if (node->input_pins[i]->net->driver_pin->name == NULL)
-				j = sprintf(buffer, " %s[%d]=%s", hard_multipliers->inputs->name, i - node->input_port_sizes[0], node->input_pins[i]->net->driver_pin->node->name);
+			npin_t *driver_pin = flip
+						?node->input_pins[i-node->input_port_sizes[1]]->net->driver_pin
+						:node->input_pins[i                          ]->net->driver_pin;
+
+			int index = flip
+						?i - node->input_port_sizes[1]
+						:i - node->input_port_sizes[0];
+
+			if (!driver_pin->name)
+				j = sprintf(buffer, " %s[%d]=%s", hard_multipliers->inputs->name, index, driver_pin->node->name);
 			else
-				j = sprintf(buffer, " %s[%d]=%s", hard_multipliers->inputs->name, i - node->input_port_sizes[0], node->input_pins[i]->net->driver_pin->name);
+				j = sprintf(buffer, " %s[%d]=%s", hard_multipliers->inputs->name, index, driver_pin->name);
 		}
 
 		if (count + j > 79)
@@ -574,6 +591,7 @@ void define_mult_function(nnode_t *node, short type, FILE *out)
 		}
 		count += fprintf(out, "%s", buffer);
 	}
+
 
 	for (i = 0; i < node->num_output_pins; i++)
 	{

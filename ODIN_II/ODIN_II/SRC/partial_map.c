@@ -162,7 +162,7 @@ void partial_map_node(nnode_t *node, short traverse_number, netlist_t *netlist)
 			{
 				instantiate_bitwise_reduction(node, node->type, traverse_number, netlist);
 			}
-			else	
+			else
 				oassert(FALSE);
 			break;
 
