@@ -3381,6 +3381,7 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
  * 	inputs and outputs.
  *------------------------------------------------------------------------*/
 //#endif
+// This function is apparently not called at all for multipliers!
 signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 {
 	signal_list_t **in_list, *return_list;
@@ -3539,6 +3540,7 @@ signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 //						new_pin1->mapping = make_signal_name(hb_ports->name, j);
 //					else
 						new_pin1->mapping = make_signal_name(hb_ports->name, -1);
+
 					new_pin1->name = pin_name;
 					new_pin2 = allocate_npin();
 					new_net = allocate_nnet();
@@ -3588,6 +3590,7 @@ signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 				new_pin1->mapping = make_signal_name(hb_ports->name, j);
 			else
 				new_pin1->mapping = make_signal_name(hb_ports->name, -1);
+
 			new_pin2 = allocate_npin();
 			new_net = allocate_nnet();
 			new_net->name = hb_ports->name;

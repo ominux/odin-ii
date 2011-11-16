@@ -53,7 +53,7 @@ void depth_first_traverse_until_next_ff_or_output(nnode_t *node, nnode_t *callin
 void check_netlist(netlist_t *netlist)
 {
 	/* create a graph output of this netlist */
-	if (configuration.output_netlist_graphs == 1)
+	if (configuration.output_netlist_graphs )
 	{
 		/* Path is where we are */
 		graphVizOutputNetlist(configuration.debug_output_path, "net", 1, netlist);

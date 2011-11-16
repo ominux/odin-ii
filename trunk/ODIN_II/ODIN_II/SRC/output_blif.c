@@ -175,17 +175,31 @@ void output_blif(char *file_name, netlist_t *netlist)
 		{
 			if (global_args.high_level_block != NULL)
 			{
-				fprintf(out, ".names %s^^%i-%i %s^^%i-%i\n1 1\n", netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->name,netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->related_ast_node->far_tag, netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->related_ast_node->high_number, netlist->top_output_nodes[i]->name, netlist->top_output_nodes[i]->related_ast_node->far_tag, netlist->top_output_nodes[i]->related_ast_node->high_number);  
+				fprintf(out, ".names %s^^%i-%i %s^^%i-%i\n1 1\n",
+						netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->name,
+						netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->related_ast_node->far_tag,
+						netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->related_ast_node->high_number,
+						netlist->top_output_nodes[i]->name,
+						netlist->top_output_nodes[i]->related_ast_node->far_tag,
+						netlist->top_output_nodes[i]->related_ast_node->high_number
+				);
 			}
 			else
 			{
-				if (netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->mapping != NULL)
-					fprintf(out, ".names %s %s\n1 1\n", netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->name, netlist->top_output_nodes[i]->name);  
+				char *driver;
+				if (!netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->name)
+					driver = netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->name;
 				else
-					fprintf(out, ".names %s %s\n1 1\n", netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->name, netlist->top_output_nodes[i]->name);  
+					driver = netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->name;
+
+				fprintf(out, ".names %s %s\n1 1\n",
+						driver,
+						netlist->top_output_nodes[i]->name
+				);
 			}
 
 		}
+		fprintf(out, "\n");
 	}
 
 	/* finish off the top level module */
@@ -333,7 +347,6 @@ void output_node(nnode_t *node, short traverse_number, FILE *fp)
 			define_hard_block(node, node->type, fp);
 #endif
 			break;
-
 		case INPUT_NODE:
 		case OUTPUT_NODE:
 		case PAD_NODE:
@@ -720,7 +733,7 @@ void output_blif_pin_connect(nnode_t *node, FILE *out)
 	{
 		/* Find pins that need to be connected -- KEN */
 		if (node->input_pins[i]->net->driver_pin->name != NULL)
-			fprintf(out, ".names %s %s\n1 1\n\n", node->input_pins[i]->net->driver_pin->node->name, node->input_pins[i]->net->driver_pin->name); 
+			fprintf(out, ".names %s %s\n1 1\n\n", node->input_pins[i]->net->driver_pin->node->name, node->input_pins[i]->net->driver_pin->name);
 	}
 
 	return;
