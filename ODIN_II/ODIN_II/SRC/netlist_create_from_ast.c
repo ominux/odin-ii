@@ -2175,8 +2175,8 @@ signal_list_t *create_operation_node(ast_node_t *op, signal_list_t **input_lists
 			break;
 		case ADD: // +
 			/* add the largest bit width + the other input padded with 0's */
-			output_port_width = max_input_port_width;
-			input_port_width = output_port_width;
+			output_port_width = max_input_port_width + 1;
+			input_port_width = output_port_width - 1;
 			break;
 		case MINUS: // -
 			/* subtract the largest bit width + the other input padded with 0's ... concern for 2's comp */

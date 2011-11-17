@@ -603,17 +603,16 @@ void instantiate_add_w_carry(nnode_t *node, short mark, netlist_t *netlist)
 	width_a = node->input_port_sizes[0];
 	width_b = node->input_port_sizes[1];
 
-	new_add_cells = (nnode_t**)malloc(sizeof(nnode_t*)*width);
+	new_add_cells  = (nnode_t**)malloc(sizeof(nnode_t*)*width);
 	new_carry_cells = (nnode_t**)malloc(sizeof(nnode_t*)*width);
 
 	/* create the adder units and the zero unit */
 	for (i = 0; i < width; i++)
 	{
 		new_add_cells[i] = make_3port_gate(ADDER_FUNC, 1, 1, 1, 1, node, mark);
-		if (i < width - 1)
-		{
-			new_carry_cells[i] = make_3port_gate(CARRY_FUNC, 1, 1, 1, 1, node, mark);
-		}
+		// The last carry cell will be connected to an output pin, if one is available
+		new_carry_cells[i] = make_3port_gate(CARRY_FUNC, 1, 1, 1, 1, node, mark);
+
 	}
 
     	/* ground first carry in */
@@ -626,6 +625,8 @@ void instantiate_add_w_carry(nnode_t *node, short mark, netlist_t *netlist)
 	/* connect inputs */
 	for(i = 0; i < width; i++)
 	{
+		//printf("%s\n", node->input_pins[i]->name);
+
 		if (i < width_a)
 		{
 			/* join the A port up to adder */
