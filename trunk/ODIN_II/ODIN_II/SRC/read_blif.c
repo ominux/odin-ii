@@ -79,9 +79,9 @@ void create_hard_block_nodes();
 void hook_up_nets();
 void hook_up_node(nnode_t *node);
 char* search_clock_name(char * blif_file);
-hard_block_model *read_hard_block_model(char *name_subckt);
+hard_block_model *read_hard_block_model(char *name_subckt, FILE *file);
 void free_hard_block_model(hard_block_model *model);
-
+char *get_hard_block_port_name(char *name);
 
 void read_blif(char * blif_file)
 {
@@ -398,7 +398,7 @@ void create_latch_node_and_driver(char * blif_file)
 *-------------------------------------------------------------------------------------------*/
 char* search_clock_name(char * blif_file)
 {
-	FILE * temp_read_blif = fopen(blif_file,"r");
+	FILE * file = fopen(blif_file,"r");
 
 	char ** input_names = NULL;
 	int input_names_count = 0;
@@ -406,14 +406,14 @@ char* search_clock_name(char * blif_file)
 	while(!found)
 	{
 		char buffer[BUFSIZE];
-		my_fgets(buffer,BUFSIZE,temp_read_blif);
+		my_fgets(buffer,BUFSIZE,file);
 
 		// not sure if this is needed
-		if(feof(temp_read_blif))
+		if(feof(file))
 			break;
 
 		char *ptr;
-		if((ptr = my_strtok(buffer,TOKENS,temp_read_blif,buffer)))
+		if((ptr = my_strtok(buffer, TOKENS, file, buffer)))
 		{
 			if(!strcmp(ptr,".end"))
 				break;
@@ -421,7 +421,7 @@ char* search_clock_name(char * blif_file)
 			if(!strcmp(ptr,".inputs"))
 			{
 				/* store the inputs in array of string */
-				while((ptr = my_strtok (NULL, TOKENS, temp_read_blif, buffer)))
+				while((ptr = my_strtok (NULL, TOKENS, file, buffer)))
 				{
 					input_names = (char**)realloc(input_names,sizeof(char*) * (input_names_count + 1));
 					input_names[input_names_count++] = strdup(ptr);
@@ -429,7 +429,7 @@ char* search_clock_name(char * blif_file)
 			}
 			else if(!strcmp(ptr,".names") || !strcmp(ptr,".latch"))
 			{
-				while((ptr = my_strtok (NULL, TOKENS,temp_read_blif, buffer)))
+				while((ptr = my_strtok (NULL, TOKENS,file, buffer)))
 				{
 					int i;
 					for(i = 0; i < input_names_count; i++)
@@ -449,7 +449,7 @@ char* search_clock_name(char * blif_file)
 		}
 	}
 	
-	fclose(temp_read_blif);
+	fclose(file);
 
 	if (found) return input_names[0];
 	else       return default_clock_name;
@@ -491,11 +491,7 @@ void create_hard_block_nodes()
 
 	free(names_parameters);
 
-	// store the current position of the file pointer
-	fpos_t pos;
-	fgetpos(blif,&pos);
-
- 	hard_block_model *model = read_hard_block_model(name_subckt);
+ 	hard_block_model *model = read_hard_block_model(name_subckt, blif);
 
 	nnode_t *new_node = allocate_nnode();
 
@@ -508,7 +504,6 @@ void create_hard_block_nodes()
 				add_input_port_information(new_node, model->input_port_sizes[i]);
 		}
 	}
-
 
 	if(model->output_count > 0)
 	{
@@ -552,8 +547,8 @@ void create_hard_block_nodes()
 	new_node->related_ast_node->children[0]->types.identifier = strdup(name_subckt);
 
 	/* add a name for the node,same as the subckt name */
-	static int hard_block_number = 0;
-	sprintf(buffer, "%s~%i", name_subckt, hard_block_number++);
+	static long hard_block_number = 0;
+	sprintf(buffer, "%s~%ld", name_subckt, hard_block_number++);
 	new_node->name = make_full_ref_name(buffer, NULL, NULL, NULL,-1);
 
 	/* Add name information and a net(driver) for the output */
@@ -596,7 +591,7 @@ void create_hard_block_nodes()
   	free(mappings);
   	free(names);
 
-	fsetpos(blif,&pos);
+
 }
 
 /*---------------------------------------------------------------------------------------------
@@ -683,7 +678,7 @@ void create_internal_node_and_driver()
 			add_input_port_information(new_node, 1);
 
 			npin_t *new_pin = allocate_npin();
-			new_pin->name = (char *)GND;
+			new_pin->name = GND;
 			new_pin->type = INPUT;
 			add_a_input_pin_to_node_spot_idx(new_node, new_pin,0);
 		}
@@ -694,7 +689,7 @@ void create_internal_node_and_driver()
 			add_input_port_information(new_node, 1);
 
 			npin_t *new_pin = allocate_npin();
-			new_pin->name = (char *)VCC;
+			new_pin->name = VCC;
 			new_pin->type = INPUT;
 			add_a_input_pin_to_node_spot_idx(new_node, new_pin,0);
 		}
@@ -724,9 +719,9 @@ void create_internal_node_and_driver()
 		add_a_driver_pin_to_net(new_net,new_pin);
 
 		/* List this output in output_nets_sc */
-		long sc_spot = sc_add_string(output_nets_sc,new_node->name );
+		long sc_spot = sc_add_string(output_nets_sc, new_node->name);
 		if (output_nets_sc->data[sc_spot])
-			warning_message(NETLIST_ERROR,linenum,-1, "Internal node and driver: Net (%s) with the same name already created\n",ptr);
+			error_message(NETLIST_ERROR,linenum,-1, "Internal node and driver: Net (%s) with the same name already created\n",ptr);
 
 		/* store the data which is an idx here */
 		output_nets_sc->data[sc_spot] = new_net;
@@ -1028,7 +1023,6 @@ void rb_create_top_output_nodes()
 		allocate_more_node_input_pins(new_node, 1);
 		add_input_port_information(new_node, 1);
 
-
 		/* Create the pin connection for the net */
 		npin_t *new_pin = allocate_npin();
 		new_pin->name   = temp_string;
@@ -1209,9 +1203,17 @@ void hook_up_node(nnode_t *node)
 	}
 }
 
-hard_block_model *read_hard_block_model(char *name_subckt)
+/*
+ * Scans ahead in the given file to find the
+ * model for the hard block by the given name.
+ * Returns the file to its original position when finished.
+ */
+hard_block_model *read_hard_block_model(char *name_subckt, FILE *file)
 {
 	char buffer[BUFSIZE];
+	// store the current position of the file pointer
+	fpos_t pos;
+	fgetpos(blif,&pos);
 
 	hard_block_model *model = malloc(sizeof(hard_block_model));
 	model->input_count = 0;
@@ -1221,17 +1223,17 @@ hard_block_model *read_hard_block_model(char *name_subckt)
 
 	while (1)
   	{
-		my_fgets(buffer, BUFSIZE, blif);
-		if(feof(blif))
+		my_fgets(buffer, BUFSIZE, file);
+		if(feof(file))
 			error_message(NETLIST_ERROR,linenum, -1,"Error : The '%s' subckt was not found.",name_subckt);
 
-		char *token = my_strtok(buffer,TOKENS, blif, buffer);
+		char *token = my_strtok(buffer,TOKENS, file, buffer);
 
 		// Look for .model followed buy the subcircuit name.
 		if (
 			   token
 			&& !strcmp(token,".model")
-			&& !strcmp(my_strtok(NULL,TOKENS, blif, buffer), name_subckt)
+			&& !strcmp(my_strtok(NULL,TOKENS, file, buffer), name_subckt)
 		)
 		{
 			break;
@@ -1239,16 +1241,16 @@ hard_block_model *read_hard_block_model(char *name_subckt)
 	}
 
 	// Read the inputs and outputs.
-	while (my_fgets(buffer, BUFSIZE, blif))
+	while (my_fgets(buffer, BUFSIZE, file))
 	{
-		if(feof(blif))
+		if(feof(file))
 			error_message(NETLIST_ERROR,linenum, -1,"Hit the end of the file while reading .model %s", name_subckt);
 
-		char *first_word = my_strtok(buffer, TOKENS, blif, buffer);
+		char *first_word = my_strtok(buffer, TOKENS, file, buffer);
 		if(!strcmp(first_word, ".inputs"))
 		{
 			char *name;
-			while ((name = my_strtok(NULL, TOKENS, blif, buffer)))
+			while ((name = my_strtok(NULL, TOKENS, file, buffer)))
 			{
 				model->inputs = realloc(model->inputs, sizeof(char *) * (model->input_count + 1));
 				model->inputs[model->input_count++] = strdup(name);
@@ -1257,7 +1259,7 @@ hard_block_model *read_hard_block_model(char *name_subckt)
 		else if(!strcmp(first_word, ".outputs"))
 		{
 			char *name;
-			while ((name = my_strtok(NULL, TOKENS, blif, buffer)))
+			while ((name = my_strtok(NULL, TOKENS, file, buffer)))
 			{
 				model->outputs = realloc(model->outputs, sizeof(char *) * (model->output_count + 1));
 				model->outputs[model->output_count++] = strdup(name);
@@ -1276,11 +1278,11 @@ hard_block_model *read_hard_block_model(char *name_subckt)
 	int i;
 	for (i = 1; i < model->input_count; i++)
 	{
-		char *prev_portname = strdup(model->inputs[i-1]);
-		char *this_portname = strdup(model->inputs[i]);
+		char *prev_portname = get_hard_block_port_name(model->inputs[i-1]);
+		char *this_portname = get_hard_block_port_name(model->inputs[i]);
 
 		// Compare the part of the name before the "["
-		if (strcmp(strtok(prev_portname,"["), strtok(this_portname,"[")))
+		if (strcmp(prev_portname, this_portname))
 		{
 			model->input_port_sizes = realloc(model->input_port_sizes, sizeof(int) * (model->input_port_count + 1));
 			model->input_port_sizes[model->input_port_count++] = 1;
@@ -1300,10 +1302,10 @@ hard_block_model *read_hard_block_model(char *name_subckt)
 	model->output_port_sizes[0] = 1;
 	for (i = 1; i < model->output_count; i++)
 	{
-		char *prev_portname = strdup(model->outputs[i-1]);
-		char *this_portname = strdup(model->outputs[i]);
+		char *prev_portname = get_hard_block_port_name(model->outputs[i-1]);
+		char *this_portname = get_hard_block_port_name(model->outputs[i]);
 
-		if (strcmp(strtok(prev_portname,"["), strtok(this_portname,"[")))
+		if (strcmp(prev_portname, this_portname))
 		{
 			model->output_port_sizes = realloc(model->output_port_sizes, sizeof(int) * (model->output_port_count + 1));
 			model->output_port_sizes[model->output_port_count++] = 1;
@@ -1317,10 +1319,55 @@ hard_block_model *read_hard_block_model(char *name_subckt)
 		free(this_portname);
 	}
 
+ 	fsetpos(blif,&pos);
+
 	return model;
 }
 
+/*
+ * Gets the text in the given string which occurs
+ * before the first instance of "[". The string is
+ * presumably of the form "port[pin_number]"
+ *
+ * The retuned string is strduped and must be freed.
+ * The original string is unaffected.
+ */
+char *get_hard_block_port_name(char *name)
+{
+	name = strdup(name);
+	return strtok(name,"[");
+}
 
+/*
+ * Parses a port name of the form port[pin_number]
+ * and returns the pin number as a long. Returns -1
+ * if there is no [pin_number] in the name. Throws an
+ * error if pin_number is not parsable as a long.
+ *
+ * The original string is unaffected.
+ */
+long get_hard_block_pin_number(char *original_name)
+{
+	if (!strchr(original_name,'['))
+		return -1;
+
+	char *name = strdup(original_name);
+	strtok(name,"[");
+	char *endptr;
+	char *pin_number_string = strtok(NULL,"]");
+	long pin_number = strtol(pin_number_string, &endptr, 10);
+
+	if (endptr)
+		error_message(NETLIST_ERROR,linenum, -1,"The given port name \"%s\" does not contain a valid pin number.", original_name);
+
+	free(name);
+
+	return pin_number;
+}
+
+/*
+ * Frees a hard_block_model.
+ */
 void free_hard_block_model(hard_block_model *model)
 {
 	int i;
