@@ -167,7 +167,7 @@ int verify_lines(lines_t *l);
 void free_lines(lines_t *l);
 
 int find_portname_in_lines(char* port_name, lines_t *l);
-lines_t *create_test_vector_lines(netlist_t *netlist, int type);
+lines_t *create_lines(netlist_t *netlist, int type);
 
 void add_test_vector_to_lines(test_vector *v, lines_t *l, int cycle);
 void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin);

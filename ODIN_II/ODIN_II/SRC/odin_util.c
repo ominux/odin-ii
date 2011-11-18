@@ -359,9 +359,8 @@ char *get_port_name(char *name)
 	char *port_name = get_pin_name(name);
 	// Find out if there is a ~ and remove everything after it.
 	char *tilde = strchr(port_name, '~');
-	if (tilde) {
+	if (tilde)
 		*tilde = '\0';
-	}
 	return port_name;
 }
 
@@ -377,14 +376,12 @@ int get_pin_number(char *name)
 	char *pin_name = get_pin_name(name);
 	char *tilde = strchr(pin_name, '~');
 	// The pin number is everything after the ~
-	if (tilde) {
-		free(pin_name);
-		return atoi(tilde+1);
-	}
-	else {
-		free(pin_name);
-		return -1;
-	}
+	int pin_number;
+	if (tilde) pin_number = strtol(tilde+1,NULL,10);
+	else       pin_number = -1;
+
+	free(pin_name);
+	return pin_number;
 }
 
 /*---------------------------------------------------------------------------------------------
