@@ -171,31 +171,34 @@ void output_blif(char *file_name, netlist_t *netlist)
 	for (i = 0; i < netlist->num_top_output_nodes; i++)
 	{
 		/* KEN -- DPRAM WORKING HERE FOR JASON */
-		if (netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin != NULL)
+		nnode_t *node = netlist->top_output_nodes[i];
+		if (node->input_pins[0]->net->driver_pin != NULL)
 		{
 			if (global_args.high_level_block != NULL)
 			{
 				fprintf(out, ".names %s^^%i-%i %s^^%i-%i\n1 1\n",
-						netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->name,
-						netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->related_ast_node->far_tag,
-						netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->related_ast_node->high_number,
-						netlist->top_output_nodes[i]->name,
-						netlist->top_output_nodes[i]->related_ast_node->far_tag,
-						netlist->top_output_nodes[i]->related_ast_node->high_number
+						node->input_pins[0]->net->driver_pin->node->name,
+						node->input_pins[0]->net->driver_pin->node->related_ast_node->far_tag,
+						node->input_pins[0]->net->driver_pin->node->related_ast_node->high_number,
+						node->name,
+						node->related_ast_node->far_tag,
+						node->related_ast_node->high_number
 				);
 			}
 			else
 			{
-				char *driver;
-				if (!netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->name)
-					driver = netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->node->name;
-				else
-					driver = netlist->top_output_nodes[i]->input_pins[0]->net->driver_pin->name;
+				/*
+				 *  Use the name of the driver pin as the name of the driver
+				 *  as long as that name is set, and is not equal to the name of the output pin.
+				 *
+				 * 	Otherwise, use the name of the driver node.
+				 */
+				char *driver = node->input_pins[0]->net->driver_pin->name;
+				char *output = node->name;
+				if (!driver || !strcmp(driver,output))
+					driver = node->input_pins[0]->net->driver_pin->node->name;
 
-				fprintf(out, ".names %s %s\n1 1\n",
-						driver,
-						netlist->top_output_nodes[i]->name
-				);
+				fprintf(out, ".names %s %s\n1 1\n", driver, output);
 			}
 
 		}

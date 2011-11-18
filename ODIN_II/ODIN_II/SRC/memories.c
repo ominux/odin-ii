@@ -232,7 +232,12 @@ split_sp_memory_depth(nnode_t *node)
 			break;
 	}
 	logical_size = i;
-	if (logical_size <= split_size) {
+	if (split_size <= 0)
+	{
+		printf("Unsupported feature! Split size must be a positive number\n");
+		exit(1);
+	}
+	if ((split_size > 0) && (logical_size <= split_size)) {
 		sp_memory_list = insert_in_vptr_list(sp_memory_list, node);
 		return;
 	}

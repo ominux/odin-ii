@@ -92,7 +92,7 @@ void register_hard_blocks()
 		}
 		hard_blocks = hard_blocks->next;
 	}
-        return;
+	return;
 }
 
 void deregister_hard_blocks()
@@ -212,6 +212,7 @@ void output_hard_blocks(FILE *out)
 						count = count + sprintf(buffer, " %s", hb_ports->name);
 					else
 						count = count + sprintf(buffer, " %s[%d]", hb_ports->name, i);
+
 					if (count >= 78)
 						count = fprintf(out, " \\\n%s", buffer) - 3;
 					else
@@ -230,6 +231,7 @@ void output_hard_blocks(FILE *out)
 						count = count + sprintf(buffer, " %s", hb_ports->name);
 					else
 						count = count + sprintf(buffer, " %s[%d]", hb_ports->name, i);
+
 					if (count >= 78)
 						count = fprintf(out, " \\\n%s", buffer) - 3;
 					else
