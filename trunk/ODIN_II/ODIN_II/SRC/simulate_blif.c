@@ -30,11 +30,11 @@ void simulate_netlist(netlist_t *netlist)
 	printf("Beginning simulation.\n"); fflush(stdout);
 
 	// Create and verify the lines.
-	lines_t *input_lines = create_test_vector_lines(netlist, INPUT);
+	lines_t *input_lines = create_lines(netlist, INPUT);
 	if (!verify_lines(input_lines))
 		error_message(SIMULATION_ERROR, 0, -1, "Input lines could not be assigned.");
 
-	lines_t *output_lines = create_test_vector_lines(netlist, OUTPUT);
+	lines_t *output_lines = create_lines(netlist, OUTPUT);
 	if (!verify_lines(output_lines))
 		error_message(SIMULATION_ERROR, 0, -1, "Output lines could not be assigned.");
 
@@ -42,14 +42,21 @@ void simulate_netlist(netlist_t *netlist)
 	if (!out)
 		error_message(SIMULATION_ERROR, 0, -1, "Could not open output vector file.");
 
+	FILE *in_out  = fopen( INPUT_VECTOR_FILE_NAME, "w");
+	if (!in_out)
+		error_message(SIMULATION_ERROR, 0, -1, "Could not open input vector file.");
+
 	FILE *modelsim_out = fopen("test.do", "w");
 	if (!modelsim_out)
 		error_message(SIMULATION_ERROR, 0, -1, "Could not open modelsim output file.");
+
 
 	FILE *in  = NULL;
 	int num_test_vectors;
 	// Passed via the -t option.
 	char *input_vector_file  = global_args.sim_vector_input_file;
+
+
 
 	// Input vectors can either come from a file or be randomly generated.
 	if (input_vector_file)
@@ -70,11 +77,6 @@ void simulate_netlist(netlist_t *netlist)
 	{
 		// Passed via the -g option.
 		num_test_vectors = global_args.num_test_vectors;
-
-		in  = fopen( INPUT_VECTOR_FILE_NAME, "w");
-		if (!in)
-			error_message(SIMULATION_ERROR, 0, -1, "Could not open input vector file.");
-
 		printf("Simulating %d new vectors.\n", num_test_vectors); fflush(stdout);
 	}
 
@@ -123,6 +125,7 @@ void simulate_netlist(netlist_t *netlist)
 					if (input_vector_file)
 					{
 						char buffer[BUFFER_MAX_SIZE];
+
 						if (!get_next_vector(in, buffer))
 							error_message(SIMULATION_ERROR, 0, -1, "Could not read next vector.");
 
@@ -140,9 +143,9 @@ void simulate_netlist(netlist_t *netlist)
 					free_test_vector(v);
 			}
 
-			if (!input_vector_file)
-				write_wave_to_file(input_lines, in, cycle_offset, wave_length);
-
+			// Record the input vectors we are using.
+			write_wave_to_file(input_lines, in_out, cycle_offset, wave_length);
+			// Write ModelSim script.
 			write_wave_to_modelsim_file(netlist, input_lines, modelsim_out, cycle_offset, wave_length);
 
 			double simulation_start_time = wall_time();
@@ -212,7 +215,9 @@ void simulate_netlist(netlist_t *netlist)
 	free_lines(input_lines);
 
 	fclose(modelsim_out);
-	fclose(in);
+	fclose(in_out);
+	if (input_vector_file)
+		fclose(in);
 	fclose(out);
 }
 
@@ -527,7 +532,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 		{	// ||
 			oassert(node->num_output_pins == 1);
 			int unknown = FALSE;
-			int one = 0;
+			int one = FALSE;
 			int i;
 			for (i = 0; i < node->num_input_pins; i++)
 			{
@@ -1563,6 +1568,7 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
  */
 void insert_pin_into_line(npin_t *pin, int pin_number, line_t *line, int type)
 {
+	// Allocate memory for the new pin.
 	line->pins        = realloc(line->pins,        sizeof(npin_t*) * (line->number_of_pins + 1));
 	line->pin_numbers = realloc(line->pin_numbers, sizeof(npin_t*) * (line->number_of_pins + 1));
 
@@ -1582,7 +1588,7 @@ void insert_pin_into_line(npin_t *pin, int pin_number, line_t *line, int type)
 			break;
 		}
 	}
-
+	// Add the new pin.
 	line->pins[i] = pin;
 	line->pin_numbers[i] = pin_number;
 	line->type = type;
@@ -1595,7 +1601,7 @@ void insert_pin_into_line(npin_t *pin, int pin_number, line_t *line, int type)
  * (INPUT or OUTPUT) to a line_t each. It stores them in a
  * lines_t struct and returns a pointer to it.
  */
-lines_t *create_test_vector_lines(netlist_t *netlist, int type)
+lines_t *create_lines(netlist_t *netlist, int type)
 {
 	lines_t *l = malloc(sizeof(lines_t));
 	l->lines = 0;
@@ -1877,7 +1883,6 @@ test_vector *parse_test_vector(char *buffer)
 			token += 2;
 			int token_length = strlen(token);
 			string_reverse(token, token_length);
-
 			int i;
 			for (i = 0; i < token_length; i++)
 			{
@@ -1887,8 +1892,12 @@ test_vector *parse_test_vector(char *buffer)
 				int k;
 				for (k = 0; k < 4; k++)
 				{
-						signed char bit = value % 2;
-						value /= 2;
+						signed char bit = 0;
+						if (value > 0)
+						{
+							bit = value % 2;
+							value /= 2;
+						}
 						v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));
 						v->values[v->count][v->counts[v->count]++] = bit;
 				}
@@ -2405,13 +2414,10 @@ signed char get_line_pin_value(line_t *line, int pin_num, int cycle)
 char *vector_value_to_hex(signed char *value, int length)
 {
 	char *tmp;
-	char *string = malloc(sizeof(char) * (length + 1));
+	char *string = calloc((length + 1),sizeof(char));
 	int j;
-	for (j = 0; j < length+1; j++)
-	{
+	for (j = 0; j < length; j++)
 		string[j] = value[j] + '0';
-		string[j+1] = '\0';
-	}
 
 	string_reverse(string,strlen(string));
 
