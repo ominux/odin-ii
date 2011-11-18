@@ -1,0 +1,25 @@
+bm_DL_4_bit_comparator.v
+	Regarding: 
+	always @(A or B)
+	begin
+		if(A == B)
+			AeqB = 1;
+		else if (A > B)
+			AgtB = 1;
+		else
+			AltB = 1;
+	end
+
+	- Odin fills in alternate cases for AeqB, AgtB and AltB where it assigns those to 0. 
+		EG: When A != B AeqB is set to 0 by Odin, but maintains its previous value in Modelsim. 	
+
+bm_my_D_latch1.v
+	- Incomplete sensitivity list in combination process. Causes ModelSim to ignore a reset signal. 
+
+bm_DL_D_latch.v                 
+	Regarding: 
+	 always @(D or Clk)
+		if (Clk)
+			Q = D;	
+	- Odin fills in an "else" condition where Q = 0. ModelSim fills in no "else" condition and Q is initially set to x (unknown). 
+
