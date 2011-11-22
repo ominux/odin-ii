@@ -2345,6 +2345,7 @@ void add_additional_pins_to_lines(nnode_t *node, pin_names *p, lines_t *l)
 char *get_mif_filename(nnode_t *node)
 {
 	char buffer[BUFFER_MAX_SIZE];
+	buffer[0] = 0;
 	strcat(buffer, node->name);
 
 	char *filename = strrchr(buffer, '+');
