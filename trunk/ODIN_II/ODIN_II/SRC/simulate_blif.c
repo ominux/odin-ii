@@ -1052,7 +1052,7 @@ void compute_memory_node(nnode_t *node, int cycle)
 			{
 				we = get_pin_value(node->input_pins[i],cycle);
 			}
-			else if (strcmp(node->input_pins[i]->mapping, addr_name) == 0)
+			else if (!strcmp(node->input_pins[i]->mapping, addr_name))
 			{
 				if (!addr) addr = &node->input_pins[i];
 				addr_width++;
@@ -2347,8 +2347,11 @@ char *get_mif_filename(nnode_t *node)
 	char buffer[BUFFER_MAX_SIZE];
 	strcat(buffer, node->name);
 
-	char *filename = strrchr(buffer, '+') + 1;
-	strcat(filename, ".mif");\
+	char *filename = strrchr(buffer, '+');
+	if (filename) filename += 1;
+	else          filename = buffer;
+
+	strcat(filename, ".mif");
 
 	filename = strdup(filename);
 	return filename;
