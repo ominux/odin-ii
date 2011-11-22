@@ -40,8 +40,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 static FILE * blif;
 int linenum;
 
-STRING_CACHE *output_nets_sc;
-STRING_CACHE *input_nets_sc;
+hashtable_t *output_nets_hash;
 
 char *GND ="gnd";
 char *VCC="vcc";
@@ -67,12 +66,21 @@ typedef struct {
 } hard_block_ports;
 
 typedef struct {
+	char *name;
+
 	hard_block_pins *inputs;
 	hard_block_pins *outputs;
 
 	hard_block_ports *input_ports;
 	hard_block_ports *output_ports;
 } hard_block_model;
+
+typedef struct {
+	hard_block_model **models;
+	int count;
+	hashtable_t *index;
+} hard_block_models;
+
 
 //netlist_t * verilog_netlist;
 int linenum;/* keeps track of the present line, used for printing the error line : line number */
@@ -82,13 +90,13 @@ void rb_create_top_driver_nets( char *instance_name_prefix);
 void rb_look_for_clocks();// not sure if this is needed
 void add_top_input_nodes();
 void rb_create_top_output_nodes();
-static void read_tokens (char *buffer,int * done,char * blif_file);
+static void read_tokens (char *buffer,int * done,char * blif_file, hard_block_models *models);
 static void dum_parse ( char *buffer); 
 void create_internal_node_and_driver();
 short assign_node_type_from_node_name(char * output_name);// function will decide the node->type of the given node
 short read_bit_map_find_unknown_gate(int input_count,nnode_t * node);
 void create_latch_node_and_driver(char * blif_file);
-void create_hard_block_nodes();
+void create_hard_block_nodes(hard_block_models *models);
 void hook_up_nets();
 void hook_up_node(nnode_t *node);
 char* search_clock_name(char * blif_file);
@@ -104,48 +112,54 @@ void verify_hard_block_ports_against_model(hard_block_ports *ports, hard_block_m
 void free_hard_block_pins(hard_block_pins *p);
 void free_hard_block_ports(hard_block_ports *p);
 
+void add_hard_block_model(hard_block_model *m, hard_block_models *models);
+void free_hard_block_models(hard_block_models *models);
+hard_block_model *get_hard_block_model(char *name, hard_block_models *models);
+hard_block_models *create_hard_block_models();
+
 void read_blif(char * blif_file)
 {
-	/* Initialise the string caches that hold the aliasing of module nets and input pins */
-	output_nets_sc = sc_new_string_cache();
-	input_nets_sc = sc_new_string_cache();
-
 	verilog_netlist = allocate_netlist();
 	/*Opening the blif file */
 	blif = my_fopen (blif_file, "r", 0);
 
-	printf("Reading top level module\n"); fflush(stdout);
-
-	/* create the top level module */
-	rb_create_top_driver_nets("top");
-
-	/* Extracting the netlist by reading the blif file */
-	printf("Reading blif netlist..."); fflush(stdout);
-
 	int num_lines = 0;
-	linenum = 0;
-	int done = 0;
-
 	char buffer[BUFSIZE];
 	while (my_fgets(buffer, BUFSIZE, blif))
 	{
 		if (strstr(buffer, ".end")) break;
 		num_lines++;
 	}
-
 	rewind(blif);
 
+	output_nets_hash = create_hashtable((num_lines * 10) + 1);
+
+	printf("Reading top level module\n"); fflush(stdout);
+	/* create the top level module */
+	rb_create_top_driver_nets("top");
+
+	/* Extracting the netlist by reading the blif file */
+	printf("Reading blif netlist..."); fflush(stdout);
+
+	linenum = 0;
+	int done = 0;
+
 	int line_count = 0;
-	int position = -1;
-	double time = wall_time();
+	int position   = -1;
+	double time    = wall_time();
+	// A cache of hard block models indexed by name. As each one is read, it's stored here to be used again.
+	hard_block_models *models = create_hard_block_models();
 	printf("\n");
 	while (!done && (my_fgets(buffer, BUFSIZE, blif) != NULL))
 	{
-		read_tokens(buffer, &done, blif_file);/* read one token at a time */
+		read_tokens(buffer, &done, blif_file, models);
 		linenum = line_count++;
 		position = print_progress_bar(line_count/(double)num_lines, position, 50, wall_time() - time);
 	}
 	print_progress_bar(1.0, position, 50, wall_time() - time);
+
+	free_hard_block_models(models);
+
 
 	printf("\n");
 	check_netlist(verilog_netlist);
@@ -162,7 +176,7 @@ void read_blif(char * blif_file)
 /*---------------------------------------------------------------------------------------------
  * (function: read_tokens)
  *-------------------------------------------------------------------------------------------*/
-void read_tokens (char *buffer, int *done, char *blif_file)
+void read_tokens (char *buffer, int *done, char *blif_file, hard_block_models *models)
 {
 	/* Figures out which, if any token is at the start of this line and *
 	 * takes the appropriate action.                                    */
@@ -195,7 +209,7 @@ void read_tokens (char *buffer, int *done, char *blif_file)
 			}
 			else if (strcmp(ptr,".subckt") == 0)
 			{
-				create_hard_block_nodes();
+				create_hard_block_nodes(models);
 			}
 			else if (strcmp(ptr,".end")==0)
 			{
@@ -417,13 +431,7 @@ void create_latch_node_and_driver(char * blif_file)
 	add_a_output_pin_to_node_spot_idx(new_node, new_pin, 0);
 	add_a_driver_pin_to_net(new_net, new_pin);
   
-	/*list this output in output_nets_sc */
-	long sc_spot = sc_add_string(output_nets_sc,new_node->name);
-	if (output_nets_sc->data[sc_spot])
-		warning_message(NETLIST_ERROR,linenum,-1, "Net (%s) with the same name already created\n",ptr);
-
-	/* store the data which is an idx here */
-	output_nets_sc->data[sc_spot] = (void*)new_net;
+	output_nets_hash->add(output_nets_hash, new_node->name, strlen(new_node->name)*sizeof(char), new_net);
 
 	/* Free the char** names */
 	free(names);
@@ -499,7 +507,7 @@ char* search_clock_name(char * blif_file)
    * function:create_hard_block_nodes
      to create the hard block nodes
 *-------------------------------------------------------------------------------------------*/
-void create_hard_block_nodes()
+void create_hard_block_nodes(hard_block_models *models)
 {
 	char buffer[BUFSIZE];
 	char *name_subckt = my_strtok (NULL, TOKENS, blif, buffer);
@@ -536,13 +544,16 @@ void create_hard_block_nodes()
 	qsort(mappings,  count,  sizeof(char *), compare_pin_names);
 
 	hard_block_ports *ports = get_hard_block_ports(mappings, count);
- 	hard_block_model *model = read_hard_block_model(name_subckt, blif);
+ 	hard_block_model *model;
+ 	if (!(model = get_hard_block_model(name_subckt, models)))
+ 	{
+ 		model = read_hard_block_model(name_subckt, blif);
+ 		add_hard_block_model(model, models);
+ 	}
 
  	verify_hard_block_ports_against_model(ports, model);
 
 	nnode_t *new_node = allocate_nnode();
-
-	/* calculate the number of input and output port size */
 
 	/* Add input and output ports to the new node. */
 	{
@@ -617,22 +628,15 @@ void create_hard_block_nodes()
 
 		add_a_driver_pin_to_net(new_net,new_pin);
 
-		/*list this output in output_nets_sc */
-		long sc_spot = sc_add_string(output_nets_sc, strdup(name));
-		if (output_nets_sc->data[sc_spot])
-		  	error_message(NETLIST_ERROR,linenum, -1,"Hard block: Net (%s) with the same name already created\n",name);
-
-		/* store the data which is an idx here */
-		output_nets_sc->data[sc_spot] = new_net;
+		output_nets_hash->add(output_nets_hash, name, strlen(name)*sizeof(char), new_net);
 	}
 
   	/*add this node to verilog_netlist as an internal node */
   	verilog_netlist->internal_nodes = realloc(verilog_netlist->internal_nodes, sizeof(nnode_t*) * (verilog_netlist->num_internal_nodes + 1));
   	verilog_netlist->internal_nodes[verilog_netlist->num_internal_nodes++] = new_node;
 
-  	free_hard_block_model(model);
   	free_hard_block_ports(ports);
-  	mapping_index->destroy(mapping_index);
+  	mapping_index->destroy_free_items(mapping_index);
   	free(mappings);
   	free(names);
 
@@ -763,13 +767,7 @@ void create_internal_node_and_driver()
 
 		add_a_driver_pin_to_net(new_net,new_pin);
 
-		/* List this output in output_nets_sc */
-		long sc_spot = sc_add_string(output_nets_sc, new_node->name);
-		if (output_nets_sc->data[sc_spot])
-			error_message(NETLIST_ERROR,linenum,-1, "Internal node and driver: Net (%s) with the same name already created\n",ptr);
-
-		/* store the data which is an idx here */
-		output_nets_sc->data[sc_spot] = new_net;
+		output_nets_hash->add(output_nets_hash, new_node->name, strlen(new_node->name)*sizeof(char), new_net);
 
 		/* Free the char** names */
 		free(names);
@@ -1033,11 +1031,13 @@ void add_top_input_nodes()
 		verilog_netlist->top_input_nodes = (nnode_t**)realloc(verilog_netlist->top_input_nodes, sizeof(nnode_t*)*(verilog_netlist->num_top_input_nodes+1));
 		verilog_netlist->top_input_nodes[verilog_netlist->num_top_input_nodes++] = new_node;
 
-		long sc_spot = sc_add_string(output_nets_sc, temp_string);
-		if (output_nets_sc->data[sc_spot])
-			warning_message(NETLIST_ERROR,linenum,-1, "Net (%s) with the same name already created\n",temp_string);
+		//long sc_spot = sc_add_string(output_nets_sc, temp_string);
+		//if (output_nets_sc->data[sc_spot])
+		//warning_message(NETLIST_ERROR,linenum,-1, "Net (%s) with the same name already created\n",temp_string);
 
-		output_nets_sc->data[sc_spot] = new_net;
+		//output_nets_sc->data[sc_spot] = new_net;
+
+		output_nets_hash->add(output_nets_hash, temp_string, strlen(temp_string)*sizeof(char), new_net);
 	}
 }
 
@@ -1111,7 +1111,6 @@ function: Creates the drivers for the top module
 void rb_create_top_driver_nets(char *instance_name_prefix)
 {
 	npin_t *new_pin;
-	long sc_spot;// store the location of the string stored in string_cache
 	/* create the constant nets */
 
 	/* ZERO net */ 
@@ -1149,40 +1148,24 @@ void rb_create_top_driver_nets(char *instance_name_prefix)
 	blif_zero_string = make_full_ref_name(instance_name_prefix, NULL, NULL, zero_string, -1);
 	verilog_netlist->gnd_node->name = (char *)GND;
 
-	sc_spot = sc_add_string(output_nets_sc, (char *)GND);
-	if (output_nets_sc->data[sc_spot])
-	{
-		error_message(NETLIST_ERROR,-1,-1, "Error in Odin: failed to index ground node.\n");
-	}
+	output_nets_hash->add(output_nets_hash, GND, strlen(GND)*sizeof(char), verilog_netlist->zero_net);
 
-	/* store the data which is an idx here */
-	output_nets_sc->data[sc_spot] = (void*)verilog_netlist->zero_net;
-	verilog_netlist->zero_net->name =blif_zero_string;
+	verilog_netlist->zero_net->name = blif_zero_string;
 
 	/* CREATE the driver for the ONE and store twice */
 	blif_one_string = make_full_ref_name(instance_name_prefix, NULL, NULL, one_string, -1);
 	verilog_netlist->vcc_node->name = (char *)VCC;
 
-	sc_spot = sc_add_string(output_nets_sc, (char *)VCC);
-	if (output_nets_sc->data[sc_spot])
-	{
-		error_message(NETLIST_ERROR,-1,-1, "Error in Odin: failed to index vcc node.\n");
-	}
-	/* store the data which is an idx here */
-	output_nets_sc->data[sc_spot] = (void*)verilog_netlist->one_net;
-	verilog_netlist->one_net->name =blif_one_string;
+	output_nets_hash->add(output_nets_hash, VCC, strlen(VCC)*sizeof(char), verilog_netlist->one_net);
+
+	verilog_netlist->one_net->name = blif_one_string;
 
 	/* CREATE the driver for the PAD */
 	blif_pad_string = make_full_ref_name(instance_name_prefix, NULL, NULL, pad_string, -1);
 	verilog_netlist->pad_node->name = (char *)HBPAD;
 
-	sc_spot = sc_add_string(output_nets_sc, (char *)HBPAD);
-	if (output_nets_sc->data[sc_spot])
-	{
-		error_message(NETLIST_ERROR, -1,-1, "Error in Odin: failed to index pad node.\n");
-	}
-	/* store the data which is an idx here */
-	output_nets_sc->data[sc_spot] = verilog_netlist->pad_net;
+	output_nets_hash->add(output_nets_hash, HBPAD, strlen(HBPAD)*sizeof(char), verilog_netlist->pad_net);
+
 	verilog_netlist->pad_net->name = blif_pad_string;
 }
 
@@ -1238,11 +1221,10 @@ void hook_up_node(nnode_t *node)
 	{
 		npin_t *input_pin = node->input_pins[j];
 
-		long sc_spot = sc_lookup_string(output_nets_sc,input_pin->name);
-		if(sc_spot == -1)
-			error_message(NETLIST_ERROR,linenum, -1, "Error:Could not hook up the pin %s: not available.", input_pin->name);
+		nnet_t *output_net = output_nets_hash->get(output_nets_hash, input_pin->name, strlen(input_pin->name)*sizeof(char));
 
-		nnet_t *output_net = output_nets_sc->data[sc_spot];
+		if(!output_net)
+			error_message(NETLIST_ERROR,linenum, -1, "Error: Could not hook up the pin %s: not available.", input_pin->name);
 
 		add_a_fanout_pin_to_net(output_net, input_pin);
 	}
@@ -1281,6 +1263,7 @@ hard_block_model *read_hard_block_model(char *name_subckt, FILE *file)
 	}
 
 	hard_block_model *model = malloc(sizeof(hard_block_model));
+	model->name = strdup(name_subckt);
 	model->inputs = malloc(sizeof(hard_block_pins));
 	model->inputs->count = 0;
 	model->inputs->names = NULL;
@@ -1517,6 +1500,42 @@ long get_hard_block_pin_number(char *original_name)
 
 	return pin_number;
 }
+
+void add_hard_block_model(hard_block_model *m, hard_block_models *models)
+{
+	models->models = realloc(models->models, (models->count * sizeof(hard_block_model *)) + 1);
+	models->models[models->count++] = m;
+	models->index->add(models->index, m->name, strlen(m->name) * sizeof(char), m);
+}
+
+
+void free_hard_block_models(hard_block_models *models)
+{
+	models->index->destroy(models->index);
+	int i;
+	for (i = 0; i < models->count; i++)
+		free_hard_block_model(models->models[i]);
+
+	free(models->models);
+	free(models);
+}
+
+hard_block_model *get_hard_block_model(char *name, hard_block_models *models)
+{
+	return models->index->get(models->index, name, strlen(name) * sizeof(char));
+}
+
+
+hard_block_models *create_hard_block_models()
+{
+	hard_block_models *m = malloc(sizeof(hard_block_models));
+	m->models = 0;
+	m->count  = 0;
+	m->index  = create_hashtable(100);
+
+	return m;
+}
+
 
 /*
  * Frees a hard_block_model.

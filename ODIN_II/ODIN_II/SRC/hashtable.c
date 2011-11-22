@@ -70,6 +70,7 @@ void ___hashtable_destroy(hashtable_t *h)
 		while((node = h->store[i]))
 		{
 			h->store[i] = node->next; 
+			free(node->key);
 			free(node); 
 			h->count--; 
 		}
@@ -88,6 +89,7 @@ void ___hashtable_destroy_free_items(hashtable_t *h)
 		{
 			free(node->item);
 			h->store[i] = node->next;
+			free(node->key);
 			free(node);
 			h->count--;
 		}
@@ -101,9 +103,11 @@ void  ___hashtable_add(hashtable_t *h, void *key, size_t key_length, void *item)
 	hashtable_node_t *node = (hashtable_node_t *)malloc(sizeof(hashtable_node_t));
 
 	node->key_length = key_length; 
-	node->key        = key; 
+	node->key        = malloc(key_length);
 	node->item       = item;
 	node->next       = NULL;	
+
+	memcpy(node->key, key, key_length);
 	
 	unsigned int i = ___hashtable_hash(key, key_length, h->store_size);
 	hashtable_node_t **location = h->store + i; 
@@ -132,7 +136,8 @@ void* ___hashtable_remove(hashtable_t *h, void *key, size_t key_length)
 	if (node)
 	{
 		item = node->item; 
-		*node_location = node->next; 		
+		*node_location = node->next;
+		free(node->key);
 		free(node); 		 
 		h->count--; 
 	}
