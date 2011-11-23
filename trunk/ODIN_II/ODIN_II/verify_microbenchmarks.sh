@@ -26,22 +26,22 @@ do
 	# Simulate using the blif file. 
 	############################
 	# With the arch file. 	
-#	rm "temp.blif"
-#	./odin_II.exe -a $ARCH -V "$benchmark" -o "temp.blif" || exit 1
-#	[ -e "temp.blif" ] || exit 1
+	rm "temp.blif"
+	./odin_II.exe -a $ARCH -V "$benchmark" -o "temp.blif" || exit 1
+	[ -e "temp.blif" ] || exit 1
 
-#	rm output_vectors
-#	./odin_II.exe -a $ARCH -b "temp.blif" -t "$input_vectors" -T "$output_vectors" || exit 1
-#	[ -e "output_vectors" ] || exit 1
+	rm output_vectors
+	./odin_II.exe -a $ARCH -b "temp.blif" -t "$input_vectors" -T "$output_vectors" || exit 1
+	[ -e "output_vectors" ] || exit 1
 
 	# Without the arch file. 	
-#	rm "temp.blif"
-#	./odin_II.exe -V "$benchmark" -o "temp.blif" || exit 1
-#	[ -e "temp.blif" ] || exit 1
+	rm "temp.blif"
+	./odin_II.exe -V "$benchmark" -o "temp.blif" || exit 1
+	[ -e "temp.blif" ] || exit 1
 
-#	rm output_vectors
-#	./odin_II.exe -b "temp.blif" -t "$input_vectors" -T "$output_vectors" || exit 1
-#	[ -e "output_vectors" ] || exit 1
+	rm output_vectors
+	./odin_II.exe -b "temp.blif" -t "$input_vectors" -T "$output_vectors" || exit 1
+	[ -e "output_vectors" ] || exit 1
 
 
 done
