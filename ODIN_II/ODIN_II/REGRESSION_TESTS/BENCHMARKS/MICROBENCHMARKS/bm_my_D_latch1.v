@@ -7,7 +7,7 @@ module bm_my_D_latch1(D, C, Q, reset);
 	output Q;
 	reg Q;
 	
-	always @(D or C)
+	always @(*)
 	begin
 		if (~reset)
 		begin
