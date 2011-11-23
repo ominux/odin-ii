@@ -527,7 +527,8 @@ void create_hard_block_nodes(hard_block_models *models, FILE *file, hashtable_t 
 	new_node->name = make_full_ref_name(buffer, NULL, NULL, NULL,-1);
 
 	// Determine the type of hard block.
-	char *subcircuit_name_prefix = strndup(subcircuit_name, 5);
+	char *subcircuit_name_prefix = strdup(subcircuit_name);
+	subcircuit_name_prefix[5] = '\0';
 	if (!strcmp(subcircuit_name, "multiply") || !strcmp(subcircuit_name_prefix, "mult_"))
 		new_node->type = MULTIPLY;
 	else
