@@ -1463,11 +1463,7 @@ void instantiate_memory(nnode_t *node, int data_width, int addr_width)
 
 	char *filename = get_mif_filename(node);
 	FILE *mif = fopen(filename, "r");
-	if (!mif)
-	{
-		warning_message(SIMULATION_ERROR, 0, -1, "Couldn't open MIF file %s",filename);
-	}
-	else
+	if (mif)
 	{
 		error_message(SIMULATION_ERROR, 0, -1, "MIF file support is current broken and needs developer attention.");
 
@@ -1651,15 +1647,18 @@ void write_vector_headers(FILE *file, lines_t *l)
  */
 int verify_test_vector_headers(FILE *in, lines_t *l)
 {
-	rewind(in);
+
 
 	int current_line = 0;
 	int buffer_length = 0;
 
+	// Read the header from the vector file.
 	char read_buffer [BUFFER_MAX_SIZE];
+	rewind(in);
 	if (!get_next_vector(in, read_buffer))
 		error_message(SIMULATION_ERROR, 0, -1, "Failed to read vector headers.");
 
+	// Parse the header, checking each entity against the corresponding line.
 	char buffer [BUFFER_MAX_SIZE];
 	buffer[0] = '\0';
 	int i;
@@ -2568,10 +2567,17 @@ int print_progress_bar(double completion, int position, int length, double time)
 		for (; i < length; i++)
 			printf("-");
 
-		printf("| Remaining: ");
-
-		double remaining_time = time/(double)completion - time;
-		print_time(remaining_time);
+		if (completion < 1.0)
+		{
+			printf("| Remaining: ");
+			double remaining_time = time/(double)completion - time;
+			print_time(remaining_time);
+		}
+		else
+		{
+			printf("| Total time: ");
+			print_time(time);
+		}
 
 		printf("    \r");
 

@@ -34,37 +34,38 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "types.h"
 #include "hashtable.h"
 #include "netlist_check.h"
+#include "simulate_blif.h"
 
-#define TOKENS " \t\n"
+#define TOKENS     " \t\n"
+#define GND_NAME   "gnd"
+#define VCC_NAME   "vcc"
+#define HBPAD_NAME "unconn"
 
-static FILE * blif;
 int linenum;
 
-hashtable_t *output_nets_hash;
+char *BLIF_ONE_STRING    = "ONE_VCC_CNS";
+char *BLIF_ZERO_STRING   = "ZERO_GND_ZERO";
+char *BLIF_PAD_STRING    = "ZERO_PAD_ZERO";
+char *DEFAULT_CLOCK_NAME = "top^clock";
 
-char *GND ="gnd";
-char *VCC="vcc";
-char *HBPAD="unconn";
-
-char *blif_one_string = "ONE_VCC_CNS";
-char *blif_zero_string = "ZERO_GND_ZERO";
-char *blif_pad_string = "ZERO_PAD_ZERO";
-char *default_clock_name="top^clock"; 
-
-
+// Stores pin names of the form port[pin]
 typedef struct {
 	int count;
 	char **names;
+	// Maps name to index.
 	hashtable_t *index;
 } hard_block_pins;
 
+// Stores port names, and their sizes.
 typedef struct {
 	int count;
 	int *sizes;
 	char **names;
+	// Maps portname to index.
 	hashtable_t *index;
 } hard_block_ports;
 
+// Stores all information pertaining to a hard block model. (.model)
 typedef struct {
 	char *name;
 
@@ -75,9 +76,11 @@ typedef struct {
 	hard_block_ports *output_ports;
 } hard_block_model;
 
+// A cache structure for models.
 typedef struct {
 	hard_block_model **models;
 	int count;
+	// Maps name to model
 	hashtable_t *index;
 } hard_block_models;
 
@@ -86,20 +89,20 @@ typedef struct {
 int linenum;/* keeps track of the present line, used for printing the error line : line number */
 short static skip_reading_bit_map=FALSE; 
 
-void rb_create_top_driver_nets( char *instance_name_prefix);
+void rb_create_top_driver_nets(char *instance_name_prefix, hashtable_t *output_nets_hash);
 void rb_look_for_clocks();// not sure if this is needed
-void add_top_input_nodes();
-void rb_create_top_output_nodes();
-static void read_tokens (char *buffer,int * done,char * blif_file, hard_block_models *models);
-static void dum_parse ( char *buffer); 
-void create_internal_node_and_driver();
+void add_top_input_nodes(FILE *file, hashtable_t *output_nets_hash);
+void rb_create_top_output_nodes(FILE *file);
+int read_tokens (char *buffer, hard_block_models *models, FILE *file, hashtable_t *output_nets_hash);
+static void dum_parse (char *buffer, FILE *file);
+void create_internal_node_and_driver(FILE *file, hashtable_t *output_nets_hash);
 short assign_node_type_from_node_name(char * output_name);// function will decide the node->type of the given node
-short read_bit_map_find_unknown_gate(int input_count,nnode_t * node);
-void create_latch_node_and_driver(char * blif_file);
-void create_hard_block_nodes(hard_block_models *models);
-void hook_up_nets();
-void hook_up_node(nnode_t *node);
-char* search_clock_name(char * blif_file);
+short read_bit_map_find_unknown_gate(int input_count, nnode_t * node, FILE *file);
+void create_latch_node_and_driver(FILE *file, hashtable_t *output_nets_hash);
+void create_hard_block_nodes(hard_block_models *models, FILE *file, hashtable_t *output_nets_hash);
+void hook_up_nets(hashtable_t *output_nets_hash);
+void hook_up_node(nnode_t *node, hashtable_t *output_nets_hash);
+char* search_clock_name(FILE *file);
 hard_block_model *read_hard_block_model(char *name_subckt, FILE *file);
 void free_hard_block_model(hard_block_model *model);
 char *get_hard_block_port_name(char *name);
@@ -117,114 +120,113 @@ void free_hard_block_models(hard_block_models *models);
 hard_block_model *get_hard_block_model(char *name, hard_block_models *models);
 hard_block_models *create_hard_block_models();
 
+int count_blif_lines(FILE *file);
+
+/*
+ * Reads a blif file with the given filename and produces
+ * a netlist which is referred to by the global variable
+ * "verilog_netlist".
+ */
 void read_blif(char * blif_file)
 {
 	verilog_netlist = allocate_netlist();
 	/*Opening the blif file */
-	blif = my_fopen (blif_file, "r", 0);
+	FILE *file = my_fopen (blif_file, "r", 0);
 
-	int num_lines = 0;
-	char buffer[BUFSIZE];
-	while (my_fgets(buffer, BUFSIZE, blif))
-	{
-		if (strstr(buffer, ".end")) break;
-		num_lines++;
-	}
-	rewind(blif);
+	int num_lines = count_blif_lines(file);
 
-	output_nets_hash = create_hashtable((num_lines * 10) + 1);
+	hashtable_t *output_nets_hash = create_hashtable((num_lines) + 1);
 
 	printf("Reading top level module\n"); fflush(stdout);
 	/* create the top level module */
-	rb_create_top_driver_nets("top");
+	rb_create_top_driver_nets("top", output_nets_hash);
 
 	/* Extracting the netlist by reading the blif file */
 	printf("Reading blif netlist..."); fflush(stdout);
 
-	linenum = 0;
-	int done = 0;
-
+	linenum  = 0;
 	int line_count = 0;
 	int position   = -1;
 	double time    = wall_time();
 	// A cache of hard block models indexed by name. As each one is read, it's stored here to be used again.
 	hard_block_models *models = create_hard_block_models();
 	printf("\n");
-	while (!done && (my_fgets(buffer, BUFSIZE, blif) != NULL))
-	{
-		read_tokens(buffer, &done, blif_file, models);
-		linenum = line_count++;
-		position = print_progress_bar(line_count/(double)num_lines, position, 50, wall_time() - time);
+	char buffer[BUFSIZE];
+	while (my_fgets(buffer, BUFSIZE, file) && read_tokens(buffer, models, file, output_nets_hash))
+	{	// Print a progress bar indicating completeness.
+		position = print_progress_bar((++line_count)/(double)num_lines, position, 50, wall_time() - time);
 	}
-	print_progress_bar(1.0, position, 50, wall_time() - time);
-
 	free_hard_block_models(models);
-
-
-	printf("\n");
-	check_netlist(verilog_netlist);
-
-	fclose (blif);
-	
-	printf("Looking for clocks\n"); fflush(stdout);
-
 	/* Now look for high-level signals */
 	rb_look_for_clocks();
+	// We the estimate of completion is rough...make sure we end up at 100%. ;)
+	print_progress_bar(1.0, position, 50, wall_time() - time);
 	printf("-------------------------------------\n"); fflush(stdout);
+
+	// Outputs netlist graph.
+	check_netlist(verilog_netlist);
+	output_nets_hash->destroy(output_nets_hash);
+	fclose (file);
 }
+
+
 
 /*---------------------------------------------------------------------------------------------
  * (function: read_tokens)
+ *
+ * Parses the given line from the blif file. Returns TRUE if there are more lines
+ * to read.
  *-------------------------------------------------------------------------------------------*/
-void read_tokens (char *buffer, int *done, char *blif_file, hard_block_models *models)
+int read_tokens (char *buffer, hard_block_models *models, FILE *file, hashtable_t *output_nets_hash)
 {
 	/* Figures out which, if any token is at the start of this line and *
 	 * takes the appropriate action.                                    */
-	char *ptr = my_strtok (buffer, TOKENS, blif, buffer);
+	char *token = my_strtok (buffer, TOKENS, file, buffer);
 
-	if (ptr)
+	if (token)
 	{
-		if(skip_reading_bit_map && !ptr && ((ptr[0] == '0') || (ptr[0] == '1') || (ptr[0] == '-')))
+		if(skip_reading_bit_map && !token && ((token[0] == '0') || (token[0] == '1') || (token[0] == '-')))
 		{
-			dum_parse(buffer);
+			dum_parse(buffer, file);
 		}
 		else
 		{
 			skip_reading_bit_map= FALSE;
-			if (strcmp (ptr, ".inputs") == 0)
+			if (strcmp (token, ".inputs") == 0)
 			{
-				add_top_input_nodes();// create the top input nodes
+				add_top_input_nodes(file, output_nets_hash);// create the top input nodes
 			}
-			else if (strcmp (ptr, ".outputs") == 0)
+			else if (strcmp (token, ".outputs") == 0)
 			{
-				rb_create_top_output_nodes();// create the top output nodes
+				rb_create_top_output_nodes(file);// create the top output nodes
 			}
-			else if (strcmp (ptr, ".names") == 0)
+			else if (strcmp (token, ".names") == 0)
 			{
-				create_internal_node_and_driver();
+				create_internal_node_and_driver(file, output_nets_hash);
 			}
-			else if (strcmp(ptr,".latch") == 0)
+			else if (strcmp(token,".latch") == 0)
 			{
-				create_latch_node_and_driver(blif_file);
+				create_latch_node_and_driver(file, output_nets_hash);
 			}
-			else if (strcmp(ptr,".subckt") == 0)
+			else if (strcmp(token,".subckt") == 0)
 			{
-				create_hard_block_nodes(models);
+				create_hard_block_nodes(models, file, output_nets_hash);
 			}
-			else if (strcmp(ptr,".end")==0)
+			else if (strcmp(token,".end")==0)
 			{
-				/* marks the end of the main module of the blif */
-				/* call functions to hook up the nets */
-				hook_up_nets();
-				*done=1;
+				// Marks the end of the main module of the blif
+				// Call function to hook up the nets
+				hook_up_nets(output_nets_hash);
+				return FALSE;
 			}
-			else if (strcmp(ptr,".model")==0)
+			else if (strcmp(token,".model")==0)
 			{
-				/* not needed for now */
-				dum_parse(buffer);
+				// Ignore models.
+				dum_parse(buffer, file);
 			}
 		}
 	}
+	return TRUE;
 }
 
 
@@ -245,103 +247,57 @@ short assign_node_type_from_node_name(char * output_name)
 
 	// Stores the extracted string
 	char *extracted_string = (char*)malloc(sizeof(char)*((end-start+2)));
-
-	int j=0;
-	int i;
-	for(i = start + 1; i < end; i++)
+	int i, j;
+	for(i = start + 1, j = 0; i < end; i++, j++)
 	{
 		extracted_string[j] = output_name[i];
-		j++;
 	}
 
 	extracted_string[j]='\0';
 
-	if(strcmp(extracted_string,"GT")==0)
-		return GT;
-	else if(strcmp(extracted_string,"LT")==0)
-		return LT;
-	else if(strcmp(extracted_string,"ADDER_FUNC")==0)
-		return ADDER_FUNC;
-	else if(strcmp(extracted_string,"CARRY_FUNC")==0)
-		return CARRY_FUNC;
-	else if(strcmp(extracted_string,"BITWISE_NOT")==0)
-		return BITWISE_NOT;
-	else if(strcmp(extracted_string,"LOGICAL_AND")==0)
-		return LOGICAL_AND;
-	else if(strcmp(extracted_string,"LOGICAL_OR")==0)
-		return LOGICAL_OR;
-	else if(strcmp(extracted_string,"LOGICAL_XOR")==0)
-		return LOGICAL_XOR;
-	else if(strcmp(extracted_string,"LOGICAL_XNOR")==0)
-		return LOGICAL_XNOR;
-	else if(strcmp(extracted_string,"LOGICAL_NAND")==0)
-		return LOGICAL_NAND;
-	else if(strcmp(extracted_string,"LOGICAL_NOR")==0)
-		return LOGICAL_NOR;
-	else if(strcmp(extracted_string,"LOGICAL_EQUAL")==0)
-		return LOGICAL_EQUAL;
-	else if(strcmp(extracted_string,"NOT_EQUAL")==0)
-		return NOT_EQUAL;
-	else if(strcmp(extracted_string,"LOGICAL_NOT")==0)
-		return LOGICAL_NOT;
-	else if(strcmp(extracted_string,"MUX_2")==0)
-		return MUX_2;
-	else if(strcmp(extracted_string,"FF_NODE")==0)
-		return FF_NODE;
-	else if(strcmp(extracted_string,"MULTIPLY")==0)
-		return MULTIPLY;
-	else if(strcmp(extracted_string,"HARD_IP")==0)
-		return HARD_IP;
-	else if(strcmp(extracted_string,"INPUT_NODE")==0)
-		return INPUT_NODE;
-	else if(strcmp(extracted_string,"OUTPUT_NODE")==0)
-		return OUTPUT_NODE;
-	else if(strcmp(extracted_string,"PAD_NODE")==0)
-		return PAD_NODE;
-	else if(strcmp(extracted_string,"CLOCK_NODE")==0)
-		return CLOCK_NODE;
-	else if(strcmp(extracted_string,"GND_NODE")==0)
-		return GND_NODE;
-	else if(strcmp(extracted_string,"VCC_NODE")==0)
-		return VCC_NODE;
-	else if(strcmp(extracted_string,"BITWISE_AND")==0)
-		return BITWISE_AND;
-	else if(strcmp(extracted_string,"BITWISE_NAND")==0)
-		return BITWISE_NAND;
-	else if(strcmp(extracted_string,"BITWISE_NOR")==0)
-		return BITWISE_NOR;
-	else if(strcmp(extracted_string,"BITWISE_XNOR")==0)
-		return BITWISE_XNOR;
-	else if(strcmp(extracted_string,"BITWISE_XOR")==0)
-		return BITWISE_XOR;
-	else if(strcmp(extracted_string,"BITWISE_OR")==0)
-		return BITWISE_OR;
-	else if(strcmp(extracted_string,"BUF_NODE")==0)
-		return BUF_NODE;
-	else if(strcmp(extracted_string,"MULTI_PORT_MUX")==0)
-		return MULTI_PORT_MUX;
-	else if(strcmp(extracted_string,"SL")==0)
-		return SL;
-	else if(strcmp(extracted_string,"SR")==0)
-		return SR;
-	else if(strcmp(extracted_string,"CASE_EQUAL")==0)
-		return CASE_EQUAL;
-	else if(strcmp(extracted_string,"CASE_NOT_EQUAL")==0)
-		return CASE_NOT_EQUAL;
-	else if(strcmp(extracted_string,"DIVIDE")==0)
-		return DIVIDE;
-	else if(strcmp(extracted_string,"MODULO")==0)
-		return MODULO;
-	else if(strcmp(extracted_string,"GTE")==0)
-		return GTE;
-	else if(strcmp(extracted_string,"LTE")==0)
-		return LTE;
-	else if(strcmp(extracted_string,"ADD")==0)
-		return ADD;
-	else if(strcmp(extracted_string,"MINUS")==0)
-		return MINUS;
-	else
-		return GENERIC; /* If name type does not exits */
+	if      (!strcmp(extracted_string,"GT"))             return GT;
+	else if (!strcmp(extracted_string,"LT"))             return LT;
+	else if (!strcmp(extracted_string,"ADDER_FUNC"))     return ADDER_FUNC;
+	else if (!strcmp(extracted_string,"CARRY_FUNC"))     return CARRY_FUNC;
+	else if (!strcmp(extracted_string,"BITWISE_NOT"))    return BITWISE_NOT;
+	else if (!strcmp(extracted_string,"LOGICAL_AND"))    return LOGICAL_AND;
+	else if (!strcmp(extracted_string,"LOGICAL_OR"))     return LOGICAL_OR;
+	else if (!strcmp(extracted_string,"LOGICAL_XOR"))    return LOGICAL_XOR;
+	else if (!strcmp(extracted_string,"LOGICAL_XNOR"))   return LOGICAL_XNOR;
+	else if (!strcmp(extracted_string,"LOGICAL_NAND"))   return LOGICAL_NAND;
+	else if (!strcmp(extracted_string,"LOGICAL_NOR"))    return LOGICAL_NOR;
+	else if (!strcmp(extracted_string,"LOGICAL_EQUAL"))  return LOGICAL_EQUAL;
+	else if (!strcmp(extracted_string,"NOT_EQUAL"))      return NOT_EQUAL;
+	else if (!strcmp(extracted_string,"LOGICAL_NOT"))    return LOGICAL_NOT;
+	else if (!strcmp(extracted_string,"MUX_2"))          return MUX_2;
+	else if (!strcmp(extracted_string,"FF_NODE"))        return FF_NODE;
+	else if (!strcmp(extracted_string,"MULTIPLY"))       return MULTIPLY;
+	else if (!strcmp(extracted_string,"HARD_IP"))        return HARD_IP;
+	else if (!strcmp(extracted_string,"INPUT_NODE"))     return INPUT_NODE;
+	else if (!strcmp(extracted_string,"OUTPUT_NODE"))    return OUTPUT_NODE;
+	else if (!strcmp(extracted_string,"PAD_NODE"))       return PAD_NODE;
+	else if (!strcmp(extracted_string,"CLOCK_NODE"))     return CLOCK_NODE;
+	else if (!strcmp(extracted_string,"GND_NODE"))       return GND_NODE;
+	else if (!strcmp(extracted_string,"VCC_NODE"))       return VCC_NODE;
+	else if (!strcmp(extracted_string,"BITWISE_AND"))    return BITWISE_AND;
+	else if (!strcmp(extracted_string,"BITWISE_NAND"))   return BITWISE_NAND;
+	else if (!strcmp(extracted_string,"BITWISE_NOR"))    return BITWISE_NOR;
+	else if (!strcmp(extracted_string,"BITWISE_XNOR"))   return BITWISE_XNOR;
+	else if (!strcmp(extracted_string,"BITWISE_XOR"))    return BITWISE_XOR;
+	else if (!strcmp(extracted_string,"BITWISE_OR"))     return BITWISE_OR;
+	else if (!strcmp(extracted_string,"BUF_NODE"))       return BUF_NODE;
+	else if (!strcmp(extracted_string,"MULTI_PORT_MUX")) return MULTI_PORT_MUX;
+	else if (!strcmp(extracted_string,"SL"))             return SL;
+	else if (!strcmp(extracted_string,"SR"))             return SR;
+	else if (!strcmp(extracted_string,"CASE_EQUAL"))     return CASE_EQUAL;
+	else if (!strcmp(extracted_string,"CASE_NOT_EQUAL")) return CASE_NOT_EQUAL;
+	else if (!strcmp(extracted_string,"DIVIDE"))         return DIVIDE;
+	else if (!strcmp(extracted_string,"MODULO"))         return MODULO;
+	else if (!strcmp(extracted_string,"GTE"))            return GTE;
+	else if (!strcmp(extracted_string,"LTE"))            return LTE;
+	else if (!strcmp(extracted_string,"ADD"))            return ADD;
+	else if (!strcmp(extracted_string,"MINUS"))          return MINUS;
+	else                                                 return GENERIC;
 }
 
 /*---------------------------------------------------------------------------------------------
@@ -349,7 +305,7 @@ short assign_node_type_from_node_name(char * output_name)
      to create an ff node and driver from that node 
      format .latch <input> <output> [<type> <control/clock>] <initial val>
 *-------------------------------------------------------------------------------------------*/
-void create_latch_node_and_driver(char * blif_file)
+void create_latch_node_and_driver(FILE *file, hashtable_t *output_nets_hash)
 {
 	/* Storing the names of the input and the final output in array names */
 	char ** names = NULL;       // Store the names of the tokens
@@ -357,7 +313,7 @@ void create_latch_node_and_driver(char * blif_file)
 	/*input_token_count=3 it is not and =5 it is */
 	char *ptr;
 	char buffer[BUFSIZE];
-	while ((ptr = my_strtok (NULL, TOKENS, blif, buffer)) != NULL)
+	while ((ptr = my_strtok (NULL, TOKENS, file, buffer)) != NULL)
 	{
 		names = (char**)realloc(names, sizeof(char*)* (input_token_count + 1));
 		names[input_token_count++] = strdup(ptr);
@@ -369,7 +325,7 @@ void create_latch_node_and_driver(char * blif_file)
 		/* supported added for the ABC .latch output without control */
 		if(input_token_count == 3)
 		{
-			char *clock_name = search_clock_name(blif_file);
+			char *clock_name = search_clock_name(file);
 			input_token_count = 5;
 			names = (char**)realloc(names, sizeof(char*) * input_token_count);
 
@@ -442,9 +398,12 @@ void create_latch_node_and_driver(char * blif_file)
      to search the clock if the control in the latch 
      is not mentioned
 *-------------------------------------------------------------------------------------------*/
-char* search_clock_name(char * blif_file)
+char* search_clock_name(FILE* file)
 {
-	FILE * file = fopen(blif_file,"r");
+	fpos_t pos;
+	int last_line = linenum;
+	fgetpos(file,&pos);
+	rewind(file);
 
 	char ** input_names = NULL;
 	int input_names_count = 0;
@@ -494,11 +453,11 @@ char* search_clock_name(char * blif_file)
 			}
 		}
 	}
-	
-	fclose(file);
+	linenum = last_line;
+	fsetpos(file,&pos);
 
 	if (found) return input_names[0];
-	else       return default_clock_name;
+	else       return DEFAULT_CLOCK_NAME;
 }
   
 
@@ -507,24 +466,25 @@ char* search_clock_name(char * blif_file)
    * function:create_hard_block_nodes
      to create the hard block nodes
 *-------------------------------------------------------------------------------------------*/
-void create_hard_block_nodes(hard_block_models *models)
+void create_hard_block_nodes(hard_block_models *models, FILE *file, hashtable_t *output_nets_hash)
 {
 	char buffer[BUFSIZE];
-	char *name_subckt = my_strtok (NULL, TOKENS, blif, buffer);
+	char *subcircuit_name = my_strtok (NULL, TOKENS, file, buffer);
 
 	/* storing the names on the formal-actual parameter */
 	char *token;
 	int count = 0;
+	// Contains strings of the form port[pin]=port~pin
 	char **names_parameters = NULL;
-	while ((token = my_strtok (NULL, TOKENS, blif, buffer)) != NULL)
+	while ((token = my_strtok (NULL, TOKENS, file, buffer)) != NULL)
   	{
 		names_parameters          = (char**)realloc(names_parameters, sizeof(char*)*(count + 1));
 		names_parameters[count++] = strdup(token);
   	}	
    
+	// Split the name parameters at the equals sign.
 	char **mappings = (char**)malloc(sizeof(char*) * count);
-	char **names = (char**)malloc(sizeof(char*) * count);
-
+	char **names    = (char**)malloc(sizeof(char*) * count);
 	int i = 0;
 	for (i = 0; i < count; i++)
 	{
@@ -532,33 +492,51 @@ void create_hard_block_nodes(hard_block_models *models)
 		names[i]    = strdup(strtok(NULL, "="));
 	}
 
-	for(i = 0; i < count; i++)
-		free(names_parameters[i]);
-
-	free(names_parameters);
-
-	// Associate mappings with their mapped to thing.
+	// Associate mappings with their connections.
 	hashtable_t *mapping_index = associate_names(mappings, names, count);
 
 	// Sort the mappings.
 	qsort(mappings,  count,  sizeof(char *), compare_pin_names);
 
+	for(i = 0; i < count; i++)
+		free(names_parameters[i]);
+
+	free(names_parameters);
+
+	// Index the mappings in a hard_block_ports struct.
 	hard_block_ports *ports = get_hard_block_ports(mappings, count);
+
+	// Look up the model in the models cache.
  	hard_block_model *model;
- 	if (!(model = get_hard_block_model(name_subckt, models)))
+ 	if (!(model = get_hard_block_model(subcircuit_name, models)))
  	{
- 		model = read_hard_block_model(name_subckt, blif);
+ 		// If the model isn's present, scan ahead and find it.
+ 		model = read_hard_block_model(subcircuit_name, file);
+ 		// Add it to the cache.
  		add_hard_block_model(model, models);
  	}
 
+ 	// Verify that all the items in "ports" match those in the model.
  	verify_hard_block_ports_against_model(ports, model);
 
 	nnode_t *new_node = allocate_nnode();
 
+	// Name the node subcircuit_name~hard_block_number so that the name is unique.
+	static long hard_block_number = 0;
+	sprintf(buffer, "%s~%ld", subcircuit_name, hard_block_number++);
+	new_node->name = make_full_ref_name(buffer, NULL, NULL, NULL,-1);
+
+	// Determine the type of hard block.
+	char *subcircuit_name_prefix = strndup(subcircuit_name, 5);
+	if (!strcmp(subcircuit_name, "multiply") || !strcmp(subcircuit_name_prefix, "mult_"))
+		new_node->type = MULTIPLY;
+	else
+		new_node->type = MEMORY;
+	free(subcircuit_name_prefix);
+
 	/* Add input and output ports to the new node. */
 	{
 		hard_block_ports *p;
-
 		p = model->input_ports;
 		for (i = 0; i < p->count; i++)
 			add_input_port_information(new_node, p->sizes[i]);
@@ -568,26 +546,20 @@ void create_hard_block_nodes(hard_block_models *models)
 			add_output_port_information(new_node, p->sizes[i]);
 	}
 
-	/* creating the node */
-	char *subcircuit_name_prefix = strndup(name_subckt,5);
-	if (!strcmp(name_subckt, "multiply") || !strcmp(subcircuit_name_prefix, "mult_"))
-		new_node->type = MULTIPLY;
-	else
-		new_node->type = MEMORY;
-	free(subcircuit_name_prefix);
+	// Allocate pins positions.
+	if (model->inputs->count  > 0)
+		allocate_more_node_input_pins (new_node, model->inputs->count);
+	if (model->outputs->count > 0)
+		allocate_more_node_output_pins(new_node, model->outputs->count);
 
-	allocate_more_node_output_pins(new_node, model->outputs->count);
-
-	if (model->inputs->count > 0) // check if there is any input pins
-		allocate_more_node_input_pins(new_node, model->inputs->count);
-
-	/* add names and type information to the created input pins */
+	// Add input pins.
   	for(i = 0; i < model->inputs->count; i++)
   	{
   		char *mapping = model->inputs->names[i];
-  		char *name = mapping_index->get(mapping_index, mapping, strlen(mapping) * sizeof(char));
+  		char *name    = mapping_index->get(mapping_index, mapping, strlen(mapping) * sizeof(char));
 
-  		if (!name) error_message(NETLIST_ERROR, linenum, -1, "Invalid hard block mapping: %s", mapping);
+  		if (!name)
+  			error_message(NETLIST_ERROR, linenum, -1, "Invalid hard block mapping: %s", mapping);
 
 		npin_t *new_pin = allocate_npin();
 		new_pin->name = strdup(name);
@@ -597,18 +569,7 @@ void create_hard_block_nodes(hard_block_models *models)
 		add_a_input_pin_to_node_spot_idx(new_node, new_pin, i);
   	}
 
-	/* Check this , I am not sure (simulator needs this information) */
-	new_node->related_ast_node = (ast_node_t *)calloc(1, sizeof(ast_node_t));
-	new_node->related_ast_node->children = (ast_node_t **)calloc(1,sizeof(ast_node_t *));
-	new_node->related_ast_node->children[0] = (ast_node_t *)calloc(1, sizeof(ast_node_t));
-	new_node->related_ast_node->children[0]->types.identifier = strdup(name_subckt);
-
-	// Name the node subcircuit_name~hard_block_number
-	static long hard_block_number = 0;
-	sprintf(buffer, "%s~%ld", name_subckt, hard_block_number++);
-	new_node->name = make_full_ref_name(buffer, NULL, NULL, NULL,-1);
-
-	/* Add name information and a net(driver) for the output */
+	// Add output pins, nets, and index each net.
   	for(i = 0; i < model->outputs->count; i++)
   	{
   		char *mapping = model->outputs->names[i];
@@ -628,8 +589,15 @@ void create_hard_block_nodes(hard_block_models *models)
 
 		add_a_driver_pin_to_net(new_net,new_pin);
 
+		// Index the net by name.
 		output_nets_hash->add(output_nets_hash, name, strlen(name)*sizeof(char), new_net);
 	}
+
+  	// Create a fake ast node.
+	new_node->related_ast_node = (ast_node_t *)calloc(1, sizeof(ast_node_t));
+	new_node->related_ast_node->children = (ast_node_t **)calloc(1,sizeof(ast_node_t *));
+	new_node->related_ast_node->children[0] = (ast_node_t *)calloc(1, sizeof(ast_node_t));
+	new_node->related_ast_node->children[0]->types.identifier = strdup(subcircuit_name);
 
   	/*add this node to verilog_netlist as an internal node */
   	verilog_netlist->internal_nodes = realloc(verilog_netlist->internal_nodes, sizeof(nnode_t*) * (verilog_netlist->num_internal_nodes + 1));
@@ -648,14 +616,14 @@ void create_hard_block_nodes(hard_block_models *models)
      to create an internal node and driver from that node 
 *-------------------------------------------------------------------------------------------*/
 
-void create_internal_node_and_driver()
+void create_internal_node_and_driver(FILE *file, hashtable_t *output_nets_hash)
 {
 	/* Storing the names of the input and the final output in array names */
 	char *ptr;
 	char **names = NULL; // stores the names of the input and the output, last name stored would be of the output
 	int input_count = 0;
 	char buffer[BUFSIZE];
-	while ((ptr = my_strtok (NULL, TOKENS, blif, buffer)))
+	while ((ptr = my_strtok (NULL, TOKENS, file, buffer)))
 	{
 		names = (char**)realloc(names, sizeof(char*) * (input_count + 1));
 		names[input_count++]= strdup(ptr);
@@ -687,7 +655,7 @@ void create_internal_node_and_driver()
 		/* Check for GENERIC type , change the node by reading the bit map */
 		else if(node_type == GENERIC)
 		{
-			new_node->type = read_bit_map_find_unknown_gate(input_count-1,new_node);
+			new_node->type = read_bit_map_find_unknown_gate(input_count-1, new_node, file);
 			skip_reading_bit_map = TRUE;
 		}
 
@@ -727,7 +695,7 @@ void create_internal_node_and_driver()
 			add_input_port_information(new_node, 1);
 
 			npin_t *new_pin = allocate_npin();
-			new_pin->name = GND;
+			new_pin->name = GND_NAME;
 			new_pin->type = INPUT;
 			add_a_input_pin_to_node_spot_idx(new_node, new_pin,0);
 		}
@@ -738,7 +706,7 @@ void create_internal_node_and_driver()
 			add_input_port_information(new_node, 1);
 
 			npin_t *new_pin = allocate_npin();
-			new_pin->name = VCC;
+			new_pin->name = VCC_NAME;
 			new_pin->type = INPUT;
 			add_a_input_pin_to_node_spot_idx(new_node, new_pin,0);
 		}
@@ -779,48 +747,45 @@ void create_internal_node_and_driver()
    * function: read_bit_map_find_unknown_gate
      read the bit map for simulation
 *-------------------------------------------------------------------------------------------*/
-  
-short read_bit_map_find_unknown_gate(int input_count, nnode_t *node)
+short read_bit_map_find_unknown_gate(int input_count, nnode_t *node, FILE *file)
 {
-
-	char buffer[BUFSIZE];
-	fpos_t pos;// store the current position of the file pointer
-	int i,j;
-	int line_count_bitmap=0; //stores the number of lines in a particular bit map
-	char ** bit_map=NULL;
-	char *output_bit_map = 0;// to distinguish whether for the bit_map output is 1 or 0
-		
-	fgetpos(blif,&pos);
-
+	fpos_t pos;
+	int last_line = linenum;
+	fgetpos(file,&pos);
 
 	if(!input_count)
 	{
-		my_fgets (buffer, BUFSIZE, blif);
+		char buffer[BUFSIZE];
+		my_fgets (buffer, BUFSIZE, file);
 
-		fsetpos(blif,&pos);
+		linenum = last_line;
+		fsetpos(file,&pos);
 
-		char *ptr = my_strtok(buffer,"\t\n", blif, buffer);
+		char *ptr = my_strtok(buffer,"\t\n", file, buffer);
 		if      (!strcmp(ptr," 0")) return GND_NODE;
 		else if (!strcmp(ptr," 1")) return VCC_NODE;
 		else if (!ptr)              return GND_NODE;
 		else                        return VCC_NODE;
 	}
-	
 
-
+	char **bit_map = NULL;
+	char *output_bit_map = 0;// to distinguish whether for the bit_map output is 1 or 0
+	int line_count_bitmap = 0; //stores the number of lines in a particular bit map
+	char buffer[BUFSIZE];
 	while(1)
 	{
-		my_fgets (buffer, BUFSIZE, blif);
-		if(!(buffer[0]=='0' || buffer[0]=='1' || buffer[0]=='-'))
+		my_fgets (buffer, BUFSIZE, file);
+		if(!(buffer[0] == '0' || buffer[0] == '1' || buffer[0] == '-'))
 			break;
 
-		bit_map=(char**)realloc(bit_map,sizeof(char*) * (line_count_bitmap + 1));
-		bit_map[line_count_bitmap++] = strdup(my_strtok(buffer,TOKENS, blif, buffer));
+		bit_map = (char**)realloc(bit_map,sizeof(char*) * (line_count_bitmap + 1));
+		bit_map[line_count_bitmap++] = strdup(my_strtok(buffer,TOKENS, file, buffer));
 
-		output_bit_map = strdup(my_strtok(NULL,TOKENS, blif, buffer));
+		output_bit_map = strdup(my_strtok(NULL,TOKENS, file, buffer));
 	}
 
-	fsetpos(blif,&pos);
+	linenum = last_line;
+	fsetpos(file,&pos);
 
 	/* Single line bit map : */
 	if(line_count_bitmap == 1)
@@ -834,6 +799,7 @@ short read_bit_map_find_unknown_gate(int input_count, nnode_t *node)
 			return LT;
 
 		/* LOGICAL_AND and LOGICAL_NAND for ABC*/
+		int i;
 		for(i = 0; i < input_count && bit_map[0][i] == '1'; i++);
 
 		if(i == input_count)
@@ -906,10 +872,12 @@ short read_bit_map_find_unknown_gate(int input_count, nnode_t *node)
 	if(line_count_bitmap == input_count)
 	{
 		/* LOGICAL_OR */
+		int i;
 		for(i = 0; i < line_count_bitmap; i++)
 		{
 			if(bit_map[i][i] == '1')
 			{
+				int j;
 				for(j = 1; j < input_count; j++)
 					if(bit_map[i][(i+j)% input_count]!='-')
 						break;
@@ -931,7 +899,8 @@ short read_bit_map_find_unknown_gate(int input_count, nnode_t *node)
 		{
 			if(bit_map[i][i]=='0')
 			{
-				for(j=1;j<input_count;j++)
+				int j;
+				for(j = 1; j < input_count; j++)
 					if(bit_map[i][(i+j)% input_count]!='-')
 						break;
 
@@ -950,6 +919,7 @@ short read_bit_map_find_unknown_gate(int input_count, nnode_t *node)
 	/* MUX_2 */
 	if(line_count_bitmap*2 == input_count)
 	{
+		int i;
 		for(i = 0; i < line_count_bitmap; i++)
 		{
 			if (
@@ -957,6 +927,7 @@ short read_bit_map_find_unknown_gate(int input_count, nnode_t *node)
 					&& (bit_map[i][i+line_count_bitmap] =='1')
 			)
 			{
+				int j;
 				for (j = 1; j < line_count_bitmap; j++)
 				{
 					if (
@@ -993,11 +964,11 @@ short read_bit_map_find_unknown_gate(int input_count, nnode_t *node)
    * function: add_top_input_nodes
      to add the top level inputs to the netlist 
 *-------------------------------------------------------------------------------------------*/
-void add_top_input_nodes()
+void add_top_input_nodes(FILE *file, hashtable_t *output_nets_hash)
 {
 	char *ptr;
 	char buffer[BUFSIZE];
-	while ((ptr = my_strtok (NULL, TOKENS, blif, buffer)))
+	while ((ptr = my_strtok (NULL, TOKENS, file, buffer)))
 	{
 		char *temp_string = make_full_ref_name(ptr, NULL, NULL,NULL, -1);
 
@@ -1045,12 +1016,12 @@ void add_top_input_nodes()
    * function: create_top_output_nodes
      to add the top level outputs to the netlist 
 *-------------------------------------------------------------------------------------------*/	
-void rb_create_top_output_nodes()
+void rb_create_top_output_nodes(FILE *file)
 {
 	char *ptr;
 	char buffer[BUFSIZE];
 
-	while ((ptr = my_strtok (NULL, TOKENS, blif, buffer)))
+	while ((ptr = my_strtok (NULL, TOKENS, file, buffer)))
 	{
 		char *temp_string = make_full_ref_name(ptr, NULL, NULL,NULL, -1);;
 
@@ -1108,7 +1079,7 @@ function: Creates the drivers for the top module
 ---------------------------------------------------------------------------
 */
 
-void rb_create_top_driver_nets(char *instance_name_prefix)
+void rb_create_top_driver_nets(char *instance_name_prefix, hashtable_t *output_nets_hash)
 {
 	npin_t *new_pin;
 	/* create the constant nets */
@@ -1145,37 +1116,37 @@ void rb_create_top_driver_nets(char *instance_name_prefix)
 	add_a_driver_pin_to_net(verilog_netlist->pad_net, new_pin);
 
 	/* CREATE the driver for the ZERO */
-	blif_zero_string = make_full_ref_name(instance_name_prefix, NULL, NULL, zero_string, -1);
-	verilog_netlist->gnd_node->name = (char *)GND;
+	BLIF_ZERO_STRING = make_full_ref_name(instance_name_prefix, NULL, NULL, zero_string, -1);
+	verilog_netlist->gnd_node->name = (char *)GND_NAME;
 
-	output_nets_hash->add(output_nets_hash, GND, strlen(GND)*sizeof(char), verilog_netlist->zero_net);
+	output_nets_hash->add(output_nets_hash, GND_NAME, strlen(GND_NAME)*sizeof(char), verilog_netlist->zero_net);
 
-	verilog_netlist->zero_net->name = blif_zero_string;
+	verilog_netlist->zero_net->name = BLIF_ZERO_STRING;
 
 	/* CREATE the driver for the ONE and store twice */
-	blif_one_string = make_full_ref_name(instance_name_prefix, NULL, NULL, one_string, -1);
-	verilog_netlist->vcc_node->name = (char *)VCC;
+	BLIF_ONE_STRING = make_full_ref_name(instance_name_prefix, NULL, NULL, one_string, -1);
+	verilog_netlist->vcc_node->name = (char *)VCC_NAME;
 
-	output_nets_hash->add(output_nets_hash, VCC, strlen(VCC)*sizeof(char), verilog_netlist->one_net);
+	output_nets_hash->add(output_nets_hash, VCC_NAME, strlen(VCC_NAME)*sizeof(char), verilog_netlist->one_net);
 
-	verilog_netlist->one_net->name = blif_one_string;
+	verilog_netlist->one_net->name = BLIF_ONE_STRING;
 
 	/* CREATE the driver for the PAD */
-	blif_pad_string = make_full_ref_name(instance_name_prefix, NULL, NULL, pad_string, -1);
-	verilog_netlist->pad_node->name = (char *)HBPAD;
+	BLIF_PAD_STRING = make_full_ref_name(instance_name_prefix, NULL, NULL, pad_string, -1);
+	verilog_netlist->pad_node->name = (char *)HBPAD_NAME;
 
-	output_nets_hash->add(output_nets_hash, HBPAD, strlen(HBPAD)*sizeof(char), verilog_netlist->pad_net);
+	output_nets_hash->add(output_nets_hash, HBPAD_NAME, strlen(HBPAD_NAME)*sizeof(char), verilog_netlist->pad_net);
 
-	verilog_netlist->pad_net->name = blif_pad_string;
+	verilog_netlist->pad_net->name = BLIF_PAD_STRING;
 }
 
 /*---------------------------------------------------------------------------------------------
  * (function: dum_parse)
  *-------------------------------------------------------------------------------------------*/
-static void dum_parse (char *buffer)
+static void dum_parse (char *buffer, FILE *file)
 {
 	/* Continue parsing to the end of this (possibly continued) line. */
-	while (my_strtok (NULL, TOKENS, blif, buffer));
+	while (my_strtok (NULL, TOKENS, file, buffer));
 }
 
 
@@ -1185,28 +1156,28 @@ static void dum_parse (char *buffer)
  * find the output nets and add the corresponding nets
  *-------------------------------------------------------------------------------------------*/
 
-void hook_up_nets()
+void hook_up_nets(hashtable_t *output_nets_hash)
 {
 	/* hook all the input pins in all the internal nodes to the net */
 	int i;
 	for(i = 0; i < verilog_netlist->num_internal_nodes; i++)
 	{
 		nnode_t *node = verilog_netlist->internal_nodes[i];
-		hook_up_node(node);
+		hook_up_node(node, output_nets_hash);
 	}
 
 	/* hook all the ff nodes' input pin to the nets */
 	for(i = 0; i < verilog_netlist->num_ff_nodes; i++)
 	{
 		nnode_t *node = verilog_netlist->ff_nodes[i];
-		hook_up_node(node);
+		hook_up_node(node, output_nets_hash);
 	}
 
 	/* hook the top output nodes input pins */
 	for(i = 0; i < verilog_netlist->num_top_output_nodes; i++)
 	{
 		nnode_t *node = verilog_netlist->top_output_nodes[i];
-		hook_up_node(node);
+		hook_up_node(node, output_nets_hash);
 	}
 }
 
@@ -1214,7 +1185,7 @@ void hook_up_nets()
  * Connect the given node's input pins to their corresponding nets by
  * looking each one up in the output_nets_sc.
  */
-void hook_up_node(nnode_t *node)
+void hook_up_node(nnode_t *node, hashtable_t *output_nets_hash)
 {
 	int j;
 	for(j = 0; j < node->num_input_pins; j++)
@@ -1237,26 +1208,26 @@ void hook_up_node(nnode_t *node)
  */
 hard_block_model *read_hard_block_model(char *name_subckt, FILE *file)
 {
-	char buffer[BUFSIZE];
-	// store the current position of the file pointer
+
+
+	// Store the current position in the file.
 	fpos_t pos;
-	fgetpos(blif,&pos);
+	int last_line = linenum;
+	fgetpos(file,&pos);
 
-
+	// Search the file for .model followed buy the subcircuit name.
+	rewind(file);
+	char buffer[BUFSIZE];
 	while (1)
   	{
 		my_fgets(buffer, BUFSIZE, file);
 		if(feof(file))
-			error_message(NETLIST_ERROR,linenum, -1,"Error : The '%s' subckt was not found.",name_subckt);
+			error_message(NETLIST_ERROR,linenum, -1,"Error : The subcircuit model for '%s' was not found.",name_subckt);
 
 		char *token = my_strtok(buffer,TOKENS, file, buffer);
 
-		// Look for .model followed buy the subcircuit name.
-		if (
-			   token
-			&& !strcmp(token,".model")
-			&& !strcmp(my_strtok(NULL,TOKENS, file, buffer), name_subckt)
-		)
+		// match .model followed buy the subcircuit name.
+		if (token && !strcmp(token,".model") && !strcmp(my_strtok(NULL,TOKENS, file, buffer), name_subckt))
 		{
 			break;
 		}
@@ -1311,10 +1282,13 @@ hard_block_model *read_hard_block_model(char *name_subckt, FILE *file)
 	model->inputs->index  = index_names(model->inputs->names, model->inputs->count);
 	model->outputs->index = index_names(model->outputs->names, model->outputs->count);
 
+	// Organise the names into ports.
 	model->input_ports  = get_hard_block_ports(model->inputs->names,  model->inputs->count);
 	model->output_ports = get_hard_block_ports(model->outputs->names, model->outputs->count);
 
- 	fsetpos(blif,&pos);
+	// Restore the original position in the file.
+	linenum = last_line;
+ 	fsetpos(file,&pos);
 
 	return model;
 }
@@ -1329,14 +1303,17 @@ static int compare_pin_names(const void *p1, const void *p2)
 {
 	char *name1 = *(char * const *)p1;
 	char *name2 = *(char * const *)p2;
+
 	char *port_name1 = get_hard_block_port_name(name1);
 	char *port_name2 = get_hard_block_port_name(name2);
 	int portname_difference = strcmp(port_name1, port_name2);
 	free(port_name1);
 	free(port_name2);
 
+	// If the portnames are the same, compare the pin numbers.
 	if (!portname_difference)
-	{	int n1 = get_hard_block_pin_number(name1);
+	{
+		int n1 = get_hard_block_pin_number(name1);
 		int n2 = get_hard_block_pin_number(name2);
 		return n1 - n2;
 	}
@@ -1415,12 +1392,11 @@ hard_block_ports *get_hard_block_ports(char **pins, int count)
 
 /*
  * Check for inconsistencies between the hard block model and the ports found
- * in the hard block instance. Print appropreate error messages if
+ * in the hard block instance. Print appropriate error messages if
  * differences are found.
  */
 void verify_hard_block_ports_against_model(hard_block_ports *ports, hard_block_model *model)
 {
-
 	hard_block_ports *port_sets[] = {model->input_ports, model->input_ports};
 	int i;
 	for (i = 0; i < 2; i++)
@@ -1429,13 +1405,14 @@ void verify_hard_block_ports_against_model(hard_block_ports *ports, hard_block_m
 		int j;
 		for (j = 0; j < p->count; j++)
 		{
-			// Look up each port from the model in "ports" and make sure they match in size.
+			// Look up each port from the model in "ports"
 			char *name = p->names[j];
 			int   size = p->sizes[j];
-			int *idx   = ports->index->get(ports->index, name, strlen(name) * sizeof(char));
+			int  *idx  = ports->index->get(ports->index, name, strlen(name) * sizeof(char));
 			if (!idx)
 				error_message(NETLIST_ERROR, linenum, -1,"Port %s is not specified by this subckt.", name);
 
+			// Make sure they match in size.
 			int instance_size = ports->sizes[*idx];
 			if (size != instance_size)
 				error_message(NETLIST_ERROR, linenum, -1,"The width of %s (%d) differs from the model width of %d.", name, instance_size, size);
@@ -1501,6 +1478,9 @@ long get_hard_block_pin_number(char *original_name)
 	return pin_number;
 }
 
+/*
+ * Adds the given model to the hard block model cache.
+ */
 void add_hard_block_model(hard_block_model *m, hard_block_models *models)
 {
 	models->models = realloc(models->models, (models->count * sizeof(hard_block_model *)) + 1);
@@ -1508,7 +1488,49 @@ void add_hard_block_model(hard_block_model *m, hard_block_models *models)
 	models->index->add(models->index, m->name, strlen(m->name) * sizeof(char), m);
 }
 
+/*
+ * Looks up a hard block model by name. Returns null if the
+ * model is not found.
+ */
+hard_block_model *get_hard_block_model(char *name, hard_block_models *models)
+{
+	return models->index->get(models->index, name, strlen(name) * sizeof(char));
+}
 
+/*
+ * Creates a new hard block model cache.
+ */
+hard_block_models *create_hard_block_models()
+{
+	hard_block_models *m = malloc(sizeof(hard_block_models));
+	m->models = 0;
+	m->count  = 0;
+	m->index  = create_hashtable(100);
+
+	return m;
+}
+
+/*
+ * Counts the number of lines in the given blif file
+ * before a .end token is hit.
+ */
+int count_blif_lines(FILE *file)
+{
+	int num_lines = 0;
+	char buffer[BUFSIZE];
+	while (my_fgets(buffer, BUFSIZE, file))
+	{
+		if (strstr(buffer, ".end")) break;
+		num_lines++;
+	}
+	rewind(file);
+	return num_lines;
+}
+
+/*
+ * Frees the hard block model cache, freeing
+ * all encapsulated hard block models.
+ */
 void free_hard_block_models(hard_block_models *models)
 {
 	models->index->destroy(models->index);
@@ -1518,22 +1540,6 @@ void free_hard_block_models(hard_block_models *models)
 
 	free(models->models);
 	free(models);
-}
-
-hard_block_model *get_hard_block_model(char *name, hard_block_models *models)
-{
-	return models->index->get(models->index, name, strlen(name) * sizeof(char));
-}
-
-
-hard_block_models *create_hard_block_models()
-{
-	hard_block_models *m = malloc(sizeof(hard_block_models));
-	m->models = 0;
-	m->count  = 0;
-	m->index  = create_hashtable(100);
-
-	return m;
 }
 
 
