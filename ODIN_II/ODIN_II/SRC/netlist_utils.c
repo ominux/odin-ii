@@ -617,26 +617,19 @@ signal_list_t *combine_lists_without_freeing_originals(signal_list_t **signal_li
 
 /*---------------------------------------------------------------------------------------------
  * (function: sort_signal_list_alphabetically)
- * 	Bubble sort alphabetically
+ * Bubble sort alphabetically
+ * Andrew: changed to a quick sort because this function
+ *         was consuming 99.9% of compile time for mcml.v
  *-------------------------------------------------------------------------------------------*/
+static int compare_npin_t_names(const void *p1, const void *p2)
+{
+	npin_t *pin1 = *(npin_t * const *)p1;
+	npin_t *pin2 = *(npin_t * const *)p2;
+	return strcmp(pin1->name, pin2->name);
+}
 void sort_signal_list_alphabetically(signal_list_t *list)
 {
-	int i, j;
-	npin_t *tmp_pin;	
-
-	for (i = 0; i < list->signal_list_size-1; i++)
-	{
-		for (j = 0; j< (list->signal_list_size-1-i); j++) 
-		{
-			/* compare the neighbours */
-			if (strcmp(list->signal_list[j+1]->name, list->signal_list[j]->name) < 0 ) 
-			{
-				tmp_pin = list->signal_list[j];
-				list->signal_list[j] = list->signal_list[j+1]; 
-				list->signal_list[j+1] = tmp_pin;
-			}
-		}
-	}
+	qsort(list->signal_list, list->signal_list_size,  sizeof(npin_t *), compare_npin_t_names);
 }
 
 /*---------------------------------------------------------------------------------------------
