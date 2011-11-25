@@ -261,7 +261,7 @@ split_sp_memory_depth(nnode_t *node)
 		node->input_pins[i]->pin_node_idx--;
 	}
 	node->input_port_sizes[addr_port]--;
-	node->num_input_pins--;
+	node->input_pins = realloc(node->input_pins, sizeof(npin_t *) * --node->num_input_pins);
 
 	if (we_pin_idx >= addr_pin_idx)
 		we_pin_idx--;
@@ -281,6 +281,7 @@ split_sp_memory_depth(nnode_t *node)
 		char *new_name = (char *)malloc(strlen(node->name) + strlen(appendage) + 1);
 		strcpy(new_name, node->name);
 		strcat(new_name,appendage);
+		free(node->name);
 		node->name = strdup(new_name);
 		free(new_name);
 	}
@@ -454,7 +455,7 @@ split_dp_memory_depth(nnode_t *node)
 		node->input_pins[i]->pin_node_idx--;
 	}
 	node->input_port_sizes[addr1_port]--;
-	node->num_input_pins--;
+	node->input_pins = realloc(node->input_pins, sizeof(npin_t *) * --node->num_input_pins);
 	if ((we1_port != -1) && (we1_pin_idx >= addr1_pin_idx))
 		we1_pin_idx--;
 	if ((we2_port != -1) && (we2_pin_idx >= addr1_pin_idx))
@@ -471,7 +472,7 @@ split_dp_memory_depth(nnode_t *node)
 			node->input_pins[i]->pin_node_idx--;
 		}
 		node->input_port_sizes[addr2_port]--;
-		node->num_input_pins--;
+		node->input_pins = realloc(node->input_pins, sizeof(npin_t *) * --node->num_input_pins);
 		if ((we1_port != -1) && (we1_pin_idx >= addr2_pin_idx))
 			we1_pin_idx--;
 		if ((we2_port != -1) && (we2_pin_idx >= addr2_pin_idx))
@@ -482,44 +483,42 @@ split_dp_memory_depth(nnode_t *node)
 
 	/* Create the new memory node */
 	new_mem_node = allocate_nnode();
-	new_mem_node->name = (char *)malloc(strlen(node->name) + 10);
-	strcpy(new_mem_node->name, node->name);
-	strcat(new_mem_node->name, "__H");
-	node->name = (char *)realloc(node->name, strlen(node->name) + 10);
-	strcat(node->name,"__S");
+	{	// Append the new name with an __H
+		char *appendage = "__H";
+		char *new_name = (char *)malloc(strlen(node->name) + strlen(appendage) + 1);
+		strcpy(new_name, node->name);
+		strcat(new_name, appendage);
+		new_mem_node->name = strdup(new_name);
+		free(new_name);
+	}
+	{	// Append the old name with an __S
+		char *appendage = "__S";
+		char *new_name = (char *)malloc(strlen(node->name) + strlen(appendage) + 1);
+		strcpy(new_name, node->name);
+		strcat(new_name,appendage);
+		free(node->name);
+		node->name = strdup(new_name);
+		free(new_name);
+	}
 
 	/* Copy properties from the original memory node */
 	new_mem_node->type = node->type;
 	new_mem_node->related_ast_node = node->related_ast_node;
 	new_mem_node->traverse_visited = node->traverse_visited;
-	new_mem_node->node_data = NULL;
 
-	new_mem_node->num_output_pins = node->num_output_pins;
-	new_mem_node->num_output_port_sizes = node->num_output_port_sizes;
-	new_mem_node->output_pins = (struct npin_t_t **)malloc(sizeof(struct npin_t_t **) * new_mem_node->num_output_pins);
-	for (i = 0; i < new_mem_node->num_output_pins; i++)
-		new_mem_node->output_pins[i] = NULL;
-	new_mem_node->output_port_sizes = (int *)malloc(sizeof(int) * new_mem_node->num_output_port_sizes);
-	for (i = 0; i < new_mem_node->num_output_port_sizes; i++)
-		new_mem_node->output_port_sizes[i] = node->output_port_sizes[i];
-	new_mem_node->num_input_port_sizes = node->num_input_port_sizes;
-	new_mem_node->input_port_sizes = (int *)malloc(node->num_input_port_sizes * sizeof(int));
-	new_mem_node->input_pins = (struct npin_t_t **)malloc(node->num_input_pins * sizeof(struct npin_t_t **));
+	// Copy over the port sizes for the new memory
+	for (j = 0; j < node->num_output_port_sizes; j++)
+		add_output_port_information(new_mem_node, node->output_port_sizes[j]);
+	for (j = 0; j < node->num_input_port_sizes; j++)
+		add_input_port_information(new_mem_node, node->input_port_sizes[j]);
 
-	/* KEN - IS THIS AN ERROR? */
-	new_mem_node->num_input_pins = node->num_input_pins; // jluu yes -1; is an error, removed
-
-	/* Copy over the pin sizes for the new memory */
-	for (j = 0; j < new_mem_node->num_input_port_sizes; j++)
-	{
-		new_mem_node->input_port_sizes[j] = node->input_port_sizes[j];
-	}
+	// allocate space for pins.
+	allocate_more_node_output_pins (new_mem_node, node->num_output_pins);
+	allocate_more_node_input_pins (new_mem_node, node->num_input_pins);
 
 	/* Copy over the pins for the new memory */
 	for (j = 0; j < node->num_input_pins; j++)
-	{
 		new_mem_node->input_pins[j] = copy_input_npin(node->input_pins[j]);
-	}
 
 	if (we1_pin != NULL)
 	{
@@ -749,6 +748,7 @@ split_sp_memory_width(nnode_t *node)
 	for (i = 1; i < node->num_output_pins; i++)
 		free_npin(node->output_pins[i]);
 	node->num_output_pins = 1;
+	node->output_pins = realloc(node->output_pins, sizeof(npin_t *) * 1);
 	node->output_port_sizes[0] = 1;
 
 	/* Shuffle the input pins on account of removed input pins */
@@ -946,21 +946,25 @@ split_dp_memory_width(nnode_t *node)
 	/* free the additional output pins */
 	if (data_port2 == -1)
 	{
-//		for (i = 1; i < node->num_output_pins; i++)
-//			free_npin(node->output_pins[i]);
+		for (i = 1; i < node->num_output_pins; i++)
+			free_npin(node->output_pins[i]);
+
 		node->num_output_pins = 1;
+		node->output_pins = realloc(node->output_pins, sizeof(npin_t *) * node->num_output_pins);
 		node->output_port_sizes[0] = 1;
 	}
 	else
 	{
-//		for (i = 1; i < (node->num_output_pins/2); i++)
-//			free_npin(node->output_pins[i]);
+		for (i = 1; i < (node->num_output_pins/2); i++)
+			free_npin(node->output_pins[i]);
 		node->output_pins[1] = node->output_pins[data_diff1 + 1];
 		node->output_pins[data_diff1 + 1] = NULL;
 		node->output_pins[1]->pin_node_idx = 1;
-//		for (; i < node->num_output_pins; i++)
-//			free_npin(node->output_pins[i]);
+		for (; i < node->num_output_pins; i++)
+			free_npin(node->output_pins[i]);
+
 		node->num_output_pins = 2;
+		node->output_pins = realloc(node->output_pins, sizeof(npin_t *) * node->num_output_pins);
 		node->output_port_sizes[0] = 1;
 		node->output_port_sizes[1] = 1;
 	}
@@ -987,6 +991,8 @@ split_dp_memory_width(nnode_t *node)
 	node->num_input_pins = node->num_input_pins - data_diff1;
 	if (data_port2 != -1)
 		node->num_input_pins = node->num_input_pins - data_diff2;
+
+	node->input_pins = realloc(node->input_pins, sizeof(npin_t *) * node->num_input_pins);
 	dp_memory_list = insert_in_vptr_list(dp_memory_list, node);
 
 	return;
