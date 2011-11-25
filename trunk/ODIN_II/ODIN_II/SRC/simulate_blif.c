@@ -782,8 +782,7 @@ void update_undriven_input_pins(nnode_t *node, int cycle)
 		{
 			update_pin_value(pin, -1, cycle);
 		}
-
-		if (cycle > 3 && pin->cycle < cycle-1)
+		else if (cycle == 3 && pin->cycle < cycle-1)
 		{	pin->is_undriven = TRUE;
 			char *parent_node_name = get_pin_name(pin->net->driver_pin->node->name);
 			char *node_name        = get_pin_name(node->name);
