@@ -314,7 +314,7 @@ split_sp_memory_depth(nnode_t *node)
 	/* Copy over the output pins for the new memory */
 	for (j = 0; j < node->num_output_pins; j++)
 	{
-		mux_node = make_2port_gate(MULTI_PORT_MUX, 2, 2, 1, node, node->traverse_visited);
+		mux_node = make_2port_gate(MUX_2, 2, 2, 1, node, node->traverse_visited);
 		connect_nodes(ff_node, 0, mux_node, 0);
 		not_node = make_not_gate(node, node->traverse_visited);
 		connect_nodes(ff_node, 0, not_node, 0);
@@ -326,7 +326,12 @@ split_sp_memory_depth(nnode_t *node)
 		connect_nodes(new_mem_node, j, mux_node, 2);
 		new_mem_node->output_pins[j]->mapping = tdout_pin->mapping;
 		tdout_pin->mapping = NULL;
+
+		mux_node->output_pins[0]->name = mux_node->name;
 	}
+	ff_node->output_pins[0]->name = ff_node->name;
+
+
 
 	/* must recurse on new memory if it's too small */
 	if (logical_size <= split_size) {
@@ -554,11 +559,11 @@ split_dp_memory_depth(nnode_t *node)
 		ff1_node = make_2port_gate(FF_NODE, 1, 1, 1, node, node->traverse_visited);
 		add_a_input_pin_to_node_spot_idx(ff1_node, addr1_pin, 0);
 		add_a_input_pin_to_node_spot_idx(ff1_node, copy_input_npin(clk_pin), 1);
-	
+
 		/* Copy over the output pins for the new memory */
 		for (j = 0; j < node->output_port_sizes[0]; j++)
 		{
-			mux1_node = make_2port_gate(MULTI_PORT_MUX, 2, 2, 1, node, node->traverse_visited);
+			mux1_node = make_2port_gate(MUX_2, 2, 2, 1, node, node->traverse_visited);
 			connect_nodes(ff1_node, 0, mux1_node, 0);
 			not1_node = make_not_gate(node, node->traverse_visited);
 			connect_nodes(ff1_node, 0, not1_node, 0);
@@ -570,7 +575,10 @@ split_dp_memory_depth(nnode_t *node)
 			connect_nodes(new_mem_node, j, mux1_node, 2);
 			new_mem_node->output_pins[j]->mapping = tdout_pin->mapping;
 			tdout_pin->mapping = NULL;
+
+			mux1_node->output_pins[0]->name = mux1_node->name;
 		}
+		ff1_node->output_pins[0]->name = ff1_node->name;
 	}
 
 	if (node->num_output_pins > node->output_port_sizes[0]) /* There is an "out2" output */
@@ -578,11 +586,11 @@ split_dp_memory_depth(nnode_t *node)
 		ff2_node = make_2port_gate(FF_NODE, 1, 1, 1, node, node->traverse_visited);
 		add_a_input_pin_to_node_spot_idx(ff2_node, addr2_pin, 0);
 		add_a_input_pin_to_node_spot_idx(ff2_node, copy_input_npin(clk_pin), 1);
-	
+
 		/* Copy over the output pins for the new memory */
 		for (j = 0; j < node->output_port_sizes[0]; j++)
 		{
-			mux2_node = make_2port_gate(MULTI_PORT_MUX, 2, 2, 1, node, node->traverse_visited);
+			mux2_node = make_2port_gate(MUX_2, 2, 2, 1, node, node->traverse_visited);
 			connect_nodes(ff2_node, 0, mux2_node, 0);
 			not2_node = make_not_gate(node, node->traverse_visited);
 			connect_nodes(ff2_node, 0, not2_node, 0);
@@ -594,7 +602,10 @@ split_dp_memory_depth(nnode_t *node)
 			connect_nodes(new_mem_node, node->output_port_sizes[0] + j, mux2_node, 2);
 			new_mem_node->output_pins[node->output_port_sizes[0] + j]->mapping = tdout_pin->mapping;
 			tdout_pin->mapping = NULL;
+
+			mux2_node->output_pins[0]->name = mux2_node->name;
 		}
+		ff2_node->output_pins[0]->name = ff2_node->name;
 	}
 
 	/* must recurse on new memory if it's too small */
