@@ -49,14 +49,15 @@ void register_hard_blocks()
 		 */
 		if (strcmp(hard_blocks->name, "single_port_ram") == 0)
 		{
-			hard_blocks->outputs->size = 1;
+			//hard_blocks->outputs->size = 1;
 
 			/* Need to determine the split size based on min, max, or fixed */
-			if (configuration.split_memory_depth == 1)
+			if (configuration.split_memory_depth != 0)
 			{
 				hb_ports = hard_blocks->inputs;
-				while ((hb_ports != NULL) && (strcmp(hb_ports->name, "addr") != 0))
+				while (hb_ports && strcmp(hb_ports->name, "addr"))
 					hb_ports = hb_ports->next;
+
 				if (hb_ports == NULL)
 					error_message(1, 0, -1, "No \"addr\" port on single port RAM");
 
@@ -64,8 +65,11 @@ void register_hard_blocks()
 					split_size = hb_ports->min_size;
 				if (configuration.split_memory_depth == -2) /* MAX */
 					split_size = hb_ports->size;
-				else /* FIXED */
-					split_size = configuration.split_memory_depth;
+				else
+				{
+					split_size     = configuration.split_memory_depth;
+					hb_ports->size = configuration.split_memory_depth;
+				}
 			}
 
 			hb_ports = hard_blocks->inputs;
@@ -78,15 +82,29 @@ void register_hard_blocks()
 		if (strcmp(hard_blocks->name, "dual_port_ram") == 0)
 		{
 			hb_ports = hard_blocks->outputs;
-			hb_ports->size = 1;
+			//hb_ports->size = 1;
+
 			if (hb_ports->next != NULL)
 				hb_ports->next->size = 1;
+
 			hb_ports = hard_blocks->inputs;
-			while (hb_ports != NULL)
+
+			while (hb_ports)
 			{
-				if ((strcmp(hb_ports->name, "data1") == 0) ||
-				  (strcmp(hb_ports->name, "data2") == 0))
+				if ((strcmp(hb_ports->name, "data1") == 0) || (strcmp(hb_ports->name, "data2") == 0))
 					hb_ports->size = 1;
+				if ((strcmp(hb_ports->name, "addr1") == 0) || (strcmp(hb_ports->name, "addr2") == 0))
+				{
+					if (configuration.split_memory_depth == -1) /* MIN */
+						split_size = hb_ports->min_size;
+					if (configuration.split_memory_depth == -2) /* MAX */
+						split_size = hb_ports->size;
+					else
+					{
+						split_size     = configuration.split_memory_depth;
+						hb_ports->size = configuration.split_memory_depth;
+					}
+				}
 				hb_ports = hb_ports->next;
 			}
 		}
