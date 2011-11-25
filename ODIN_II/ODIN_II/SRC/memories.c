@@ -167,9 +167,10 @@ report_memory_distribution()
  *   several smaller memories.
  *------------------------------------------------------------------------
  */
-void 
+void
 split_sp_memory_depth(nnode_t *node)
 {
+	int data_port = -1;
 	int addr_port = -1;
 	int we_port = -1;
 	int clk_port = -1;
@@ -179,24 +180,31 @@ split_sp_memory_depth(nnode_t *node)
 	int addr_pin_idx = 0;
 	int we_pin_idx = 0;
 	nnode_t *new_mem_node;
-	nnode_t *and_node, *not_node, *ff_node, *mux_node;
+	nnode_t *and_node, *not_node,  *mux_node, *ff_node;
 	npin_t *addr_pin = NULL;
 	npin_t *we_pin = NULL;
 	npin_t *twe_pin, *taddr_pin;
 	npin_t *clk_pin = NULL;
 	npin_t *tdout_pin;
 
+
 	oassert(node->type == MEMORY);
 
-	/* Find which port is the addr port */
+
+	// Find which port is the addr port
 	idx = 0;
 	for (i = 0; i < node->num_input_port_sizes; i++)
 	{
+		//printf("%s\n", node->input_pins[idx]->mapping);
 		if (strcmp("addr", node->input_pins[idx]->mapping) == 0)
 		{
 			addr_port = i;
 			addr_pin_idx = idx;
 			addr_pin = node->input_pins[idx];
+		}
+		else if (strcmp("data", node->input_pins[idx]->mapping) == 0)
+		{
+			data_port = i;
 		}
 		else if (strcmp("we", node->input_pins[idx]->mapping) == 0)
 		{
@@ -211,6 +219,10 @@ split_sp_memory_depth(nnode_t *node)
 		}
 		idx += node->input_port_sizes[i];
 	}
+	if (data_port == -1)
+	{
+		error_message(1, 0, -1, "No \"data\" port on single port RAM");
+	}
 	if (addr_port == -1)
 	{
 		error_message(1, 0, -1, "No \"addr\" port on single port RAM");
@@ -224,8 +236,8 @@ split_sp_memory_depth(nnode_t *node)
 		error_message(1, 0, -1, "No \"clk\" port on single port RAM");
 	}
 	
-	/* Check that the memory needs to be split */
-	/* Jason Luu HACK: Logical memory depth determination messed up, forced to use this method */
+	// Check that the memory needs to be split
+	// Jason Luu HACK: Logical memory depth determination messed up, forced to use this method
 	for(i = 0; i < node->input_port_sizes[addr_port]; i++)
 	{
 		if(strcmp(node->input_pins[addr_pin_idx + i]->name, "top^ZERO_PAD_ZERO") == 0)
@@ -242,7 +254,7 @@ split_sp_memory_depth(nnode_t *node)
 		return;
 	}
 
-	/* Let's remove the address line from the memory */
+	// Let's remove the address line from the memory
 	for (i = addr_pin_idx; i < node->num_input_pins - 1; i++)
 	{
 		node->input_pins[i] = node->input_pins[i+1];
@@ -250,90 +262,89 @@ split_sp_memory_depth(nnode_t *node)
 	}
 	node->input_port_sizes[addr_port]--;
 	node->num_input_pins--;
+
 	if (we_pin_idx >= addr_pin_idx)
 		we_pin_idx--;
 
-	/* Create the new memory node */
+	// Create the new memory node
 	new_mem_node = allocate_nnode();
-	new_mem_node->name = (char *)malloc(strlen(node->name) + 10);
-	strcpy(new_mem_node->name, node->name);
-	strcat(new_mem_node->name, "__H");
-	node->name = (char *)realloc(node->name, strlen(node->name) + 10);
-	strcat(node->name,"__S");
-
-	/* Copy properties from the original memory node */
+	{	// Append the new name with an __H
+		char *appendage = "__H";
+		char *new_name = (char *)malloc(strlen(node->name) + strlen(appendage) + 1);
+		strcpy(new_name, node->name);
+		strcat(new_name, appendage);
+		new_mem_node->name = strdup(new_name);
+		free(new_name);
+	}
+	{	// Append the old name with an __S
+		char *appendage = "__S";
+		char *new_name = (char *)malloc(strlen(node->name) + strlen(appendage) + 1);
+		strcpy(new_name, node->name);
+		strcat(new_name,appendage);
+		node->name = strdup(new_name);
+		free(new_name);
+	}
+	// Copy properties from the original memory node
 	new_mem_node->type = node->type;
 	new_mem_node->related_ast_node = node->related_ast_node;
 	new_mem_node->traverse_visited = node->traverse_visited;
-	new_mem_node->node_data = NULL;
-	new_mem_node->num_output_pins = node->num_output_pins;
-	new_mem_node->output_pins = (struct npin_t_t **)malloc(node->num_output_pins * sizeof(struct npin_t_t **));
-	new_mem_node->output_port_sizes = (int *)malloc(sizeof(int));
-	new_mem_node->output_port_sizes[0] = node->output_port_sizes[0];
-	for (i = 0; i < new_mem_node->num_output_pins; i++)
-		new_mem_node->output_pins[i] = NULL;
 
-	new_mem_node->num_input_port_sizes = node->num_input_port_sizes;
-	new_mem_node->input_port_sizes = (int *)malloc(node->num_input_port_sizes * sizeof(int));
-	new_mem_node->input_pins = (struct npin_t_t **)malloc(node->num_input_pins * sizeof(struct npin_t_t **));
-	new_mem_node->num_input_pins = node->num_input_pins; //- 1;
+	add_output_port_information(new_mem_node, node->num_output_pins);
+	allocate_more_node_output_pins (new_mem_node, node->num_output_pins);
 
-	/* Copy over the pin sizes for the new memory */
-	for (j = 0; j < new_mem_node->num_input_port_sizes; j++)
-	{
-		new_mem_node->input_port_sizes[j] = node->input_port_sizes[j];
-	}
+	for (j = 0; j < node->num_input_port_sizes; j++)
+		add_input_port_information(new_mem_node, node->input_port_sizes[j]);
 
-	/* Copy over the pins for the new memory */
+	// Copy over the input pins for the new memory, excluding we
+	allocate_more_node_input_pins (new_mem_node, node->num_input_pins);
 	for (j = 0; j < node->num_input_pins; j++)
 	{
-		new_mem_node->input_pins[j] = copy_input_npin(node->input_pins[j]);
+		if (j != we_pin_idx)
+			add_a_input_pin_to_node_spot_idx(new_mem_node, copy_input_npin(node->input_pins[j]), j);
 	}
 
 	and_node = make_2port_gate(LOGICAL_AND, 1, 1, 1, node, node->traverse_visited);
-	twe_pin = copy_input_npin(we_pin);
-	add_a_input_pin_to_node_spot_idx(and_node, twe_pin, 1);
-	taddr_pin = copy_input_npin(addr_pin);
-	add_a_input_pin_to_node_spot_idx(and_node, taddr_pin, 0);
+	add_a_input_pin_to_node_spot_idx(and_node, we_pin, 1);
+	add_a_input_pin_to_node_spot_idx(and_node, addr_pin, 0);
 	connect_nodes(and_node, 0, node, we_pin_idx);
 	node->input_pins[we_pin_idx]->mapping = we_pin->mapping;
 
-	taddr_pin = copy_input_npin(addr_pin);
-	not_node = make_not_gate_with_input(taddr_pin, new_mem_node, new_mem_node->traverse_visited);
+	not_node = make_not_gate_with_input(copy_input_npin(addr_pin), new_mem_node, new_mem_node->traverse_visited);
 	and_node = make_2port_gate(LOGICAL_AND, 1, 1, 1, new_mem_node, new_mem_node->traverse_visited);
 	connect_nodes(not_node, 0, and_node, 0);
-	add_a_input_pin_to_node_spot_idx(and_node, we_pin, 1);
+	add_a_input_pin_to_node_spot_idx(and_node, copy_input_npin(we_pin), 1);
 	connect_nodes(and_node, 0, new_mem_node, we_pin_idx);
 	new_mem_node->input_pins[we_pin_idx]->mapping = we_pin->mapping;
 
 	ff_node = make_2port_gate(FF_NODE, 1, 1, 1, node, node->traverse_visited);
-	add_a_input_pin_to_node_spot_idx(ff_node, addr_pin, 0);
+	add_a_input_pin_to_node_spot_idx(ff_node, copy_input_npin(addr_pin), 0);
 	add_a_input_pin_to_node_spot_idx(ff_node, copy_input_npin(clk_pin), 1);
 
-	
-	/* Copy over the output pins for the new memory */
+	// Copy over the output pins for the new memory
 	for (j = 0; j < node->num_output_pins; j++)
 	{
 		mux_node = make_2port_gate(MUX_2, 2, 2, 1, node, node->traverse_visited);
 		connect_nodes(ff_node, 0, mux_node, 0);
+
 		not_node = make_not_gate(node, node->traverse_visited);
 		connect_nodes(ff_node, 0, not_node, 0);
 		connect_nodes(not_node, 0, mux_node, 1);
+
 		tdout_pin = node->output_pins[j];
 		remap_pin_to_new_node(tdout_pin, mux_node, 0);
-		connect_nodes(node, j, mux_node, 3);
+
+		connect_nodes(node, j, mux_node, 2);
 		node->output_pins[j]->mapping = tdout_pin->mapping;
-		connect_nodes(new_mem_node, j, mux_node, 2);
+
+		connect_nodes(new_mem_node, j, mux_node, 3);
 		new_mem_node->output_pins[j]->mapping = tdout_pin->mapping;
+
 		tdout_pin->mapping = NULL;
 
 		mux_node->output_pins[0]->name = mux_node->name;
 	}
-	ff_node->output_pins[0]->name = ff_node->name;
 
-
-
-	/* must recurse on new memory if it's too small */
+	// must recurse on new memory if it's too small
 	if (logical_size <= split_size) {
 		sp_memory_list = insert_in_vptr_list(sp_memory_list, new_mem_node);
 		sp_memory_list = insert_in_vptr_list(sp_memory_list, node);
@@ -570,9 +581,9 @@ split_dp_memory_depth(nnode_t *node)
 			connect_nodes(not1_node, 0, mux1_node, 1);
 			tdout_pin = node->output_pins[j];
 			remap_pin_to_new_node(tdout_pin, mux1_node, 0);
-			connect_nodes(node, j, mux1_node, 3);
+			connect_nodes(node, j, mux1_node, 2);
 			node->output_pins[j]->mapping = tdout_pin->mapping;
-			connect_nodes(new_mem_node, j, mux1_node, 2);
+			connect_nodes(new_mem_node, j, mux1_node, 3);
 			new_mem_node->output_pins[j]->mapping = tdout_pin->mapping;
 			tdout_pin->mapping = NULL;
 
@@ -593,13 +604,16 @@ split_dp_memory_depth(nnode_t *node)
 			mux2_node = make_2port_gate(MUX_2, 2, 2, 1, node, node->traverse_visited);
 			connect_nodes(ff2_node, 0, mux2_node, 0);
 			not2_node = make_not_gate(node, node->traverse_visited);
+
 			connect_nodes(ff2_node, 0, not2_node, 0);
 			connect_nodes(not2_node, 0, mux2_node, 1);
+
 			tdout_pin = node->output_pins[node->output_port_sizes[0] + j];
 			remap_pin_to_new_node(tdout_pin, mux2_node, 0);
-			connect_nodes(node, node->output_port_sizes[0] + j, mux2_node, 3);
+
+			connect_nodes(node, node->output_port_sizes[0] + j, mux2_node, 2);
 			node->output_pins[node->output_port_sizes[0] + j]->mapping = tdout_pin->mapping;
-			connect_nodes(new_mem_node, node->output_port_sizes[0] + j, mux2_node, 2);
+			connect_nodes(new_mem_node, node->output_port_sizes[0] + j, mux2_node, 3);
 			new_mem_node->output_pins[node->output_port_sizes[0] + j]->mapping = tdout_pin->mapping;
 			tdout_pin->mapping = NULL;
 
