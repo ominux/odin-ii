@@ -32,6 +32,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "util.h"
 #include "read_xml_arch_file.h"
 #include "globals.h"
+#include "errors.h"
 
 t_model *hard_multipliers = NULL;
 struct s_linked_vptr *mult_list = NULL;
@@ -1082,8 +1083,8 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
  *-----------------------------------------------------------------------*/
 void iterate_multipliers(netlist_t *netlist)
 {
-	int sizea, sizeb, sizeout, swap;
-	int mula, mulb, mulout;
+	int sizea, sizeb, swap;
+	int mula, mulb;
 	int a0, a1, b0, b1;
 	nnode_t *node;
 
@@ -1093,7 +1094,6 @@ void iterate_multipliers(netlist_t *netlist)
 
 	sizea = hard_multipliers->inputs->size;
 	sizeb = hard_multipliers->inputs->next->size;
-	sizeout = hard_multipliers->outputs->size;
 	if (sizea < sizeb)
 	{
 		swap = sizea;
@@ -1113,7 +1113,6 @@ void iterate_multipliers(netlist_t *netlist)
 
 		oassert(node->type == MULTIPLY);
 
-		mulout = node->output_port_sizes[0];
 		mula = node->input_port_sizes[0];
 		mulb = node->input_port_sizes[1];
 		if (mula < mulb)

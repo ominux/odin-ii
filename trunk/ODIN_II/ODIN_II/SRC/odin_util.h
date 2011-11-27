@@ -5,7 +5,7 @@
 #define MAX_BUF 256
 
 char *make_signal_name(char *signal_name, int bit);
-char *make_full_ref_name(char *previous, char *module_name, char *module_instance_name, char *signal_name, int bit);
+char *make_full_ref_name(char *previous, char *module_name, char *module_instance_name, char *signal_name, long bit);
 
 char *twos_complement(char *str);
 char *convert_long_long_to_bit_string(long long orig_long, int num_bits);
@@ -20,9 +20,10 @@ long long int pow2(int to_the_power);
 char *make_string_based_on_id(nnode_t *node);
 char *make_simple_name(char *input, char *flatten_string, char flatten_char);
 
-void *my_malloc_struct(int bytes_to_alloc);
+void *my_malloc_struct(size_t bytes_to_alloc);
 
-void string_reverse(char *token, int length);
+void reverse_string(char *token, int length);
+char *append_string(char *string, char *appendage);
 
 int is_binary_string(char *string);
 int is_octal_string(char *string);

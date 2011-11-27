@@ -1895,7 +1895,10 @@ void terminate_registered_assignment(ast_node_t *always_node, signal_list_t* ass
 				(((temp_net->num_fanout_pins == 1) && (temp_net->fanout_pins[0]->node == NULL)) || (temp_net->num_fanout_pins == 0))
 				&& (local_clock_found == TRUE))
 			{
-				error_message(NETLIST_ERROR, always_node->line_number, always_node->file_number, "Suspected second clock (%s).  In a sequential sensitivity list, Odin expects the clock not to drive anything and any other signals in this list to drive stuff.  For example, a reset in the sensitivy list has to be hooked up to something in the always block.\n", potential_clocks->signal_list[i]->name);
+				error_message(NETLIST_ERROR, always_node->line_number, always_node->file_number,
+						"Suspected second clock (%s).  In a sequential sensitivity list, Odin expects the "
+						"clock not to drive anything and any other signals in this list to drive stuff.  "
+						"For example, a reset in the sensitivy list has to be hooked up to something in the always block.\n", potential_clocks->signal_list[i]->name);
 			}
 			else if (temp_net->num_fanout_pins == 0)
 			{
@@ -1948,9 +1951,10 @@ void terminate_registered_assignment(ast_node_t *always_node, signal_list_t* ass
 		ff_output_pin = allocate_npin();
 		add_a_output_pin_to_node_spot_idx(ff_node, ff_output_pin, 0);
 
-		if(((nnet_t*)output_nets_sc->data[sc_spot])->driver_pin != NULL)
+		if(((nnet_t*)output_nets_sc->data[sc_spot])->driver_pin)
 		{
-			error_message(NETLIST_ERROR, always_node->line_number, always_node->file_number, "You've defined the driver \"%s\" twice\n", get_pin_name(assignment->signal_list[i]->name));
+			error_message(NETLIST_ERROR, always_node->line_number, always_node->file_number,
+					"You've defined the driver \"%s\" twice\n", get_pin_name(assignment->signal_list[i]->name));
 		}
 		add_a_driver_pin_to_net((nnet_t*)output_nets_sc->data[sc_spot], ff_output_pin);
 
@@ -2035,7 +2039,7 @@ int alias_output_assign_pins_to_inputs(char_list_t *output_list, signal_list_t *
 		}
 		for (i = input_list->signal_list_size; i < output_list->num_strings; i++)
 		{
-			warning_message(NETLIST_ERROR, node->line_number, node->file_number, "More nets to drive then drivers, padding with ZEROs for driver %s\n", output_list->strings[i]);
+			warning_message(NETLIST_ERROR, node->line_number, node->file_number, "More nets to drive than drivers, padding with ZEROs for driver %s\n", output_list->strings[i]);
 			add_pin_to_signal_list(input_list, get_a_zero_pin(verilog_netlist));
 			input_list->signal_list[i]->name = output_list->strings[i];
 		}
@@ -2048,7 +2052,7 @@ int alias_output_assign_pins_to_inputs(char_list_t *output_list, signal_list_t *
 		{
 			input_list->signal_list[i]->name = output_list->strings[i];
 		}
-		warning_message(NETLIST_ERROR, node->line_number, node->file_number, "May be a warning: appears that there are more driver pins then nets to drive, sometimes using decimal numbers causes this problem\n");
+		warning_message(NETLIST_ERROR, node->line_number, node->file_number, "More driver pins than nets to drive: sometimes using decimal numbers causes this problem\n");
 		return output_list->num_strings;
 	}
 }
@@ -2968,13 +2972,13 @@ void pad_with_zeros(ast_node_t* node, signal_list_t *list, int pad_size, char *i
 	{
 		for (i = list->signal_list_size; i < pad_size; i++)
 		{
-			warning_message(NETLIST_ERROR, node->line_number, node->file_number, "padding an input port with 0 for operation (likely compare)\n");
+			warning_message(NETLIST_ERROR, node->line_number, node->file_number, "Padding an input port with 0 for operation (likely compare)\n");
 			add_pin_to_signal_list(list, get_a_zero_pin(verilog_netlist));
 		}
 	}
 	else if (pad_size < list->signal_list_size) 
 	{
-		warning_message(NETLIST_ERROR, node->line_number, node->file_number, "May be a warning: appears that there are more driver pins then nets to drive.  This means that for this operation you are losing some of the most significant bits\n");
+		warning_message(NETLIST_ERROR, node->line_number, node->file_number, "More driver pins than nets to drive.  This means that for this operation you are losing some of the most significant bits\n");
 	}
 }
 
@@ -3098,11 +3102,9 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 
 	for (i = 0; i < block_list->num_children; i++)
 	{
-		ast_node_t *block_port_connect;
 		int out_port_size;
 
 		block_connect = block_list->children[i]->children[0];
-		block_port_connect = block_list->children[i]->children[1];
 		hb_ports = (t_model_ports *)block_list->children[i]->children[1]->hb_port;
 		ip_name = block_connect->types.identifier;
 		if (strcmp(hb_ports->name, "out1") == 0)
@@ -3304,10 +3306,7 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
 
 	for (i = 0; i < block_list->num_children; i++)
 	{
-		ast_node_t *block_port_connect;
-
 		block_connect = block_list->children[i]->children[0];
-		block_port_connect = block_list->children[i]->children[1];
 		hb_ports = (t_model_ports *)block_list->children[i]->children[1]->hb_port;
 		ip_name = block_connect->types.identifier;
 
@@ -3381,7 +3380,6 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
  * 	inputs and outputs.
  *------------------------------------------------------------------------*/
 //#endif
-// This function is apparently not called at all for multipliers!
 signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 {
 	signal_list_t **in_list, *return_list;

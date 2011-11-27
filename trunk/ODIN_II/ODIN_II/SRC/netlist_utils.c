@@ -76,6 +76,9 @@ nnode_t* allocate_nnode() {
 
 	new_node->in_queue = FALSE;
 
+	new_node->undriven_pins = 0;
+	new_node->num_undriven_pins = 0;
+
 	return new_node;
 }
 
@@ -122,6 +125,9 @@ void free_nnode(nnode_t *to_free)
 			free(to_free->input_port_sizes);
 		if (to_free->output_port_sizes != NULL)
 			free(to_free->output_port_sizes);
+
+		if (to_free->undriven_pins)
+			free(to_free->undriven_pins);
 
 		/* now free the node */
 		free(to_free);
@@ -216,7 +222,6 @@ npin_t* allocate_npin() {
 	new_pin->coverage = 0;
 
 	new_pin->is_default = FALSE;
-	new_pin->is_undriven = FALSE;
 
 	return new_pin;
 }

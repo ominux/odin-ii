@@ -430,7 +430,9 @@ char *node_name(nnode_t *node, char *instance_name_prefix)
 	/* create the unique name for this node */
 	return_node_name = make_full_ref_name(instance_name_prefix, NULL, NULL, node_name_based_on_op(node), unique_node_name_id);
 
-	unique_node_name_id ++;
+	//oassert(unique_node_name_id != 199803);
+
+	unique_node_name_id++;
 
 	return return_node_name;
 }

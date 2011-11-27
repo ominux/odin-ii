@@ -425,7 +425,6 @@ void instantiate_logical_logic(nnode_t *node, operation_list op, short mark, net
  *-------------------------------------------------------------------------------------------*/
 void instantiate_bitwise_reduction(nnode_t *node, operation_list op, short mark, netlist_t *netlist)
 {
-	int width;
 	int i;
 	int width_a;
 	nnode_t *new_logic_cell;
@@ -435,7 +434,6 @@ void instantiate_bitwise_reduction(nnode_t *node, operation_list op, short mark,
 	oassert(node->num_input_port_sizes == 1);
 	oassert(node->output_port_sizes[0] == 1);
 	/* setup the calculations for padding and indexing */
-	width = node->output_port_sizes[0];
 	width_a = node->input_port_sizes[0];
 
 	switch (op)
@@ -769,7 +767,6 @@ void instantiate_sub_w_carry(nnode_t *node, short mark, netlist_t *netlist)
 void instantiate_unary_sub(nnode_t *node, short mark, netlist_t *netlist)
 {
 	int width;
-	int width_a;
 	int i;
 	nnode_t **new_add_cells;
 	nnode_t **new_carry_cells;
@@ -778,7 +775,6 @@ void instantiate_unary_sub(nnode_t *node, short mark, netlist_t *netlist)
 	oassert(node->num_input_pins > 0);
 	oassert(node->num_input_port_sizes == 1);
 	width = node->output_port_sizes[0];
-	width_a = node->input_port_sizes[0];
 
 	new_add_cells = (nnode_t**)malloc(sizeof(nnode_t*)*width);
 	new_carry_cells = (nnode_t**)malloc(sizeof(nnode_t*)*width);

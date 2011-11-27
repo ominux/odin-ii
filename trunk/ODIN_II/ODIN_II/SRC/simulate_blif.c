@@ -264,17 +264,20 @@ stages *simulate_first_cycle(netlist_t *netlist, int cycle, pin_names *p, lines_
 	nnode_t *node;
 	while ((node = queue->remove(queue)))
 	{
+
 		compute_and_store_value(node, cycle);
 
 		// Match node for items passed via -p and add to lines if there's a match.
 		add_additional_pins_to_lines(node, p, l);
 
 		// Enqueue child nodes which are ready, not already queued, and not already complete.
-		int num_children;
+		int num_children = 0;
 		nnode_t **children = get_children_of(node, &num_children);
+
 		for (i = 0; i < num_children; i++)
 		{
 			nnode_t* node = children[i];
+
 			if (
 				   !node->in_queue
 				&& is_node_ready(node, cycle)
@@ -771,31 +774,44 @@ void compute_and_store_value(nnode_t *node, int cycle)
 /*
  * Updates all pins which have been flagged as undriven
  * to -1 for the given cycle.
+ *
+ * Also checks that other pins have been updated
+ * by cycle 3 and throws an error if they haven't been.
+ *
+ * This function is called when each node is updated as a
+ * safeguard.
  */
 void update_undriven_input_pins(nnode_t *node, int cycle)
 {
 	int i;
-	for (i = 0; i < node->num_input_pins; i++)
+	for (i = 0; i < node->num_undriven_pins; i++)
 	{
-		npin_t *pin = node->input_pins[i];
-		if (pin->is_undriven)
+		npin_t *pin = node->undriven_pins[i];
+		update_pin_value(pin, -1, cycle);
+	}
+
+	// By the third cycle everything in the netlist should have been updated.
+	if (cycle == 3)
+	{
+		for (i = 0; i < node->num_input_pins; i++)
 		{
-			update_pin_value(pin, -1, cycle);
-		}
-		else if (cycle == 3 && pin->cycle < cycle-1)
-		{	pin->is_undriven = TRUE;
-			char *parent_node_name = get_pin_name(pin->net->driver_pin->node->name);
-			char *node_name        = get_pin_name(node->name);
-			char *pin_name         = get_pin_name(pin->name);
+			npin_t *pin = node->input_pins[i];
+			if (pin->cycle < cycle-1)
+			{
+				char *node_name              = node->name;
+				char *pin_name               = pin->name;
 
-			warning_message(SIMULATION_ERROR,0,-1,"Odin has detected that an input pin attached to %s isn't being updated. "
-					"Pin name: %s driven by %s, driving %s, driving %s", node_name, pin_name, parent_node_name, node->output_pins[0]->name, node->output_pins[0]->net?node->output_pins[0]->net->fanout_pins[0]->node?node->output_pins[0]->net->fanout_pins[0]->node->name:"NULL":"NULL");
+				// Print the trace.
+				nnode_t *root = print_update_trace(node, cycle);
 
-			free(pin_name);
-			free(node_name);
-			free(parent_node_name);
-
-			update_pin_value(pin, -1, cycle);
+				// Throw an error.
+				error_message(SIMULATION_ERROR,0,-1,"Odin has detected that an input pin attached to %s isn't being updated.\n"
+						"\tPin name: %s\n"
+						"\tRoot node: %s\n"
+						"(See trace.)\n",
+						node_name, pin_name, root->name
+				);
+			}
 		}
 	}
 }
@@ -810,10 +826,24 @@ void flag_undriven_input_pins(nnode_t *node)
 	for (i = 0; i < node->num_input_pins; i++)
 	{
 		npin_t *pin = node->input_pins[i];
-		if (!pin->is_undriven && (!pin->net || !pin->net->driver_pin || !pin->net->driver_pin->node))
+
+		if (!pin->net || !pin->net->driver_pin || !pin->net->driver_pin->node)
 		{
-			pin->is_undriven = TRUE;
-			warning_message(SIMULATION_ERROR,0,-1,"A node (%s) has an undriven input pin.", node->name);
+			int already_flagged = FALSE;
+			int j;
+			for (j = 0; j < node->num_undriven_pins; j++)
+			{
+				if (node->undriven_pins[j] == pin)
+					already_flagged = TRUE;
+			}
+
+			if (!already_flagged)
+			{
+				node->undriven_pins = realloc(node->undriven_pins, sizeof(npin_t *) * (node->num_undriven_pins + 1));
+				node->undriven_pins[node->num_undriven_pins++] = pin;
+
+				warning_message(SIMULATION_ERROR,0,-1,"A node (%s) has an undriven input pin.", node->name);
+			}
 		}
 	}
 }
@@ -1865,7 +1895,7 @@ test_vector *parse_test_vector(char *buffer)
 	v->counts = 0;
 	v->count  = 0;
 
-	string_trim(buffer,"\r\n");
+	trim_string(buffer,"\r\n");
 
 	const char *delim = " \t";
 	char *token = strtok(buffer, delim);
@@ -1880,7 +1910,7 @@ test_vector *parse_test_vector(char *buffer)
 		{	// Value is hex.
 			token += 2;
 			int token_length = strlen(token);
-			string_reverse(token, token_length);
+			reverse_string(token, token_length);
 			int i;
 			for (i = 0; i < token_length; i++)
 			{
@@ -2199,8 +2229,8 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 				// Compare them and print an appropriate message if they differ.
 				if (!compare_test_vectors(v1,v2))
 				{
-					string_trim(buffer1, "\n\t");
-					string_trim(buffer2, "\n\t");
+					trim_string(buffer1, "\n\t");
+					trim_string(buffer2, "\n\t");
 					error = TRUE;
 					warning_message(SIMULATION_ERROR, 0, -1, "Cycle %d mismatch:\n"
 							"\t%s in %s\n"
@@ -2360,7 +2390,7 @@ char *get_mif_filename(nnode_t *node)
  * Trims characters in the given "chars" string
  * from the end of the given string.
  */
-void string_trim(char* string, char *chars)
+void trim_string(char* string, char *chars)
 {
 	int length;
 	while((length = strlen(string)))
@@ -2421,7 +2451,7 @@ char *vector_value_to_hex(signed char *value, int length)
 	for (j = 0; j < length; j++)
 		string[j] = value[j] + '0';
 
-	string_reverse(string,strlen(string));
+	reverse_string(string,strlen(string));
 
 	char *hex_string = malloc(sizeof(char) * ((length/4 + 1) + 1));
 
@@ -2459,7 +2489,7 @@ int count_test_vectors(FILE *in)
 int is_vector(char *buffer)
 {
 	char *line = strdup(buffer);
-	string_trim(line," \t\r\n");
+	trim_string(line," \t\r\n");
 
 	if (line[0] != '#' && strlen(line))
 	{
@@ -2512,7 +2542,7 @@ void free_stages(stages *s)
 {
 	while (s->count--)
 		free(s->stages[s->count]);
-
+	free(s->stages);
 	free(s->counts);
 	free(s);
 }
@@ -2523,8 +2553,8 @@ void free_stages(stages *s)
 void free_test_vector(test_vector* v)
 {
 	while (v->count--)
-		free(v->values[v->count]);
-
+			free(v->values[v->count]);
+	free(v->values);
 	free(v->counts);
 	free(v);
 }
@@ -2632,6 +2662,95 @@ void print_time(double time)
 	else if (time > 60)      printf("%.1fm",  time/60.0);
 	else if (time > 1)       printf("%.1fs",  time);
 	else                     printf("%.1fms", time*1000);
+}
+
+/*
+ * Prints n ancestors of the given node, complete
+ * with their parents, ids, etc.
+ */
+void print_ancestry(nnode_t *bottom_node, int n)
+{
+	queue_t *queue = create_queue();
+
+	queue->add(queue, bottom_node);
+
+	nnode_t *node;
+	while ((node = queue->remove(queue)) && n--)
+	{
+		char *name = get_pin_name(node->name);
+		printf("  %d: %s:\n", n, name);
+		free(name);
+		int i;
+		for (i = 0; i < node->num_input_pins; i++)
+		{
+			npin_t *pin = node->input_pins[i];
+			nnet_t *net = pin->net;
+			nnode_t *node = net->driver_pin->node;
+			queue->add(queue, node);
+			char *name = get_pin_name(node->name);
+			printf("\t%s %s (%ld)\n", pin->mapping, name, node->unique_id);fflush(stdout);
+			free(name);
+		}
+		printf(  "------------\n");
+	}
+	queue->destroy(queue);
+}
+
+/*
+ * Traces an node which is failing to update back to parent of
+ * the earliest node in the net list with an unupdated pin.
+ * (Pin whose cycle is less than cycle-1). Prints all nodes
+ * traversed during the trace with the original node printed
+ * first, and the root of the issue printed last.
+ *
+ * Returns the root node for inspection.
+ */
+nnode_t *print_update_trace(nnode_t *bottom_node, int cycle)
+{
+	queue_t *queue = create_queue();
+
+	queue->add(queue, bottom_node);
+
+	nnode_t *node;
+	while ((node = queue->remove(queue)))
+	{
+		char *name = get_pin_name(node->name);
+		printf("  %s (%ld) %d %d\n", name, node->unique_id, node->num_input_pins, node->num_output_pins);
+		free(name);
+		int i;
+		int found_root = TRUE;
+		for (i = 0; i < node->num_input_pins; i++)
+		{
+			npin_t *pin = node->input_pins[i];
+			nnet_t *net = pin->net;
+			nnode_t *node = net->driver_pin->node;
+
+			int is_undriven = FALSE;
+			if (pin->cycle < cycle-1)
+			{
+				queue->add(queue, node);
+				is_undriven = TRUE;
+				found_root = FALSE;
+			}
+			char *name = get_pin_name(node->name);
+			printf("\t%s %s %s (%ld) %d %d \n", pin->mapping, name, is_undriven?"*":"", node->unique_id, node->num_input_pins, node->num_output_pins);fflush(stdout);
+			free(name);
+		}
+		printf("  ------------\n");
+
+		if (found_root)
+		{
+			printf("  TOP OF TRACE\n");
+
+			printf("  ------------\n");
+
+			queue->destroy(queue);
+			return node;
+		}
+	}
+
+	queue->destroy(queue);
+	return NULL;
 }
 
 /*

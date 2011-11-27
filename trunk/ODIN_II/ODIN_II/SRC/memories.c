@@ -171,9 +171,9 @@ void
 split_sp_memory_depth(nnode_t *node)
 {
 	int data_port = -1;
+	int clk_port  = -1;
 	int addr_port = -1;
 	int we_port = -1;
-	int clk_port = -1;
 	int logical_size;
 	int i, j;
 	int idx;
@@ -183,7 +183,6 @@ split_sp_memory_depth(nnode_t *node)
 	nnode_t *and_node, *not_node,  *mux_node, *ff_node;
 	npin_t *addr_pin = NULL;
 	npin_t *we_pin = NULL;
-	npin_t *twe_pin, *taddr_pin;
 	npin_t *clk_pin = NULL;
 	npin_t *tdout_pin;
 
@@ -268,23 +267,15 @@ split_sp_memory_depth(nnode_t *node)
 
 	// Create the new memory node
 	new_mem_node = allocate_nnode();
-	{	// Append the new name with an __H
-		char *appendage = "__H";
-		char *new_name = (char *)malloc(strlen(node->name) + strlen(appendage) + 1);
-		strcpy(new_name, node->name);
-		strcat(new_name, appendage);
-		new_mem_node->name = strdup(new_name);
-		free(new_name);
-	}
+	// Append the new name with an __H
+	new_mem_node->name = append_string(node->name, "__H");
+
 	{	// Append the old name with an __S
-		char *appendage = "__S";
-		char *new_name = (char *)malloc(strlen(node->name) + strlen(appendage) + 1);
-		strcpy(new_name, node->name);
-		strcat(new_name,appendage);
+		char *new_name = append_string(node->name, "__S");
 		free(node->name);
-		node->name = strdup(new_name);
-		free(new_name);
+		node->name = new_name;
 	}
+
 	// Copy properties from the original memory node
 	new_mem_node->type = node->type;
 	new_mem_node->related_ast_node = node->related_ast_node;
@@ -371,7 +362,6 @@ split_dp_memory_depth(nnode_t *node)
 	int addr2_port = -1;
 	int we1_port = -1;
 	int we2_port = -1;
-	int clk_port = -1;
 	int logical_size;
 	int i, j;
 	int idx;
@@ -422,7 +412,6 @@ split_dp_memory_depth(nnode_t *node)
 		}
 		else if (strcmp("clk", node->input_pins[idx]->mapping) == 0)
 		{
-			clk_port = i;
 			clk_pin = node->input_pins[idx];
 		}
 		idx += node->input_port_sizes[i];
@@ -483,22 +472,14 @@ split_dp_memory_depth(nnode_t *node)
 
 	/* Create the new memory node */
 	new_mem_node = allocate_nnode();
-	{	// Append the new name with an __H
-		char *appendage = "__H";
-		char *new_name = (char *)malloc(strlen(node->name) + strlen(appendage) + 1);
-		strcpy(new_name, node->name);
-		strcat(new_name, appendage);
-		new_mem_node->name = strdup(new_name);
-		free(new_name);
-	}
+
+	// Append the new name with an __H
+	new_mem_node->name = append_string(node->name, "__H");
+
 	{	// Append the old name with an __S
-		char *appendage = "__S";
-		char *new_name = (char *)malloc(strlen(node->name) + strlen(appendage) + 1);
-		strcpy(new_name, node->name);
-		strcat(new_name,appendage);
+		char *new_name = append_string(node->name, "__S");
 		free(node->name);
-		node->name = strdup(new_name);
-		free(new_name);
+		node->name = new_name;
 	}
 
 	/* Copy properties from the original memory node */
@@ -510,15 +491,15 @@ split_dp_memory_depth(nnode_t *node)
 	for (j = 0; j < node->num_output_port_sizes; j++)
 		add_output_port_information(new_mem_node, node->output_port_sizes[j]);
 	for (j = 0; j < node->num_input_port_sizes; j++)
-		add_input_port_information(new_mem_node, node->input_port_sizes[j]);
+		add_input_port_information (new_mem_node, node->input_port_sizes[j]);
 
 	// allocate space for pins.
 	allocate_more_node_output_pins (new_mem_node, node->num_output_pins);
-	allocate_more_node_input_pins (new_mem_node, node->num_input_pins);
+	allocate_more_node_input_pins  (new_mem_node, node->num_input_pins);
 
-	/* Copy over the pins for the new memory */
+	// Copy over the pins for the new memory
 	for (j = 0; j < node->num_input_pins; j++)
-		new_mem_node->input_pins[j] = copy_input_npin(node->input_pins[j]);
+		add_a_input_pin_to_node_spot_idx(new_mem_node, copy_input_npin(node->input_pins[j]), j);
 
 	if (we1_pin != NULL)
 	{
@@ -588,7 +569,6 @@ split_dp_memory_depth(nnode_t *node)
 
 			mux1_node->output_pins[0]->name = mux1_node->name;
 		}
-		ff1_node->output_pins[0]->name = ff1_node->name;
 	}
 
 	if (node->num_output_pins > node->output_port_sizes[0]) /* There is an "out2" output */
@@ -618,7 +598,6 @@ split_dp_memory_depth(nnode_t *node)
 
 			mux2_node->output_pins[0]->name = mux2_node->name;
 		}
-		ff2_node->output_pins[0]->name = ff2_node->name;
 	}
 
 	/* must recurse on new memory if it's too small */
@@ -646,7 +625,6 @@ split_sp_memory_width(nnode_t *node)
 	int data_port;
 	int i, j, k, idx, old_idx, diff;
 	nnode_t *new_node;
-	char *tmp_name;
 
 	oassert(node->type == MEMORY);
 
@@ -738,11 +716,11 @@ split_sp_memory_width(nnode_t *node)
 	/* Now need to clean up the original to do 1 bit output - first bit */
 
 	/* Name the node to show first bit! */
-	tmp_name = (char *)malloc(strlen(node->name) + 3);
-	strcpy(tmp_name, node->name);
-	strcat(tmp_name, "-0");
-	free(node->name);
-	node->name = tmp_name;
+	{
+		char *new_name = append_string(node->name, "-0");
+		free(node->name);
+		node->name = new_name;
+	}
 
 	/* free the additional output pins */
 	for (i = 1; i < node->num_output_pins; i++)
@@ -786,7 +764,6 @@ split_dp_memory_width(nnode_t *node)
 	int i, j, k, idx, old_idx, data_diff1, data_diff2;
 	nnode_t *new_node;
 	char *tmp_name;
-	nnet_t *data1_net, *data2_net;
 
 	oassert(node->type == MEMORY);
 
@@ -796,9 +773,7 @@ split_dp_memory_width(nnode_t *node)
 	data_port2 = -1;
 	data_diff1 = 0;
 	data_diff2 = 0;
-	data1_net = node->output_pins[0]->net;
-	if (node->num_output_port_sizes > 1)
-		data2_net = node->output_pins[node->output_port_sizes[0]]->net;
+
 	for (i = 0; i < node->num_input_port_sizes; i++)
 	{
 		if (strcmp("data1", node->input_pins[idx]->mapping) == 0)

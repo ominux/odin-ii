@@ -386,6 +386,8 @@ struct nnode_t_t
 
 	// For simulation
 	int in_queue; // Flag used by the simulator to avoid double queueing.
+	npin_t **undriven_pins; // These pins have been found by the simulator to have no driver.
+	int  num_undriven_pins;
 };
 
 struct npin_t_t
@@ -407,7 +409,6 @@ struct npin_t_t
 	signed char values[SIM_WAVE_LENGTH]; // The values for the current wave.
 	unsigned long coverage;
 	signed char is_default;  // The pin is feeding a mux from logic representing an else or default.
-	signed char is_undriven;    // The pin has been found by the simulator to have no driver.
 };
 
 struct nnet_t_t
