@@ -797,19 +797,24 @@ void update_undriven_input_pins(nnode_t *node, int cycle)
 		{
 			npin_t *pin = node->input_pins[i];
 			if (pin->cycle < cycle-1)
+			#ifdef _OPENMP
+			// Can't have multiple threads trying to error out at the same time.
+			#pragma omp critical
+			#endif
 			{
 				char *node_name              = node->name;
 				char *pin_name               = pin->name;
 
 				// Print the trace.
 				nnode_t *root = print_update_trace(node, cycle);
-
+				fflush(stdout);
+				fflush(stderr);
 				// Throw an error.
 				error_message(SIMULATION_ERROR,0,-1,"Odin has detected that an input pin attached to %s isn't being updated.\n"
 						"\tPin name: %s\n"
 						"\tRoot node: %s\n"
-						"(See trace.)\n",
-						node_name, pin_name, root->name
+						"\tSee the trace immediately above this message for details.\n",
+						node_name, pin_name, root?root->name:"N/A"
 				);
 			}
 		}
@@ -2707,50 +2712,89 @@ void print_ancestry(nnode_t *bottom_node, int n)
  */
 nnode_t *print_update_trace(nnode_t *bottom_node, int cycle)
 {
+	// Limit the length of the trace. 0 for unlimited.
+	const int max_depth = 0;
+
+
+	printf(
+			"  --------------------------------------------------------------------------\n"
+			"  --------------------------------------------------------------------------\n"
+			"  BACKTRACE:\n"
+			"\tFormat: Each node is listed followed by its parents. The parent \n"
+			"\twhich is not updating is indicated with an astrisk. (*)\n"
+			"\tEach node is listed in the form:\n"
+			"\t\t(<mapping>) <Name> (<Unique ID>) <# of Parents> <# of Children> \n"
+			"  --------------------------------------------------------------------------\n"
+	);
+
+
+	nnode_t *root_node = NULL;
+
+	// Used to detect cycles.
+	hashtable_t *index = create_hashtable(max_depth?(max_depth * 2):100000);
+
 	queue_t *queue = create_queue();
-
 	queue->add(queue, bottom_node);
-
 	nnode_t *node;
+	int depth = 0;
 	while ((node = queue->remove(queue)))
 	{
-		char *name = get_pin_name(node->name);
-		printf("  %s (%ld) %d %d\n", name, node->unique_id, node->num_input_pins, node->num_output_pins);
-		free(name);
-		int i;
-		int found_root = TRUE;
-		for (i = 0; i < node->num_input_pins; i++)
+		int found_undriven_pin = FALSE;
+		int is_duplicate = index->get(index, &node->unique_id, sizeof(long))?1:0;
+		if (!is_duplicate)
 		{
-			npin_t *pin = node->input_pins[i];
-			nnet_t *net = pin->net;
-			nnode_t *node = net->driver_pin->node;
+			index->add(index, &node->unique_id, sizeof(long), (void *)1);
 
-			int is_undriven = FALSE;
-			if (pin->cycle < cycle-1)
-			{
-				queue->add(queue, node);
-				is_undriven = TRUE;
-				found_root = FALSE;
-			}
 			char *name = get_pin_name(node->name);
-			printf("\t%s %s %s (%ld) %d %d \n", pin->mapping, name, is_undriven?"*":"", node->unique_id, node->num_input_pins, node->num_output_pins);fflush(stdout);
+			printf("  %s (%ld) %d %d\n", name, node->unique_id, node->num_input_pins, node->num_output_pins);
 			free(name);
-		}
-		printf("  ------------\n");
+			int i;
 
-		if (found_root)
+			depth++;
+			for (i = 0; i < node->num_input_pins; i++)
+			{
+				npin_t *pin = node->input_pins[i];
+				nnet_t *net = pin->net;
+				nnode_t *node = net->driver_pin->node;
+
+				int is_undriven = FALSE;
+				if (pin->cycle < cycle-1)
+				{
+					if (!found_undriven_pin)
+						queue->add(queue, node);
+					found_undriven_pin = TRUE;
+					is_undriven = TRUE;
+				}
+				char *name = get_pin_name(node->name);
+				printf("\t(%s) %s (%ld) %d %d %s \n", pin->mapping, name, node->unique_id, node->num_input_pins, node->num_output_pins, is_undriven?"*":"");
+				free(name);
+			}
+			printf("  ------------\n");
+		}
+		else {
+			printf("  CYCLE DETECTED AFTER %d NODES.\n", depth);
+			printf("  ------------\n");
+			break;
+		}
+
+
+		if (!found_undriven_pin)
 		{
 			printf("  TOP OF TRACE\n");
-
 			printf("  ------------\n");
-
-			queue->destroy(queue);
-			return node;
+			root_node = node;
+			break;
+		}
+		else if (max_depth && depth >=max_depth)
+		{
+			printf("  TRACE TRUNCATED AT %d NODES.\n", max_depth);
+			printf("  ------------\n");
+			break;
 		}
 	}
-
+	index->destroy(index);
 	queue->destroy(queue);
-	return NULL;
+	return root_node;
 }
 
 /*
