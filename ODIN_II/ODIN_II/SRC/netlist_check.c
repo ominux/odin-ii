@@ -516,7 +516,6 @@ void levelize_forwards_clean_checking_for_combo_loop_and_liveness(short ast_base
 					else 
 					{
 						int idx;
-						int idx_missed;
 						/* ELSE - get the list */
 						oassert(output_node->unique_node_data_id == LEVELIZE);
 						fanouts_visited = (int*)output_node->node_data;
@@ -529,7 +528,6 @@ void levelize_forwards_clean_checking_for_combo_loop_and_liveness(short ast_base
 							if (fanouts_visited[idx] == -1)
 							{	
 								all_visited = FALSE;
-								idx_missed = idx;
 								break;
 							}
 						}

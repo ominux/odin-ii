@@ -189,7 +189,7 @@ pin_names *parse_pin_name_list(char *list);
 void free_pin_name_list(pin_names *p);
 hashtable_t *index_pin_name_list(pin_names *list);
 
-void string_trim(char* string, char *chars);
+void trim_string(char* string, char *chars);
 char *vector_value_to_hex(signed char *value, int length);
 
 int  print_progress_bar(double completion, int position, int length, double time);
@@ -203,6 +203,10 @@ char *get_circuit_filename();
 
 void update_undriven_input_pins(nnode_t *node, int cycle);
 void flag_undriven_input_pins(nnode_t *node);
+
+void print_ancestry(nnode_t *node, int generations);
+nnode_t *print_update_trace(nnode_t *bottom_node, int cycle);
+
 
 #endif
 

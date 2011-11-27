@@ -63,7 +63,6 @@ void print_usage();
 int main(int argc, char **argv)
 {
 	int num_types;
-	int return_val = 0;
 
 	printf("--------------------------------------------------------------------\n");
 	printf("Welcome to ODIN II version 0.1 - the better High level synthesis tools++ targetting FPGAs (mainly VPR)\n");
@@ -98,7 +97,6 @@ int main(int argc, char **argv)
 #ifdef VPR5
 		do_activation_estimation(num_types, type_descriptors);
 #endif
-		return_val = 1;
 	}
 	else
 	{

@@ -56,39 +56,49 @@ char *make_signal_name(char *signal_name, int bit)
 // {previous_string}.module_name+instance_name^signal_name
 // {previous_string}.module_name+instance_name^signal_name~bit
  *-------------------------------------------------------------------------------------------*/
-char *make_full_ref_name(char *previous, char *module_name, char *module_instance_name, char *signal_name, int bit)
+char *make_full_ref_name(char *previous, char *module_name, char *module_instance_name, char *signal_name, long bit)
 {
-	char *return_string;
-	return_string = (char*)malloc(sizeof(char)*1);
+	char *return_string = malloc(sizeof(char)*1);
 	return_string[0] = '\0';
 
-	if (previous != NULL)
+	if (previous)
 	{
-		return_string = (char*)realloc(return_string, sizeof(char)*(strlen(previous)+1+1));
-		sprintf(return_string, "%s", previous);
+		free(return_string);
+		return_string = strdup(previous);
 	}
-	if (module_name != NULL)
+	if (module_name)
 	{
-		return_string = (char*)realloc(return_string, sizeof(char)*(strlen(return_string)+1+strlen(module_name)+1+strlen(module_instance_name)+1));
+		return_string = realloc(return_string,
+				sizeof(char)*(
+						 strlen(return_string)
+						+1
+						+strlen(module_name)
+						+1
+						+strlen(module_instance_name)
+						+1
+				)
+		);
 		sprintf(return_string, "%s.%s+%s", return_string, module_name, module_instance_name);
 	}
-	if ((signal_name != NULL) && ((previous != NULL) || ((module_name != NULL))))
+	if (signal_name && (previous || module_name))
 	{
-		return_string = (char*)realloc(return_string, sizeof(char)*(strlen(return_string)+1+strlen(signal_name)+1));
+		return_string = realloc(return_string, sizeof(char)*(strlen(return_string)+1+strlen(signal_name)+1));
 		strcat(return_string, "^");
 		strcat(return_string, signal_name);
 	}
-	else if (signal_name != NULL) 
+	else if (signal_name)
 	{
-		return_string = (char*)realloc(return_string, sizeof(char)*(strlen(return_string)+1+strlen(signal_name)+1));
-		sprintf(return_string, "%s", signal_name);
+		return_string = realloc(return_string, sizeof(char)*(strlen(return_string)+1+strlen(signal_name)+1));
+		strcat(return_string, signal_name);
 	}
 	if (bit != -1)
 	{
 		oassert(signal_name != NULL);
-		return_string = (char*)realloc(return_string, sizeof(char)*(strlen(return_string)+1+10+1));
-		sprintf(return_string, "%s~%d", return_string, bit);
+		return_string = realloc(return_string, sizeof(char)*(strlen(return_string)+1+30+1));
+		sprintf(return_string, "%s~%ld", return_string, bit);
 	}
+
+	return_string = realloc(return_string, sizeof(char)*strlen(return_string)+1);
 	return return_string;	
 }
 
@@ -173,7 +183,7 @@ char *convert_hex_string_of_size_to_bit_string(char *orig_string, int binary_siz
 	int   size       = strlen(string);
 
 	// Change to big endian. (We want to add higher order bits at the end.)
-	string_reverse(string, size);
+	reverse_string(string, size);
 
 	int count = 0;
 	int i;
@@ -203,7 +213,7 @@ char *convert_hex_string_of_size_to_bit_string(char *orig_string, int binary_siz
 	}
 
 	// Change to little endian.
-	string_reverse(bit_string, count);
+	reverse_string(bit_string, count);
 	return bit_string;
 }
 
@@ -224,7 +234,7 @@ char *convert_oct_string_of_size_to_bit_string(char *orig_string, int binary_siz
 	int   size       = strlen(string);
 
 	// Change to big endian. (We want to add higher order bits at the end.)
-	string_reverse(string, size);
+	reverse_string(string, size);
 
 	int count = 0;
 	int i;
@@ -254,7 +264,7 @@ char *convert_oct_string_of_size_to_bit_string(char *orig_string, int binary_siz
 	}
 
 	// Change to little endian.
-	string_reverse(bit_string, count);
+	reverse_string(bit_string, count);
 	return bit_string;
 }
 
@@ -277,7 +287,7 @@ char *convert_binary_string_of_size_to_bit_string(char *orig_string, int binary_
 	strcat(bit_string, orig_string);
 
 	// Change to big endian.
-	string_reverse(bit_string, count);
+	reverse_string(bit_string, count);
 
 	// Pad with zeros to binary_size.
 	while (count < binary_size)
@@ -288,7 +298,7 @@ char *convert_binary_string_of_size_to_bit_string(char *orig_string, int binary_
 	}
 
 	// Change to little endian
-	string_reverse(bit_string, count);
+	reverse_string(bit_string, count);
 	return bit_string;
 }
 
@@ -332,7 +342,7 @@ int is_octal_string(char *string)
 }
 
 /*
- * Returns true if the string contains only '0's and '1's.
+ * Returns TRUE if the string contains only '0's and '1's.
  */
 int is_binary_string(char *string)
 {
@@ -345,12 +355,17 @@ int is_binary_string(char *string)
 }
 
 /*
- * Gets the port name (everything after the ^ character0 from the
- * given name.
+ * Gets the port name (everything after the ^ character)
+ * from the given name. Leaves the original name intact.
+ * Returns a copy of the original name if there is no
+ * ^ character present in the name.
  */
 char *get_pin_name(char *name)
 {	// Remove everything before the ^
-	return strdup(strchr(name, '^') + 1);
+	if (strchr(name, '^'))
+		return strdup(strchr(name, '^') + 1);
+	else
+		return strdup(name);
 }
 
 
@@ -451,27 +466,27 @@ char *make_simple_name(char *input, char *flatten_string, char flatten_char)
 /*-----------------------------------------------------------------------
  * (function: my_malloc_struct )
  *-----------------------------------------------------------------*/
-void *my_malloc_struct(int bytes_to_alloc)
+void *my_malloc_struct(size_t bytes_to_alloc)
 {
-        void *allocated = NULL;
-        static long int m_id = 0;
+	void *allocated = NULL;
+	static long int m_id = 0;
 
-        // ways to stop the execution at the point when a specific structure is built...note it needs to be m_id - 1 ... it's unique_id in most data structures
-        //	oassert(m_id != 7);
+	// ways to stop the execution at the point when a specific structure is built...note it needs to be m_id - 1 ... it's unique_id in most data structures
+	//oassert(m_id != 256034);
 
-        allocated = malloc(bytes_to_alloc);
-        if(allocated == NULL)
-        {
-                fprintf(stderr,"MEMORY FAILURE\n");
-                oassert (0);
-        }
+	allocated = malloc(bytes_to_alloc);
+	if(allocated == NULL)
+	{
+		fprintf(stderr,"MEMORY FAILURE\n");
+		oassert (0);
+	}
 
-        /* mark the unique_id */
-        *((long int*)allocated) = m_id; 
+	/* mark the unique_id */
+	*((long int*)allocated) = m_id;
 
-        m_id++;
+	m_id++;
 
-        return(allocated);
+	return allocated;
 }
 
 /*---------------------------------------------------------------------------------------------
@@ -491,10 +506,23 @@ long long int pow2(int to_the_power)
 }
 
 /*
+ * Returns a new string consisting of the original string
+ * plus the appendage. Leaves the original string
+ * intact.
+ */
+char *append_string(char *string, char *appendage)
+{
+	char *new_string = (char *)malloc(strlen(string) + strlen(appendage) + 1);
+	strcpy(new_string, string);
+	strcat(new_string, appendage);
+	return new_string;
+}
+
+/*
  * Reverses the given string. (Reverses only 'length'
  * chars from index 0 to length-1.)
  */
-void string_reverse(char *string, int length)
+void reverse_string(char *string, int length)
 {
 	int i = 0;
 	int j = length - 1;
