@@ -935,6 +935,24 @@ int is_node_ready(nnode_t* node, int cycle)
 		)
 			return FALSE;
 	}
+	else if (node->type == MEMORY)
+	{
+		int i;
+		for (i = 0; i < node->num_input_pins; i++)
+		{
+			npin_t *pin = node->input_pins[i];
+			if (!strcmp(pin->mapping, "data") || !strcmp(pin->mapping, "data1") || !strcmp(pin->mapping, "data2"))
+			{
+				if (pin->cycle < cycle-1)
+					return FALSE;
+			}
+			else
+			{
+				if (pin->cycle < cycle)
+					return FALSE;
+			}
+		}
+	}
 	else
 	{
 		int i;
