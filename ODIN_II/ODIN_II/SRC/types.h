@@ -103,9 +103,13 @@ struct config_t_t
 	short output_preproc_source; // switch that outputs the pre-processed source
 	int min_hard_multiplier; // threshold from hard to soft logic
 	int mult_padding; // setting how multipliers are padded to fit fixed size
-	int fixed_hard_multiplier; // flag for fixed or variable hard mult
-	int fracture_hard_multiplier; // flag for fractured hard multipliers
+	// Flag for fixed or variable hard mult (1 or 0)
+	int fixed_hard_multiplier;
+	// Flag for splitting hard multipliers If fixed_hard_multiplier is set, this must be 1.
+	int split_hard_multiplier;
+	// 1 to split memory width down to a size of 1. 0 to leave memory width alone.
 	short split_memory_width;
+	// Set to a positive integer to split memory depth to that address width.
 	short split_memory_depth;
 	char *arch_file; // Name of the FPGA architecture file
 };

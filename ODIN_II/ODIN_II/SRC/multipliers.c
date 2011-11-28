@@ -429,7 +429,7 @@ void instantiate_hard_multiplier(nnode_t *node, short mark, netlist_t *netlist)
 		node->output_pins[i]->name = new_name;
 	}
 	free(node->name);
-	// node->name = new_name;
+	node->name = new_name;
 	node->traverse_visited = mark;
 	return;
 }
@@ -1001,7 +1001,7 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 	diffb = hard_multipliers->inputs->next->size - sizeb;
 	diffout = hard_multipliers->outputs->size - sizeout;
 
-	if (configuration.fracture_hard_multiplier == 1)
+	if (configuration.split_hard_multiplier == 1)
 	{
 		plist = hard_multipliers->pb_types;
 		while ((diffa + diffb != 0) && (plist != NULL))
@@ -1065,7 +1065,11 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 	{
 		allocate_more_node_output_pins(node, diffout);
 		for (i = 0; i < diffout; i++)
-			add_a_output_pin_to_node_spot_idx(node, copy_output_npin(node->output_pins[0]), i + sizeout);
+		{
+			// Add new pins to the higher order spots.
+			npin_t *new_pin = allocate_npin();
+			add_a_output_pin_to_node_spot_idx(node, new_pin, i + sizeout);
+		}
 		node->output_port_sizes[0] = sizeout + diffout;
 	}
 
