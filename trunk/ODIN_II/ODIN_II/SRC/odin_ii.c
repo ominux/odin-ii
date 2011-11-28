@@ -161,6 +161,9 @@ void get_options(int argc, char **argv)
 	configuration.split_memory_width = 1;
 	configuration.split_memory_depth = 15;
 
+	configuration.fixed_hard_multiplier = 0;
+	configuration.split_hard_multiplier = 0;
+
 	/* read in the option line */
 	opt = getopt(argc, argv, optString);
 	while(opt != -1) 
@@ -327,15 +330,25 @@ void do_high_level_synthesis()
 	printf("Performing Optimizations of the Netlist\n");
 	netlist_optimizations_top(verilog_netlist);
 
+	if (configuration.output_netlist_graphs )
+	{
+		/* Path is where we are */
+		graphVizOutputNetlist(configuration.debug_output_path, "optimized", 1, verilog_netlist);
+	}
+
 	/* point where we convert netlist to FPGA or other hardware target compatible format */
 	printf("Performing Partial Map to target device\n");
 	partial_map_top(verilog_netlist);
+
+
 
 	/* check for problems in the partial mapped netlist */
 	printf("Check for liveness and combinational loops\n");
 	#ifdef VPR5
 	levelize_and_check_for_combinational_loop_and_liveness(TRUE, verilog_netlist);
 	#endif
+
+
 
 	/* point for outputs.  This includes soft and hard mapping all structures to the target format.  Some of these could be considred optimizations */
 	printf("Outputting the netlist to the specified output format\n");

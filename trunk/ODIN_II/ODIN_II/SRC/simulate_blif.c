@@ -264,7 +264,6 @@ stages *simulate_first_cycle(netlist_t *netlist, int cycle, pin_names *p, lines_
 	nnode_t *node;
 	while ((node = queue->remove(queue)))
 	{
-
 		compute_and_store_value(node, cycle);
 
 		// Match node for items passed via -p and add to lines if there's a match.
@@ -731,7 +730,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			compute_hard_ip_node(node,cycle);
 			break;
 		case MULTIPLY:
-			oassert(node->num_input_port_sizes >= 2);
+			oassert(node->num_input_port_sizes == 2);
 			oassert(node->num_output_port_sizes == 1);
 			compute_multiply_node(node,cycle);
 			break;
@@ -973,17 +972,51 @@ nnode_t **get_children_of(nnode_t *node, int *num_children)
 	int i;
 	for (i = 0; i < node->num_output_pins; i++)
 	{
-		nnet_t *net = node->output_pins[i]->net;
+		npin_t *pin = node->output_pins[i];
+		nnet_t *net = pin->net;
 		if (net)
 		{
+			if (pin->net->driver_pin != pin)
+			{
+				print_ancestry(node, 0);
+				error_message(SIMULATION_ERROR, -1, -1, "Found output pin  (%s) on node %s which is mapped to a net driven by another pin.", pin->name, node->name);
+			}
+
 			int j;
 			for (j = 0; j < net->num_fanout_pins; j++)
 			{
 				npin_t *fanout_pin = net->fanout_pins[j];
 				if (fanout_pin && fanout_pin->type == INPUT && fanout_pin->node)
 				{
+					nnode_t *child_node = fanout_pin->node;
+					// Find mismapped pins.
+					if (fanout_pin->net != net)
+					{
+						print_ancestry(child_node, 1000);
+						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
+					}
+
+					if (fanout_pin->net->driver_pin->net != net)
+					{
+						print_ancestry(child_node, 1000);
+						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
+					}
+
+					if (fanout_pin->net->driver_pin->node != node)
+					{
+						print_ancestry(child_node, 1000);
+						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
+					}
+
+					if (fanout_pin->node != child_node)
+					{
+						print_ancestry(child_node, 1000);
+						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
+					}
+
+					// Add child.
 					children = realloc(children, sizeof(nnode_t*) * (count + 1));
-					children[count++] = fanout_pin->node;
+					children[count++] = child_node;
 				}
 			}
 		}
@@ -2693,15 +2726,18 @@ void print_time(double time)
  */
 void print_ancestry(nnode_t *bottom_node, int n)
 {
+	if (!n) n = 10000;
 	queue_t *queue = create_queue();
-
 	queue->add(queue, bottom_node);
-
 	nnode_t *node;
-	while ((node = queue->remove(queue)) && n--)
+	printf(  "  ------------\n");
+	printf(  "  BACKTRACE\n");
+	printf(  "  ------------\n");
+
+	while (n-- && (node = queue->remove(queue)))
 	{
 		char *name = get_pin_name(node->name);
-		printf("  %d: %s:\n", n, name);
+		printf("  %s:\n", name);
 		free(name);
 		int i;
 		for (i = 0; i < node->num_input_pins; i++)
@@ -2714,9 +2750,13 @@ void print_ancestry(nnode_t *bottom_node, int n)
 			printf("\t%s %s (%ld)\n", pin->mapping, name, node->unique_id);fflush(stdout);
 			free(name);
 		}
-		printf(  "------------\n");
+		printf(  "  ------------\n");
+
 	}
 	queue->destroy(queue);
+
+	printf(  "  END OF TRACE\n");
+	printf(  "  ------------\n");
 }
 
 /*
@@ -2732,8 +2772,6 @@ nnode_t *print_update_trace(nnode_t *bottom_node, int cycle)
 {
 	// Limit the length of the trace. 0 for unlimited.
 	const int max_depth = 0;
-
-
 	printf(
 			"  --------------------------------------------------------------------------\n"
 			"  --------------------------------------------------------------------------\n"
@@ -2745,42 +2783,45 @@ nnode_t *print_update_trace(nnode_t *bottom_node, int cycle)
 			"  --------------------------------------------------------------------------\n"
 	);
 
-
 	nnode_t *root_node = NULL;
 
-	// Used to detect cycles.
+	// Used to detect cycles. Based table size of max depth. If unlimited, set to something big.
 	hashtable_t *index = create_hashtable(max_depth?(max_depth * 2):100000);
 
 	queue_t *queue = create_queue();
 	queue->add(queue, bottom_node);
 	nnode_t *node;
 	int depth = 0;
+	// Traverse the netlist in reverse, starting with our current location.
 	while ((node = queue->remove(queue)))
 	{
 		int found_undriven_pin = FALSE;
 		int is_duplicate = index->get(index, &node->unique_id, sizeof(long))?1:0;
 		if (!is_duplicate)
 		{
+			depth++;
 			index->add(index, &node->unique_id, sizeof(long), (void *)1);
-
 			char *name = get_pin_name(node->name);
 			printf("  %s (%ld) %d %d\n", name, node->unique_id, node->num_input_pins, node->num_output_pins);
 			free(name);
-			int i;
 
-			depth++;
+			int i;
 			for (i = 0; i < node->num_input_pins; i++)
 			{
 				npin_t *pin = node->input_pins[i];
 				nnet_t *net = pin->net;
 				nnode_t *node = net->driver_pin->node;
 
+				// If an input is found which hasn't been updated since before cycle-1, traverse it.
 				int is_undriven = FALSE;
 				if (pin->cycle < cycle-1)
 				{
+					// Only add each node for traversal once.
 					if (!found_undriven_pin)
+					{
+						found_undriven_pin = TRUE;
 						queue->add(queue, node);
-					found_undriven_pin = TRUE;
+					}
 					is_undriven = TRUE;
 				}
 				char *name = get_pin_name(node->name);
@@ -2794,7 +2835,6 @@ nnode_t *print_update_trace(nnode_t *bottom_node, int cycle)
 			printf("  ------------\n");
 			break;
 		}
-
 
 		if (!found_undriven_pin)
 		{

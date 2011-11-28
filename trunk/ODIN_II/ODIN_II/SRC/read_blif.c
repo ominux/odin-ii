@@ -1209,15 +1209,12 @@ void hook_up_node(nnode_t *node, hashtable_t *output_nets_hash)
  */
 hard_block_model *read_hard_block_model(char *name_subckt, FILE *file)
 {
-
-
 	// Store the current position in the file.
 	fpos_t pos;
 	int last_line = linenum;
 	fgetpos(file,&pos);
 
 	// Search the file for .model followed buy the subcircuit name.
-	rewind(file);
 	char buffer[BUFSIZE];
 	while (1)
   	{
