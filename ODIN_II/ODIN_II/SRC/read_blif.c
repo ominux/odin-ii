@@ -58,6 +58,7 @@ typedef struct {
 
 // Stores port names, and their sizes.
 typedef struct {
+	char *signature;
 	int count;
 	int *sizes;
 	char **names;
@@ -89,6 +90,7 @@ typedef struct {
 int linenum;/* keeps track of the present line, used for printing the error line : line number */
 short static skip_reading_bit_map=FALSE; 
 
+
 void rb_create_top_driver_nets(char *instance_name_prefix, hashtable_t *output_nets_hash);
 void rb_look_for_clocks();// not sure if this is needed
 void add_top_input_nodes(FILE *file, hashtable_t *output_nets_hash);
@@ -103,21 +105,26 @@ void create_hard_block_nodes(hard_block_models *models, FILE *file, hashtable_t 
 void hook_up_nets(hashtable_t *output_nets_hash);
 void hook_up_node(nnode_t *node, hashtable_t *output_nets_hash);
 char* search_clock_name(FILE *file);
-hard_block_model *read_hard_block_model(char *name_subckt, FILE *file);
 void free_hard_block_model(hard_block_model *model);
 char *get_hard_block_port_name(char *name);
 long get_hard_block_pin_number(char *original_name);
-static int compare_pin_names(const void *p1, const void *p2);
+static int compare_hard_block_pin_names(const void *p1, const void *p2);
 hard_block_ports *get_hard_block_ports(char **pins, int count);
 hashtable_t *index_names(char **names, int count);
 hashtable_t *associate_names(char **names1, char **names2, int count);
-void verify_hard_block_ports_against_model(hard_block_ports *ports, hard_block_model *model);
 void free_hard_block_pins(hard_block_pins *p);
 void free_hard_block_ports(hard_block_ports *p);
 
-void add_hard_block_model(hard_block_model *m, hard_block_models *models);
+
+hard_block_model *get_hard_block_model(char *name, hard_block_ports *ports, hard_block_models *models);
+void add_hard_block_model(hard_block_model *m, hard_block_ports *ports, hard_block_models *models);
+char *generate_hard_block_ports_signature(hard_block_ports *ports);
+int verify_hard_block_ports_against_model(hard_block_ports *ports, hard_block_model *model);
+hard_block_model *read_hard_block_model(char *name_subckt, hard_block_ports *ports, FILE *file);
+
+
 void free_hard_block_models(hard_block_models *models);
-hard_block_model *get_hard_block_model(char *name, hard_block_models *models);
+
 hard_block_models *create_hard_block_models();
 
 int count_blif_lines(FILE *file);
@@ -496,7 +503,7 @@ void create_hard_block_nodes(hard_block_models *models, FILE *file, hashtable_t 
 	hashtable_t *mapping_index = associate_names(mappings, names, count);
 
 	// Sort the mappings.
-	qsort(mappings,  count,  sizeof(char *), compare_pin_names);
+	qsort(mappings,  count,  sizeof(char *), compare_hard_block_pin_names);
 
 	for(i = 0; i < count; i++)
 		free(names_parameters[i]);
@@ -508,16 +515,13 @@ void create_hard_block_nodes(hard_block_models *models, FILE *file, hashtable_t 
 
 	// Look up the model in the models cache.
  	hard_block_model *model;
- 	if (!(model = get_hard_block_model(subcircuit_name, models)))
+ 	if (!(model = get_hard_block_model(subcircuit_name, ports, models)))
  	{
  		// If the model isn's present, scan ahead and find it.
- 		model = read_hard_block_model(subcircuit_name, file);
+ 		model = read_hard_block_model(subcircuit_name, ports, file);
  		// Add it to the cache.
- 		add_hard_block_model(model, models);
+ 		add_hard_block_model(model, ports, models);
  	}
-
- 	// Verify that all the items in "ports" match those in the model.
- 	verify_hard_block_ports_against_model(ports, model);
 
 	nnode_t *new_node = allocate_nnode();
 
@@ -1156,29 +1160,22 @@ static void dum_parse (char *buffer, FILE *file)
  * function: hook_up_nets() 
  * find the output nets and add the corresponding nets
  *-------------------------------------------------------------------------------------------*/
-
 void hook_up_nets(hashtable_t *output_nets_hash)
 {
+	nnode_t **node_sets[] = {verilog_netlist->internal_nodes,     verilog_netlist->ff_nodes,     verilog_netlist->top_output_nodes};
+	int          counts[] = {verilog_netlist->num_internal_nodes, verilog_netlist->num_ff_nodes, verilog_netlist->num_top_output_nodes};
+	int        num_sets   = 3;
+
 	/* hook all the input pins in all the internal nodes to the net */
 	int i;
-	for(i = 0; i < verilog_netlist->num_internal_nodes; i++)
+	for (i = 0; i < num_sets; i++)
 	{
-		nnode_t *node = verilog_netlist->internal_nodes[i];
-		hook_up_node(node, output_nets_hash);
-	}
-
-	/* hook all the ff nodes' input pin to the nets */
-	for(i = 0; i < verilog_netlist->num_ff_nodes; i++)
-	{
-		nnode_t *node = verilog_netlist->ff_nodes[i];
-		hook_up_node(node, output_nets_hash);
-	}
-
-	/* hook the top output nodes input pins */
-	for(i = 0; i < verilog_netlist->num_top_output_nodes; i++)
-	{
-		nnode_t *node = verilog_netlist->top_output_nodes[i];
-		hook_up_node(node, output_nets_hash);
+		int j;
+		for(j = 0; j < counts[i]; j++)
+		{
+			nnode_t *node = node_sets[i][j];
+			hook_up_node(node, output_nets_hash);
+		}
 	}
 }
 
@@ -1207,82 +1204,90 @@ void hook_up_node(nnode_t *node, hashtable_t *output_nets_hash)
  * model for the hard block by the given name.
  * Returns the file to its original position when finished.
  */
-hard_block_model *read_hard_block_model(char *name_subckt, FILE *file)
+hard_block_model *read_hard_block_model(char *name_subckt, hard_block_ports *ports, FILE *file)
 {
 	// Store the current position in the file.
 	fpos_t pos;
 	int last_line = linenum;
 	fgetpos(file,&pos);
 
-	// Search the file for .model followed buy the subcircuit name.
-	char buffer[BUFSIZE];
-	while (1)
-  	{
-		my_fgets(buffer, BUFSIZE, file);
+	hard_block_model *model;
+
+	while(1) {
+		// Search the file for .model followed buy the subcircuit name.
+		char buffer[BUFSIZE];
+		while (my_fgets(buffer, BUFSIZE, file))
+		{
+			char *token = my_strtok(buffer,TOKENS, file, buffer);
+			// match .model followed buy the subcircuit name.
+			if (token && !strcmp(token,".model") && !strcmp(my_strtok(NULL,TOKENS, file, buffer), name_subckt))
+			{
+				model = malloc(sizeof(hard_block_model));
+				model->name = strdup(name_subckt);
+				model->inputs = malloc(sizeof(hard_block_pins));
+				model->inputs->count = 0;
+				model->inputs->names = NULL;
+
+				model->outputs = malloc(sizeof(hard_block_pins));
+				model->outputs->count = 0;
+				model->outputs->names = NULL;
+
+				// Read the inputs and outputs.
+				while (my_fgets(buffer, BUFSIZE, file))
+				{
+					char *first_word = my_strtok(buffer, TOKENS, file, buffer);
+					if(!strcmp(first_word, ".inputs"))
+					{
+						char *name;
+						while ((name = my_strtok(NULL, TOKENS, file, buffer)))
+						{
+							model->inputs->names = realloc(model->inputs->names, sizeof(char *) * (model->inputs->count + 1));
+							model->inputs->names[model->inputs->count++] = strdup(name);
+						}
+					}
+					else if(!strcmp(first_word, ".outputs"))
+					{
+						char *name;
+						while ((name = my_strtok(NULL, TOKENS, file, buffer)))
+						{
+							model->outputs->names = realloc(model->outputs->names, sizeof(char *) * (model->outputs->count + 1));
+							model->outputs->names[model->outputs->count++] = strdup(name);
+						}
+					}
+					else if(!strcmp(first_word, ".end"))
+					{
+						break;
+					}
+				}
+				break;
+			}
+		}
+
 		if(feof(file))
-			error_message(NETLIST_ERROR,linenum, -1,"Error : The subcircuit model for '%s' was not found.",name_subckt);
+			error_message(NETLIST_ERROR, last_line, -1, "A subcircuit model for '%s' with matching ports was not found.",name_subckt);
 
-		char *token = my_strtok(buffer,TOKENS, file, buffer);
+		// Sort the names.
+		qsort(model->inputs->names,  model->inputs->count,  sizeof(char *), compare_hard_block_pin_names);
+		qsort(model->outputs->names, model->outputs->count, sizeof(char *), compare_hard_block_pin_names);
 
-		// match .model followed buy the subcircuit name.
-		if (token && !strcmp(token,".model") && !strcmp(my_strtok(NULL,TOKENS, file, buffer), name_subckt))
+		// Index the names.
+		model->inputs->index  = index_names(model->inputs->names, model->inputs->count);
+		model->outputs->index = index_names(model->outputs->names, model->outputs->count);
+
+		// Organise the names into ports.
+		model->input_ports  = get_hard_block_ports(model->inputs->names,  model->inputs->count);
+		model->output_ports = get_hard_block_ports(model->outputs->names, model->outputs->count);
+
+		// Check that the model we've read matches the ports of the instance we are trying to match.
+		if (verify_hard_block_ports_against_model(ports, model))
 		{
 			break;
 		}
-	}
-
-	hard_block_model *model = malloc(sizeof(hard_block_model));
-	model->name = strdup(name_subckt);
-	model->inputs = malloc(sizeof(hard_block_pins));
-	model->inputs->count = 0;
-	model->inputs->names = NULL;
-
-	model->outputs = malloc(sizeof(hard_block_pins));
-	model->outputs->count = 0;
-	model->outputs->names = NULL;
-
-	// Read the inputs and outputs.
-	while (my_fgets(buffer, BUFSIZE, file))
-	{
-		if(feof(file))
-			error_message(NETLIST_ERROR,linenum, -1,"Hit the end of the file while reading .model %s", name_subckt);
-
-		char *first_word = my_strtok(buffer, TOKENS, file, buffer);
-		if(!strcmp(first_word, ".inputs"))
-		{
-			char *name;
-			while ((name = my_strtok(NULL, TOKENS, file, buffer)))
-			{
-				model->inputs->names = realloc(model->inputs->names, sizeof(char *) * (model->inputs->count + 1));
-				model->inputs->names[model->inputs->count++] = strdup(name);
-			}
-		}
-		else if(!strcmp(first_word, ".outputs"))
-		{
-			char *name;
-			while ((name = my_strtok(NULL, TOKENS, file, buffer)))
-			{
-				model->outputs->names = realloc(model->outputs->names, sizeof(char *) * (model->outputs->count + 1));
-				model->outputs->names[model->outputs->count++] = strdup(name);
-			}
-		}
-		else if(!strcmp(first_word, ".end"))
-		{
-			break;
+		else
+		{	// If not, free it, and keep looking.
+			free_hard_block_model(model);
 		}
 	}
-
-	// Sort the names.
-	qsort(model->inputs->names,  model->inputs->count,  sizeof(char *), compare_pin_names);
-	qsort(model->outputs->names, model->outputs->count, sizeof(char *), compare_pin_names);
-
-	// Index the names.
-	model->inputs->index  = index_names(model->inputs->names, model->inputs->count);
-	model->outputs->index = index_names(model->outputs->names, model->outputs->count);
-
-	// Organise the names into ports.
-	model->input_ports  = get_hard_block_ports(model->inputs->names,  model->inputs->count);
-	model->output_ports = get_hard_block_ports(model->outputs->names, model->outputs->count);
 
 	// Restore the original position in the file.
 	linenum = last_line;
@@ -1297,7 +1302,7 @@ hard_block_model *read_hard_block_model(char *name_subckt, FILE *file)
  * on the port_name, and on the pin_number if the port_names
  * are identical.
  */
-static int compare_pin_names(const void *p1, const void *p2)
+static int compare_hard_block_pin_names(const void *p1, const void *p2)
 {
 	char *name1 = *(char * const *)p1;
 	char *name2 = *(char * const *)p2;
@@ -1383,17 +1388,17 @@ hard_block_ports *get_hard_block_ports(char **pins, int count)
 		prev_portname = portname;
 	}
 
-	ports->index  = index_names(ports->names, ports->count);
+	ports->signature = generate_hard_block_ports_signature(ports);
+	ports->index     = index_names(ports->names, ports->count);
 
 	return ports;
 }
 
 /*
  * Check for inconsistencies between the hard block model and the ports found
- * in the hard block instance. Print appropriate error messages if
- * differences are found.
+ * in the hard block instance. Returns false if differences are found.
  */
-void verify_hard_block_ports_against_model(hard_block_ports *ports, hard_block_model *model)
+int verify_hard_block_ports_against_model(hard_block_ports *ports, hard_block_model *model)
 {
 	hard_block_ports *port_sets[] = {model->input_ports, model->input_ports};
 	int i;
@@ -1407,13 +1412,15 @@ void verify_hard_block_ports_against_model(hard_block_ports *ports, hard_block_m
 			char *name = p->names[j];
 			int   size = p->sizes[j];
 			int  *idx  = ports->index->get(ports->index, name, strlen(name) * sizeof(char));
+			// Model port not specified in ports.
 			if (!idx)
-				error_message(NETLIST_ERROR, linenum, -1,"Port %s is not specified by this subckt.", name);
+				return FALSE;
 
 			// Make sure they match in size.
 			int instance_size = ports->sizes[*idx];
+			// Port sizes differ.
 			if (size != instance_size)
-				error_message(NETLIST_ERROR, linenum, -1,"The width of %s (%d) differs from the model width of %d.", name, instance_size, size);
+				return FALSE;
 		}
 	}
 
@@ -1426,10 +1433,32 @@ void verify_hard_block_ports_against_model(hard_block_ports *ports, hard_block_m
 		char *name   = ports->names[j];
 		int *in_idx  = in->index->get(in->index, name, strlen(name) * sizeof(char));
 		int *out_idx = out->index->get(out->index, name, strlen(name) * sizeof(char));
+		// Port does not appear in the model.
 		if (!in_idx && !out_idx)
-			error_message(NETLIST_ERROR, linenum, -1,"Port %s is this subckt does not appear in the model.", name);
-
+			return FALSE;
 	}
+
+	return TRUE;
+}
+
+/*
+ * Generates string which represents the geometry of the given hard block ports.
+ */
+char *generate_hard_block_ports_signature(hard_block_ports *ports)
+{
+	char buffer[BUFSIZE];
+	buffer[0] = '\0';
+
+	strcat(buffer, "_");
+
+	int j;
+	for (j = 0; j < ports->count; j++)
+	{
+		char buffer1[BUFSIZE];
+		sprintf(buffer1, "%s_%d_", ports->names[j], ports->sizes[j]);
+		strcat(buffer, buffer1);
+	}
+	return strdup(buffer);
 }
 
 /*
@@ -1479,20 +1508,26 @@ long get_hard_block_pin_number(char *original_name)
 /*
  * Adds the given model to the hard block model cache.
  */
-void add_hard_block_model(hard_block_model *m, hard_block_models *models)
+void add_hard_block_model(hard_block_model *m, hard_block_ports *ports, hard_block_models *models)
 {
+	char needle[BUFSIZE];
+	strcat(needle, m->name);
+	strcat(needle, ports->signature);
 	models->models = realloc(models->models, (models->count * sizeof(hard_block_model *)) + 1);
 	models->models[models->count++] = m;
-	models->index->add(models->index, m->name, strlen(m->name) * sizeof(char), m);
+	models->index->add(models->index, needle, strlen(needle) * sizeof(char), m);
 }
 
 /*
  * Looks up a hard block model by name. Returns null if the
  * model is not found.
  */
-hard_block_model *get_hard_block_model(char *name, hard_block_models *models)
+hard_block_model *get_hard_block_model(char *name, hard_block_ports *ports, hard_block_models *models)
 {
-	return models->index->get(models->index, name, strlen(name) * sizeof(char));
+	char needle[BUFSIZE];
+	strcat(needle, name);
+	strcat(needle, ports->signature);
+	return models->index->get(models->index, needle, strlen(needle) * sizeof(char));
 }
 
 /*
@@ -1518,7 +1553,8 @@ int count_blif_lines(FILE *file)
 	char buffer[BUFSIZE];
 	while (my_fgets(buffer, BUFSIZE, file))
 	{
-		if (strstr(buffer, ".end")) break;
+		if (strstr(buffer, ".end"))
+			break;
 		num_lines++;
 	}
 	rewind(file);
@@ -1555,9 +1591,13 @@ void free_hard_block_model(hard_block_model *model)
 	free(model);
 }
 
+/*
+ * Frees hard_block_pins
+ */
 void free_hard_block_pins(hard_block_pins *p)
 {
-	while (p->count--) free(p->names[p->count]);
+	while (p->count--)
+		free(p->names[p->count]);
 
 	free(p->names);
 
@@ -1565,11 +1605,15 @@ void free_hard_block_pins(hard_block_pins *p)
 	free(p);
 }
 
-
+/*
+ * Frees hard_block_ports
+ */
 void free_hard_block_ports(hard_block_ports *p)
 {
-	while(p->count--) free(p->names[p->count]);
+	while(p->count--)
+		free(p->names[p->count]);
 
+	free(p->signature);
 	free(p->names);
 	free(p->sizes);
 

@@ -2726,7 +2726,8 @@ void print_time(double time)
  */
 void print_ancestry(nnode_t *bottom_node, int n)
 {
-	if (!n) n = 10000;
+	if (!n)
+		n = 10;
 	queue_t *queue = create_queue();
 	queue->add(queue, bottom_node);
 	nnode_t *node;

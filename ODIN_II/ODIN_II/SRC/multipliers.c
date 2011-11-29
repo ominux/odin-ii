@@ -238,7 +238,7 @@ void instantiate_simple_soft_multiplier(nnode_t *node, short mark, netlist_t *ne
 	}
 }
 
-//#ifdef VPR6
+#ifdef VPR6
 /*---------------------------------------------------------------------------
  * (function: init_mult_distribution)
  *-------------------------------------------------------------------------*/
@@ -1168,4 +1168,4 @@ void clean_multipliers()
 	return;
 }
 
-//#endif
+#endif
