@@ -132,6 +132,8 @@ struct global_args_t_t
 	char *activation_netlist_file;
 	char *high_level_block;
 
+	int all_warnings;
+
 	// For simulation.
 	int num_test_vectors;
 	char *sim_vector_input_file;   // Input vectors to simulate.
