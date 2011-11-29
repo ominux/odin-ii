@@ -1423,6 +1423,7 @@ void connect_hard_block_and_alias(ast_node_t* hb_instance, char *instance_name_p
 					nnet_t* net = (nnet_t*)output_nets_sc->data[sc_spot_output];
 					nnet_t* in_net = (nnet_t*)input_nets_sc->data[sc_spot_input_old];
 
+
 					/* if they haven't been combined already,
 						then join the inputs and output */
 					in_net->name = net->name;
@@ -1576,7 +1577,7 @@ void connect_module_instantiation_and_alias(short PASS, ast_node_t* module_insta
 
 				/* search for the old_input name */
 				if ((sc_spot_input_old = sc_lookup_string(input_nets_sc, alias_name)) == -1)
-                               	{	
+                {
 					/* doesn it have to exist since might only be used in module */
 					error_message(NETLIST_ERROR, module_instance->line_number, module_instance->file_number, "This module port %s is unused in module %s", alias_name, module_node->children[0]->types.identifier);
 				}
@@ -1760,21 +1761,23 @@ signal_list_t *create_pins(ast_node_t* var_declare, char *name, char *instance_n
 	
 			/* store the pin in this net */
 			add_a_fanout_pin_to_net((nnet_t*)input_nets_sc->data[sc_spot], new_pin);
-	
+
 			if ((sc_spot_output = sc_lookup_string(output_nets_sc, pin_lists->strings[i])) != -1)
 			{
 				/* ELSE - we've found a matching net, so add this pin to the net */
 				nnet_t* net = (nnet_t*)output_nets_sc->data[sc_spot_output];
-				if ((net != (nnet_t*)input_nets_sc->data[sc_spot]) && (net->combined == TRUE))
+
+				if ((net != (nnet_t*)input_nets_sc->data[sc_spot]) && net->combined )
 				{
 					/* IF - the input and output nets don't match, then they need to be joined */
 					join_nets(net, (nnet_t*)input_nets_sc->data[sc_spot]);
 					/* since the driver net is deleted, copy the spot of the in_net over */
 					input_nets_sc->data[sc_spot] = (void*)net;
 				}
-				else if ((net != (nnet_t*)input_nets_sc->data[sc_spot]) && (net->combined == FALSE))
+				else if ((net != (nnet_t*)input_nets_sc->data[sc_spot]) && !net->combined)
 				{
 					/* IF - the input and output nets don't match, then they need to be joined */
+
 					combine_nets(net, (nnet_t*)input_nets_sc->data[sc_spot], verilog_netlist);
 					/* since the driver net is deleted, copy the spot of the in_net over */
 					output_nets_sc->data[sc_spot_output] = (void*)input_nets_sc->data[sc_spot];
@@ -2039,7 +2042,9 @@ int alias_output_assign_pins_to_inputs(char_list_t *output_list, signal_list_t *
 		}
 		for (i = input_list->signal_list_size; i < output_list->num_strings; i++)
 		{
-			warning_message(NETLIST_ERROR, node->line_number, node->file_number, "More nets to drive than drivers, padding with ZEROs for driver %s\n", output_list->strings[i]);
+			if (global_args.all_warnings)
+				warning_message(NETLIST_ERROR, node->line_number, node->file_number, "More nets to drive than drivers, padding with ZEROs for driver %s\n", output_list->strings[i]);
+
 			add_pin_to_signal_list(input_list, get_a_zero_pin(verilog_netlist));
 			input_list->signal_list[i]->name = output_list->strings[i];
 		}
@@ -2052,7 +2057,9 @@ int alias_output_assign_pins_to_inputs(char_list_t *output_list, signal_list_t *
 		{
 			input_list->signal_list[i]->name = output_list->strings[i];
 		}
-		warning_message(NETLIST_ERROR, node->line_number, node->file_number, "More driver pins than nets to drive: sometimes using decimal numbers causes this problem\n");
+
+		if (global_args.all_warnings)
+			warning_message(NETLIST_ERROR, node->line_number, node->file_number, "More driver pins than nets to drive: sometimes using decimal numbers causes this problem\n");
 		return output_list->num_strings;
 	}
 }
@@ -2972,13 +2979,15 @@ void pad_with_zeros(ast_node_t* node, signal_list_t *list, int pad_size, char *i
 	{
 		for (i = list->signal_list_size; i < pad_size; i++)
 		{
-			warning_message(NETLIST_ERROR, node->line_number, node->file_number, "Padding an input port with 0 for operation (likely compare)\n");
+			if (global_args.all_warnings)
+				warning_message(NETLIST_ERROR, node->line_number, node->file_number, "Padding an input port with 0 for operation (likely compare)\n");
 			add_pin_to_signal_list(list, get_a_zero_pin(verilog_netlist));
 		}
 	}
 	else if (pad_size < list->signal_list_size) 
 	{
-		warning_message(NETLIST_ERROR, node->line_number, node->file_number, "More driver pins than nets to drive.  This means that for this operation you are losing some of the most significant bits\n");
+		if (global_args.all_warnings)
+			warning_message(NETLIST_ERROR, node->line_number, node->file_number, "More driver pins than nets to drive.  This means that for this operation you are losing some of the most significant bits\n");
 	}
 }
 
@@ -3049,6 +3058,9 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 		/* Link the signal to the port definition */
 		block_connect->children[1]->hb_port = (void *)hb_ports;
 	}
+
+
+
 
 	in_list = (signal_list_t **)malloc(sizeof(signal_list_t *)*block_list->num_children);
 	for (i = 0; i < block_list->num_children; i++)
@@ -3136,9 +3148,22 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 				long sc_spot;
 
 				if (out_port_size > 1)
-					pin_name = make_full_ref_name(instance_name_prefix, block->children[0]->types.identifier, block->children[1]->children[0]->types.identifier, block_connect->types.identifier, j);
+					pin_name = make_full_ref_name(
+							instance_name_prefix,
+							block->children[0]->types.identifier,
+							block->children[1]->children[0]->types.identifier,
+							block_connect->types.identifier,
+							j
+					);
+
 				else
-					pin_name = make_full_ref_name(instance_name_prefix, block->children[0]->types.identifier, block->children[1]->children[0]->types.identifier, block_connect->types.identifier, -1);
+					pin_name = make_full_ref_name(
+							instance_name_prefix,
+							block->children[0]->types.identifier,
+							block->children[1]->children[0]->types.identifier,
+							block_connect->types.identifier,
+							-1
+					);
 
 				new_pin1 = allocate_npin();
 				new_pin1->mapping = make_signal_name(hb_ports->name, -1);
@@ -3379,7 +3404,7 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
  * 	This function creates a hard block node in the netlist and hooks up the 
  * 	inputs and outputs.
  *------------------------------------------------------------------------*/
-//#endif
+
 signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 {
 	signal_list_t **in_list, *return_list;

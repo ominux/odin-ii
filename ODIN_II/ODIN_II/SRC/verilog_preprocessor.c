@@ -41,7 +41,7 @@ int init_veri_preproc()
  */
 int cleanup_veri_preproc() 
 {
-	fprintf(stderr, "Cleaning up the verilog preprocessor\n");
+	//fprintf(stderr, "Cleaning up the verilog preprocessor\n");
 	
 	veri_define *def_iterator = veri_defines.defined_constants[0];
 	veri_include *inc_iterator = veri_includes.included_files[0];
@@ -65,7 +65,7 @@ int cleanup_veri_preproc()
 	veri_includes.current_size = 0;
 	free(veri_includes.included_files);
 	
-	fprintf(stderr, " --- Finished\n");
+	//fprintf(stderr, " --- Finished\n");
 
 	return 0;
 }
@@ -77,16 +77,16 @@ void clean_veri_define(veri_define *current)
 {
 	if (current != NULL) 
 	{
-		fprintf(stderr, "\tCleaning Symbol: %s, ", current->symbol);
+		//fprintf(stderr, "\tCleaning Symbol: %s, ", current->symbol);
 		free(current->symbol);
-		fprintf(stderr, "Value: %s ", current->value);
+		//fprintf(stderr, "Value: %s ", current->value);
 		free(current->value);
 		
 		current->defined_in = NULL;
 		
 		free(current);
 		current=NULL;
-		fprintf(stderr, "...done\n");
+		//fprintf(stderr, "...done\n");
 	}
 }
 
@@ -97,12 +97,12 @@ void clean_veri_include(veri_include *current)
 {
 	if (current != NULL)
 	{
-		fprintf(stderr, "\tCleaning Include: %s ", current->path);
+		//fprintf(stderr, "\tCleaning Include: %s ", current->path);
 		free(current->path);
 		
 		free(current);
 		current = NULL;
-		fprintf(stderr, "...done\n");
+		//fprintf(stderr, "...done\n");
 	}
 }
 
@@ -333,9 +333,8 @@ FILE* veri_preproc(FILE *source)
 	}
 	
 	/* to thread or not to thread, that is the question. Wether yac will block when waitin */
-	fprintf(stderr, "\tpreprocessing ...\n\n");
+	fprintf(stderr, "Preprocessing verilog.");
 	veri_preproc_bootstraped(source, preproc_producer, veri_initial);
-
 	rewind(preproc_producer);	
 	return preproc_producer;
 }
@@ -352,7 +351,6 @@ void veri_preproc_bootstraped(FILE *source, FILE *preproc_producer, veri_include
 	while (NULL != fgets(line, MaxLine, source))
 	{
 		//fprintf(stderr, "%s:%d\t%s", current_include->path,line_number, line);
-
 		char proc_line[MaxLine] ;
 		char symbol[MaxLine] ;
 		char *value ;

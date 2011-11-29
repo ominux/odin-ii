@@ -420,8 +420,9 @@ void add_a_driver_pin_to_net(nnet_t *net, npin_t *pin)
  *-------------------------------------------------------------------------------------------*/
 void combine_nets(nnet_t *output_net, nnet_t* input_net, netlist_t *netlist)
 {
+
 	/* copy the driver over to the new_net */	
-	if (output_net->driver_pin != NULL)
+	if (output_net->driver_pin)
 	{
 		/* IF - there is a pin assigned to this net, then copy it */
 		add_a_driver_pin_to_net(input_net, output_net->driver_pin);
@@ -451,11 +452,9 @@ void combine_nets(nnet_t *output_net, nnet_t* input_net, netlist_t *netlist)
  *-------------------------------------------------------------------------------------------*/
 void join_nets(nnet_t *join_to_net, nnet_t* other_net)
 {
-	int i;
-
 	if (join_to_net == other_net)
 	{
-		if ((join_to_net->driver_pin != NULL ) && (join_to_net->driver_pin->node != NULL) && join_to_net->driver_pin->node->related_ast_node != NULL)
+		if ((join_to_net->driver_pin) && (join_to_net->driver_pin->node != NULL) && join_to_net->driver_pin->node->related_ast_node != NULL)
 			error_message(NETLIST_ERROR, join_to_net->driver_pin->node->related_ast_node->line_number, join_to_net->driver_pin->node->related_ast_node->file_number, "This is a combinational loop\n");
 		else
 			error_message(NETLIST_ERROR, -1, -1, "This is a combinational loop\n");
@@ -465,10 +464,11 @@ void join_nets(nnet_t *join_to_net, nnet_t* other_net)
 			error_message(NETLIST_ERROR, -1, -1, "Same error - This is a combinational loop\n");
 	}
 
-	/* copy the driver over to the new_net */	
+	/* copy the driver over to the new_net */
+	int i;
 	for (i = 0; i < other_net->num_fanout_pins; i++)
 	{
-		if (other_net->fanout_pins[i] != NULL)
+		if (other_net->fanout_pins[i] )
 		{
 			add_a_fanout_pin_to_net(join_to_net, other_net->fanout_pins[i]);
 		}
@@ -624,7 +624,7 @@ signal_list_t *combine_lists_without_freeing_originals(signal_list_t **signal_li
  * (function: sort_signal_list_alphabetically)
  * Bubble sort alphabetically
  * Andrew: changed to a quick sort because this function
- *         was consuming 99.9% of compile time for mcml.v
+ *         was consuming 99.6% of compile time for mcml.v
  *-------------------------------------------------------------------------------------------*/
 static int compare_npin_t_names(const void *p1, const void *p2)
 {
@@ -699,13 +699,17 @@ void hookup_input_pins_from_signal_list(nnode_t *node, int n_start_idx, signal_l
 		if (il_start_idx+i < input_list->signal_list_size)
 		{
 			oassert(input_list->signal_list_size > (il_start_idx+i));
-			add_a_input_pin_to_node_spot_idx(node, input_list->signal_list[il_start_idx+i], n_start_idx+i);
+			npin_t *pin = input_list->signal_list[il_start_idx+i];
+			add_a_input_pin_to_node_spot_idx(node, pin, n_start_idx+i);
+
 		}
 		else
 		{
 			/* pad with 0's */
 			add_a_input_pin_to_node_spot_idx(node, get_a_zero_pin(netlist), n_start_idx+i);
-			warning_message(NETLIST_ERROR, -1, -1, "padding an input port with 0 for node %s\n", node->name);
+
+			if (global_args.all_warnings)
+				warning_message(NETLIST_ERROR, -1, -1, "padding an input port with 0 for node %s\n", node->name);
 		}
 	}	
 }
@@ -730,7 +734,9 @@ void hookup_hb_input_pins_from_signal_list(nnode_t *node, int n_start_idx, signa
 		{
 			/* connect with "pad" signal for later resolution */
 			add_a_input_pin_to_node_spot_idx(node, get_a_pad_pin(netlist), n_start_idx+i);
-			warning_message(NETLIST_ERROR, -1, -1, "padding an input port with HB_PAD for node %s\n", node->name);
+
+			if (global_args.all_warnings)
+				warning_message(NETLIST_ERROR, -1, -1, "padding an input port with HB_PAD for node %s\n", node->name);
 		}
 	}	
 }
@@ -759,6 +765,8 @@ void hookup_output_pins_from_signal_list(nnode_t *node, int n_start_idx, signal_
 	
 		/* hook the outpin into the net */
 		add_a_driver_pin_to_net(((nnet_t*)output_nets_sc->data[sc_spot_output]), output_list->signal_list[ol_start_idx+i]);
+
+
 	}	
 }
 

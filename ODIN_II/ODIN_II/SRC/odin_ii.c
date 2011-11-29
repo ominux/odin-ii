@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 	return 0;
 } 
 
-static const char *optString = "hc:V:h:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA"; // list must end in ":"
+static const char *optString = "hc:V:Wh:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA:";
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
@@ -147,6 +147,7 @@ void get_options(int argc, char **argv)
 	global_args.num_test_vectors = 0;
 	global_args.sim_hold_low = NULL;
 	global_args.sim_hold_high = NULL;
+	global_args.all_warnings = 0;
 
 	/* set up the global configuration ahead of time */
 	configuration.list_of_file_names = NULL;
@@ -161,8 +162,8 @@ void get_options(int argc, char **argv)
 	configuration.split_memory_width = 1;
 	configuration.split_memory_depth = 15;
 
-	configuration.fixed_hard_multiplier = 0;
-	configuration.split_hard_multiplier = 0;
+	configuration.fixed_hard_multiplier = 1;
+	configuration.split_hard_multiplier = 1;
 
 	/* read in the option line */
 	opt = getopt(argc, argv, optString);
@@ -230,6 +231,9 @@ void get_options(int argc, char **argv)
 			case 'A':
 				configuration.output_ast_graphs = 1;
 			break;
+			case 'W':
+				global_args.all_warnings = 1;
+			break;
 			default :
 				print_usage();
 				error_message(0, 0, -1, "Invalid arguments.\n");
@@ -271,6 +275,8 @@ void print_usage()
 				"\t\t-B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n"
 				"\t\t-G Output netlist graph in .dot format. (net.dot)\n"
 				"\t\t-A Output AST graph in .dot format.\n"
+				"\t\t-W Print all warnings. (Can be substantial.) "
+					"\t\t\tWithout this option, less useful warnings such as those about padding and additional drivers will not be printed."
 				"\t\t-h Print help\n"
 			"\tSimulation options:\n"
 				"\t\t-g <Number of random test vectors>\n"

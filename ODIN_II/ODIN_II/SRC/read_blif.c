@@ -90,7 +90,6 @@ typedef struct {
 int linenum;/* keeps track of the present line, used for printing the error line : line number */
 short static skip_reading_bit_map=FALSE; 
 
-
 void rb_create_top_driver_nets(char *instance_name_prefix, hashtable_t *output_nets_hash);
 void rb_look_for_clocks();// not sure if this is needed
 void add_top_input_nodes(FILE *file, hashtable_t *output_nets_hash);
@@ -1511,6 +1510,7 @@ long get_hard_block_pin_number(char *original_name)
 void add_hard_block_model(hard_block_model *m, hard_block_ports *ports, hard_block_models *models)
 {
 	char needle[BUFSIZE];
+	needle[0] = '\0';
 	strcat(needle, m->name);
 	strcat(needle, ports->signature);
 	models->models = realloc(models->models, (models->count * sizeof(hard_block_model *)) + 1);
@@ -1525,6 +1525,7 @@ void add_hard_block_model(hard_block_model *m, hard_block_ports *ports, hard_blo
 hard_block_model *get_hard_block_model(char *name, hard_block_ports *ports, hard_block_models *models)
 {
 	char needle[BUFSIZE];
+	needle[0] = '\0';
 	strcat(needle, name);
 	strcat(needle, ports->signature);
 	return models->index->get(models->index, needle, strlen(needle) * sizeof(char));

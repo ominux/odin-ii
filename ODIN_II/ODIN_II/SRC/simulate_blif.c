@@ -976,10 +976,35 @@ nnode_t **get_children_of(nnode_t *node, int *num_children)
 		nnet_t *net = pin->net;
 		if (net)
 		{
-			if (pin->net->driver_pin != pin)
+			if (net->driver_pin != pin)
 			{
-				print_ancestry(node, 0);
-				error_message(SIMULATION_ERROR, -1, -1, "Found output pin  (%s) on node %s which is mapped to a net driven by another pin.", pin->name, node->name);
+				//print_ancestry(node, 0);
+				char *pin_name  = get_pin_name(pin->name);
+				char *node_name = get_port_name(node->name);
+
+				warning_message(SIMULATION_ERROR, -1, -1, "Found output pin  \n"
+							"\t%s (%ld) \n "
+						" on node \n"
+							"\t%s (%ld)\n"
+						" which is mapped to a net \n"
+							"\t %s \n"
+						" driven by another pin \n"
+							"\t%s (%ld) \n"
+						,
+						pin_name,
+						pin->unique_id,
+						node_name,
+						node->unique_id,
+						net->name,
+						net->driver_pin->name,
+						net->driver_pin->unique_id
+
+
+				);
+				//sleep(1);
+
+				free(pin_name);
+				free(node_name);
 			}
 
 			int j;
@@ -992,25 +1017,25 @@ nnode_t **get_children_of(nnode_t *node, int *num_children)
 					// Find mismapped pins.
 					if (fanout_pin->net != net)
 					{
-						print_ancestry(child_node, 1000);
+						print_ancestry(child_node, 0);
 						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
 					}
 
 					if (fanout_pin->net->driver_pin->net != net)
 					{
-						print_ancestry(child_node, 1000);
+						print_ancestry(child_node, 0);
 						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
 					}
 
 					if (fanout_pin->net->driver_pin->node != node)
 					{
-						print_ancestry(child_node, 1000);
+						print_ancestry(child_node, 0);
 						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
 					}
 
 					if (fanout_pin->node != child_node)
 					{
-						print_ancestry(child_node, 1000);
+						print_ancestry(child_node, 0);
 						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
 					}
 
@@ -2726,8 +2751,7 @@ void print_time(double time)
  */
 void print_ancestry(nnode_t *bottom_node, int n)
 {
-	if (!n)
-		n = 10;
+	n = 1;
 	queue_t *queue = create_queue();
 	queue->add(queue, bottom_node);
 	nnode_t *node;
@@ -2738,7 +2762,7 @@ void print_ancestry(nnode_t *bottom_node, int n)
 	while (n-- && (node = queue->remove(queue)))
 	{
 		char *name = get_pin_name(node->name);
-		printf("  %s:\n", name);
+		printf("  %s (%d):\n", name, node->unique_id);
 		free(name);
 		int i;
 		for (i = 0; i < node->num_input_pins; i++)
@@ -2750,6 +2774,53 @@ void print_ancestry(nnode_t *bottom_node, int n)
 			char *name = get_pin_name(node->name);
 			printf("\t%s %s (%ld)\n", pin->mapping, name, node->unique_id);fflush(stdout);
 			free(name);
+		}
+
+		int count = 0;
+		//if (n == 1)
+		{
+			printf(  "  ------------\n");
+			printf(  "  CHILDREN    \n");
+			printf(  "  ------------\n");
+			printf(  "  O: %d\n", node->num_output_pins);fflush(stdout);
+			for (i = 0; i < node->num_output_pins; i++)
+			{
+				npin_t *pin = node->output_pins[i];
+				if (pin)
+				{
+					nnet_t *net = pin->net;
+					if (net)
+					{
+						int j;
+						for (j = 0; j < net->num_fanout_pins; j++)
+						{
+							npin_t  *pin  = net->fanout_pins[j];
+							if (pin)
+							{
+								nnode_t *node = pin->node;
+								if (node)
+								{
+									char *name = get_pin_name(node->name);
+									printf("\t%s %s (%ld)\n", pin->mapping, name, node->unique_id);fflush(stdout);
+									free(name);
+								}
+								else
+								{
+									printf("  Null node %d\n", ++count);fflush(stdout);
+								}
+							}
+							else
+							{
+								printf("  Null fanout pin\n");fflush(stdout);
+							}
+						}
+					}
+					else
+					{
+						printf("  Null net\n");fflush(stdout);
+					}
+				}
+			}
 		}
 		printf(  "  ------------\n");
 
