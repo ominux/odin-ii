@@ -167,11 +167,8 @@ long long convert_dec_string_of_size_to_long_long(char *orig_string, int size)
 }
 
 /*
- * Parses the given little endian hex string into a little endian bit string padded to
+ * Parses the given little endian hex string into a little endian bit string padded or truncated to
  * binary_size bits. Throws an error if there are non-hex characters in the input string.
- *
- * Note: the resulting bit string will may be longer than binary_size depending on the length
- * of orig_string.
  */
 char *convert_hex_string_of_size_to_bit_string(char *orig_string, int binary_size)
 {
@@ -212,17 +209,19 @@ char *convert_hex_string_of_size_to_bit_string(char *orig_string, int binary_siz
 		bit_string[count]   = '\0';
 	}
 
-	// Change to little endian.
-	reverse_string(bit_string, count);
-	return bit_string;
+	// Truncate to binary_size
+	bit_string[binary_size] = '\0';
+	// Change to little endian
+	reverse_string(bit_string, binary_size);
+	// Copy out only the bits before the truncation.
+	char *return_string = strdup(bit_string);
+	free(bit_string);
+	return return_string;
 }
 
 /*
- * Parses the given little endian octal string into a little endian bit string padded to
+ * Parses the given little endian octal string into a little endian bit string padded or truncated to
  * binary_size bits. Throws an error if the string contains non-octal digits.
- *
- * Note: the resulting bit string will may be longer than binary_size depending on the length
- * of orig_string.
  */
 char *convert_oct_string_of_size_to_bit_string(char *orig_string, int binary_size)
 {
@@ -263,17 +262,19 @@ char *convert_oct_string_of_size_to_bit_string(char *orig_string, int binary_siz
 		bit_string[count]   = '\0';
 	}
 
-	// Change to little endian.
-	reverse_string(bit_string, count);
-	return bit_string;
+	// Truncate to binary_size
+	bit_string[binary_size] = '\0';
+	// Change to little endian
+	reverse_string(bit_string, binary_size);
+	// Copy out only the bits before the truncation.
+	char *return_string = strdup(bit_string);
+	free(bit_string);
+	return return_string;
 }
 
 /*
- * Parses the given little endian bit string into a bit string padded to
+ * Parses the given little endian bit string into a bit string padded or truncated to
  * binary_size bits.
- *
- * Note: the resulting bit string will may be longer than binary_size depending on the length
- * of orig_string.
  */
 char *convert_binary_string_of_size_to_bit_string(char *orig_string, int binary_size)
 {
@@ -297,9 +298,14 @@ char *convert_binary_string_of_size_to_bit_string(char *orig_string, int binary_
 		bit_string[count]   = '\0';
 	}
 
+	// Truncate to binary_size
+	bit_string[binary_size] = '\0';
 	// Change to little endian
-	reverse_string(bit_string, count);
-	return bit_string;
+	reverse_string(bit_string, binary_size);
+	// Copy out only the bits before the truncation.
+	char *return_string = strdup(bit_string);
+	free(bit_string);
+	return return_string;
 }
 
 /*
