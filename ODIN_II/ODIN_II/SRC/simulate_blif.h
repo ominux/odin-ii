@@ -44,7 +44,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "hard_blocks.h"
 #include "types.h"
 
-#define BUFFER_MAX_SIZE 1024
+#define BUFFER_MAX_SIZE 4096
 
 // Minimum number of nodes to bother computing in parallel.
 #define SIM_PARALLEL_THRESHOLD 150
@@ -177,7 +177,7 @@ char *generate_vector_header(lines_t *l);
 void write_vector_headers(FILE *file, lines_t *l);
 
 void write_vector_to_file(lines_t *l, FILE *file, int cycle);
-void write_wave_to_file(lines_t *l, FILE* file, int cycle_offset, int wave_length);
+void write_wave_to_file(lines_t *l, FILE* file, int cycle_offset, int wave_length, int both_edges);
 
 void write_vector_to_modelsim_file(lines_t *l, FILE *modelsim_out, int cycle);
 void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_out, int cycle_offset, int wave_length);
