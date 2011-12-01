@@ -138,7 +138,8 @@ struct global_args_t_t
 	int num_test_vectors;
 	char *sim_vector_input_file;   // Input vectors to simulate.
 	char *sim_vector_output_file;  // Existing output to verify against.
-	char *sim_output_both_edges;
+	int sim_output_both_edges;
+	int sim_output_rising_edge;
 	char *sim_additional_pins;
 	char *sim_hold_high;           // Comma-separated list of primary input pins to hold high for all cycles but the first.
 	char *sim_hold_low;            // Comma-separated list of primary input pins to hold low for all cycles but the first.
