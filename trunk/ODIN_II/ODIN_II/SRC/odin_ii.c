@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 	return 0;
 } 
 
-static const char *optString = "hc:V:Wh:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA:";
+static const char *optString = "hc:V:WEh:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA:";
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
@@ -147,6 +147,7 @@ void get_options(int argc, char **argv)
 	global_args.num_test_vectors = 0;
 	global_args.sim_hold_low = NULL;
 	global_args.sim_hold_high = NULL;
+	global_args.sim_output_both_edges = 0;
 	global_args.all_warnings = 0;
 
 	/* set up the global configuration ahead of time */
@@ -164,6 +165,7 @@ void get_options(int argc, char **argv)
 
 	configuration.fixed_hard_multiplier = 1;
 	configuration.split_hard_multiplier = 1;
+
 
 	/* read in the option line */
 	opt = getopt(argc, argv, optString);
@@ -234,6 +236,9 @@ void get_options(int argc, char **argv)
 			case 'W':
 				global_args.all_warnings = 1;
 			break;
+			case 'E':
+				global_args.sim_output_both_edges = 1;
+			break;
 			default :
 				print_usage();
 				error_message(0, 0, -1, "Invalid arguments.\n");
@@ -265,32 +270,33 @@ void print_usage()
 	printf
 	(
 			"Usage: odin_II.exe\n"
-			"\tOne of:\n"
-				"\t\t-c <config_file_name.xml>\n"
-				"\t\t-V <verilog_file_name.v>\n"
-				"\t\t-b <input_blif_fil_name.blif>\n"
-			"\tOther options:\n"
-				"\t\t-o <output_path and file name>\n"
-				"\t\t-a <architecture_file_in_VPR6.0_form>\n"
-				"\t\t-B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n"
-				"\t\t-G Output netlist graph in .dot format. (net.dot)\n"
-				"\t\t-A Output AST graph in .dot format.\n"
-				"\t\t-W Print all warnings. (Can be substantial.) "
-					"\t\t\tWithout this option, less useful warnings such as those about padding and additional drivers will not be printed."
-				"\t\t-h Print help\n"
-			"\tSimulation options:\n"
-				"\t\t-g <Number of random test vectors>\n"
-				"\t\t -L <Comma-separated list of primary inputs to hold high at cycle 0, and low for all subsequent cycles.>\n"
-				"\t\t -H <Comma-separated list of primary inputs to hold low at cycle 0, and high for all subsequent cycles.>\n"
-				"\t\t-t <input vectors file>: Supply an input vector file\n"
-				"\t\t-T <output vectors file>: Supply an output vector file to check output vectors against.\n"
-				"\t\t-p <Comma-separated list of additional pins/nodes to monitor during simulation.>\n"
-					"\t\t\tEg: \"-p input~0,input~1\" monitors pin 0 and 1 of input, \n"
-					"\t\t\t or \"-p input\" monitors all pins of input as a single port. \n"
-					"\t\t\t or \"-p input~\" monitors all pins of input as separate ports. (split) \n"
-					"\t\t\t - Note: Non-existent pins are ignored. \n"
-					"\t\t\t - Matching is done via strstr so general strings will match \n"
-					"\t\t\t   all similar pins and nodes. (Eg: FF_NODE will create a single port with all flipflops) \n"
+			" One of:\n"
+			"  -c <config_file_name.xml>\n"
+			"  -V <verilog_file_name.v>\n"
+			"  -b <input_blif_fil_name.blif>\n"
+			" Other options:\n"
+			"  -o <output_path and file name>\n"
+			"  -a <architecture_file_in_VPR6.0_form>\n"
+			"  -B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n"
+			"  -G Output netlist graph in .dot format. (net.dot)\n"
+			"  -A Output AST graph in .dot format.\n"
+			"  -W Print all warnings. (Can be substantial.) "
+			"     Without this option, less useful warnings such as those about padding and additional drivers will not be printed."
+			"  -h Print help\n"
+			" Simulation options:\n"
+			"  -g <Number of random test vectors>\n"
+			"   -L <Comma-separated list of primary inputs to hold high at cycle 0, and low for all subsequent cycles.>\n"
+			"   -H <Comma-separated list of primary inputs to hold low at cycle 0, and high for all subsequent cycles.>\n"
+			"  -t <input vectors file>: Supply an input vector file\n"
+			"  -T <output vectors file>: Supply an output vector file to check output vectors against.\n"
+			"  -E Output after both edges of the clock. (Default is to output only after the rising edge.)"
+			"  -p <Comma-separated list of additional pins/nodes to monitor during simulation.>\n"
+			"     Eg: \"-p input~0,input~1\" monitors pin 0 and 1 of input, \n"
+			"       or \"-p input\" monitors all pins of input as a single port. \n"
+			"       or \"-p input~\" monitors all pins of input as separate ports. (split) \n"
+			"     - Note: Non-existent pins are ignored. \n"
+			"     - Matching is done via strstr so general strings will match \n"
+			"       all similar pins and nodes. (Eg: FF_NODE will create a single port with all flipflops) \n"
 	);
 	fflush(stdout);
 }
