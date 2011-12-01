@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 	return 0;
 } 
 
-static const char *optString = "hc:V:WEh:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA:";
+static const char *optString = "hc:V:WREh:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA:";
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
@@ -148,6 +148,7 @@ void get_options(int argc, char **argv)
 	global_args.sim_hold_low = NULL;
 	global_args.sim_hold_high = NULL;
 	global_args.sim_output_both_edges = 0;
+	global_args.sim_output_rising_edge = 0;
 	global_args.all_warnings = 0;
 
 	/* set up the global configuration ahead of time */
@@ -239,6 +240,9 @@ void get_options(int argc, char **argv)
 			case 'E':
 				global_args.sim_output_both_edges = 1;
 			break;
+			case 'R':
+				global_args.sim_output_rising_edge = 1;
+			break;
 			default :
 				print_usage();
 				error_message(0, 0, -1, "Invalid arguments.\n");
@@ -280,8 +284,9 @@ void print_usage()
 			"  -B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n"
 			"  -G Output netlist graph in .dot format. (net.dot)\n"
 			"  -A Output AST graph in .dot format.\n"
-			"  -W Print all warnings. (Can be substantial.) "
-			"     Without this option, less useful warnings such as those about padding and additional drivers will not be printed."
+			"  -W Print all warnings. (Can be substantial.) \n"
+			"      Without this option, less useful warnings such as those about padding and \n"
+			"     additional drivers will not be printed.\n"
 			"  -h Print help\n"
 			" Simulation options:\n"
 			"  -g <Number of random test vectors>\n"
@@ -289,7 +294,8 @@ void print_usage()
 			"   -H <Comma-separated list of primary inputs to hold low at cycle 0, and high for all subsequent cycles.>\n"
 			"  -t <input vectors file>: Supply an input vector file\n"
 			"  -T <output vectors file>: Supply an output vector file to check output vectors against.\n"
-			"  -E Output after both edges of the clock. (Default is to output only after the rising edge.)"
+			"  -E Output after both edges of the clock. (Default is to output only after the falling edge.)\n"
+			"  -R Output after rising edge of the clock only. (Default is to output only after the falling edge.)\n"
 			"  -p <Comma-separated list of additional pins/nodes to monitor during simulation.>\n"
 			"     Eg: \"-p input~0,input~1\" monitors pin 0 and 1 of input, \n"
 			"       or \"-p input\" monitors all pins of input as a single port. \n"

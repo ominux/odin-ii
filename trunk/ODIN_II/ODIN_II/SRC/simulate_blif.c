@@ -144,7 +144,7 @@ void simulate_netlist(netlist_t *netlist)
 			}
 
 			// Record the input vectors we are using.
-			write_wave_to_file(input_lines, in_out, cycle_offset, wave_length, FALSE);
+			write_wave_to_file(input_lines, in_out, cycle_offset, wave_length, 1);
 			// Write ModelSim script.
 			write_wave_to_modelsim_file(netlist, input_lines, modelsim_out, cycle_offset, wave_length);
 
@@ -171,7 +171,7 @@ void simulate_netlist(netlist_t *netlist)
 			simulation_time += wall_time() - simulation_start_time;
 
 			// Write the result of this wave to the output vector file.
-			write_wave_to_file(output_lines, out, cycle_offset, wave_length, global_args.sim_output_both_edges);
+			write_wave_to_file(output_lines, out, cycle_offset, wave_length, global_args.sim_output_both_edges?-1:global_args.sim_output_rising_edge?1:0);
 
 			total_time += wall_time() - wave_start_time;
 
@@ -2086,17 +2086,26 @@ test_vector *generate_random_test_vector(lines_t *l, int cycle, hashtable_t *hol
  * Writes a wave of vectors to the given file. Writes the headers
  * prior to cycle 0.
  */ 
-void write_wave_to_file(lines_t *l, FILE* file, int cycle_offset, int wave_length, int both_edges)
+void write_wave_to_file(lines_t *l, FILE* file, int cycle_offset, int wave_length, int edge)
 {
 	if (!cycle_offset)
 		write_vector_headers(file, l);
 
-	if (both_edges)
+	// Both edges
+	if (edge == -1)
 	{
 		int cycle;
 		for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle++)
 			write_vector_to_file(l, file, cycle);
 	}
+	// Falling edge
+	else if (edge == 0)
+	{
+		int cycle;
+		for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle += 2)
+			write_vector_to_file(l, file, cycle);
+	}
+	// Rising edge
 	else
 	{
 		int cycle;
@@ -2190,7 +2199,7 @@ void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_
 			if (is_clock_node(node))
 			{
 				char *port_name = get_port_name(node->name);
-				fprintf(modelsim_out, "force %s 1 0, 0 50 -repeat 100\n", port_name);
+				fprintf(modelsim_out, "force %s 0 0, 1 50 -repeat 100\n", port_name);
 				free(port_name);
 			}
 		}
