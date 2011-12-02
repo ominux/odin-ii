@@ -1213,6 +1213,8 @@ hard_block_model *read_hard_block_model(char *name_subckt, hard_block_ports *por
 	hard_block_model *model;
 
 	while(1) {
+		model = NULL;
+
 		// Search the file for .model followed buy the subcircuit name.
 		char buffer[BUFSIZE];
 		while (my_fgets(buffer, BUFSIZE, file))
@@ -1262,7 +1264,7 @@ hard_block_model *read_hard_block_model(char *name_subckt, hard_block_ports *por
 			}
 		}
 
-		if(feof(file))
+		if(!model || feof(file))
 			error_message(NETLIST_ERROR, last_line, -1, "A subcircuit model for '%s' with matching ports was not found.",name_subckt);
 
 		// Sort the names.
