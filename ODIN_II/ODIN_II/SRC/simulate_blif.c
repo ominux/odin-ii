@@ -267,7 +267,7 @@ stages *simulate_first_cycle(netlist_t *netlist, int cycle, pin_names *p, lines_
 		compute_and_store_value(node, cycle);
 
 		// Match node for items passed via -p and add to lines if there's a match.
-		add_additional_pins_to_lines(node, p, l);
+		add_additional_items_to_lines(node, p, l);
 
 		// Enqueue child nodes which are ready, not already queued, and not already complete.
 		int num_children = 0;
@@ -403,15 +403,16 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			oassert(node->num_output_pins == 1);
 			oassert(node->num_input_pins  == 2);
 
-			signed char clock_previous = get_pin_value(node->input_pins[1],cycle-1);
-			signed char clock_current  = get_pin_value(node->input_pins[1],cycle);
-
-			if (clock_current > clock_previous) // Rising edge.
-			{	// Update the flip-flop from the input value of the previous cycle.
+			// Rising edge.
+			if (is_posedge(node->input_pins[1], cycle))
+			{
+				// Update the flip-flop from the input value of the previous cycle.
 				update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle-1), cycle);
 			}
+			// Falling edge.
 			else
-			{	// Maintain the flip-flop value.
+			{
+				// Maintain the flip-flop value.
 				update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0],cycle-1), cycle);
 			}
 			break;
@@ -940,14 +941,15 @@ int is_node_ready(nnode_t* node, int cycle)
 		for (i = 0; i < node->num_input_pins; i++)
 		{
 			npin_t *pin = node->input_pins[i];
-			if (!strcmp(pin->mapping, "data") || !strcmp(pin->mapping, "data1") || !strcmp(pin->mapping, "data2"))
+			// The clock relies on the current cycle. All other memory pins use the previous cycle.
+			if (!strcmp(pin->mapping, "clk"))
 			{
-				if (pin->cycle < cycle-1)
+				if (pin->cycle < cycle)
 					return FALSE;
 			}
 			else
 			{
-				if (pin->cycle < cycle)
+				if (pin->cycle < cycle-1)
 					return FALSE;
 			}
 		}
@@ -1122,6 +1124,22 @@ inline int is_clock_node(nnode_t *node)
 }
 
 /*
+ * Returns TRUE if the pin's value for this
+ * cycle is 1 and the value for the previous cycle
+ * was not 1. Otherwise returns FALSE.
+ */
+int is_posedge(npin_t *pin, int cycle)
+{
+	int current_clock = get_pin_value(pin,cycle);
+	int previous_clock = get_pin_value(pin,cycle-1);
+
+	if (current_clock == 1 && previous_clock != 1)
+		return TRUE;
+	else
+		return FALSE;
+}
+
+/*
  * Computes the given memory node.
  */
 void compute_memory_node(nnode_t *node, int cycle)
@@ -1160,7 +1178,7 @@ void compute_memory_node(nnode_t *node, int cycle)
 		{
 			if (strcmp(node->input_pins[i]->mapping, we_name) == 0)
 			{
-				we = get_pin_value(node->input_pins[i],cycle);
+				we = get_pin_value(node->input_pins[i],cycle-1);
 			}
 			else if (!strcmp(node->input_pins[i]->mapping, addr_name))
 			{
@@ -1174,9 +1192,7 @@ void compute_memory_node(nnode_t *node, int cycle)
 			}
 			else if (strcmp(node->input_pins[i]->mapping, clock_name) == 0)
 			{
-				int current_clock = get_pin_value(node->input_pins[i],cycle);
-				int previous_clock = get_pin_value(node->input_pins[i],cycle-1);
-				posedge = (current_clock > previous_clock) ? 1 : 0;
+				posedge = is_posedge(node->input_pins[i],cycle);
 			}
 		}
 		out = node->output_pins;
@@ -1219,11 +1235,11 @@ void compute_memory_node(nnode_t *node, int cycle)
 		{
 			if (strcmp(node->input_pins[i]->mapping, we_name1) == 0)
 			{
-				we1 = get_pin_value(node->input_pins[i],cycle);
+				we1 = get_pin_value(node->input_pins[i],cycle-1);
 			}
 			else if (strcmp(node->input_pins[i]->mapping, we_name2) == 0)
 			{
-				we2 = get_pin_value(node->input_pins[i],cycle);
+				we2 = get_pin_value(node->input_pins[i],cycle-1);
 			}
 			else if (strcmp(node->input_pins[i]->mapping, addr_name1) == 0)
 			{
@@ -1247,9 +1263,7 @@ void compute_memory_node(nnode_t *node, int cycle)
 			}
 			else if (strcmp(node->input_pins[i]->mapping, clock_name) == 0)
 			{
-				int current_clock = get_pin_value(node->input_pins[i],cycle);
-				int previous_clock = get_pin_value(node->input_pins[i],cycle-1);
-				posedge = (current_clock > previous_clock) ? 1 : 0;
+				posedge = is_posedge(node->input_pins[i], cycle);
 			}
 		}
 
@@ -1455,28 +1469,33 @@ void compute_single_port_memory(
 	int cycle
 )
 {
-	long address = compute_memory_address(out, data_width, addr, addr_width, cycle);
+	// On the rising edge, compute the memory.
+	if (posedge)
+	{
+		long address = compute_memory_address(out, data_width, addr, addr_width, cycle-1);
+		char address_ok = (address != -1)?1:0;
 
-	char address_ok = (address != -1)?1:0;
-
-	// Read (and write if we) data to memory.
-	int i;
-	for (i = 0; i < data_width; i++)
-	{	// Compute which bit we are addressing.
-		long bit_address = address_ok?(i + (address * data_width)):-1;
-
-		// Update the output.
-		if (!posedge)
+		int i;
+		for (i = 0; i < data_width; i++)
 		{
-			if (address_ok) update_pin_value(out[i], node->memory_data[bit_address], cycle);
+			// Compute which bit we are addressing.
+			long bit_address = address_ok?(i + (address * data_width)):-1;
+
+			// Update the output.
+			if (address_ok)
+				update_pin_value(out[i], node->memory_data[bit_address], cycle);
 
 			// If write is enabled, copy the input to memory.
-			if (address_ok && we) node->memory_data[bit_address] = get_pin_value(data[i],cycle);
+			if (address_ok && we)
+				node->memory_data[bit_address] = get_pin_value(data[i],cycle-1);
 		}
-		else
-		{
+	}
+	else
+	{
+		// On falling edge, we hold the previous value.
+		int i;
+		for (i = 0; i < data_width; i++)
 			update_pin_value(out[i], get_pin_value(out[i],cycle-1), cycle);
-		}
 	}
 }
 
@@ -1499,29 +1518,41 @@ void compute_dual_port_memory(
 	int cycle
 )
 {
-	long address1 = compute_memory_address(out1, data_width, addr1, addr_width, cycle);
-	long address2 = compute_memory_address(out2, data_width, addr2, addr_width, cycle);
+	// On the rising edge, we compute the memory.
+	if (posedge)
+	{
+		long address1 = compute_memory_address(out1, data_width, addr1, addr_width, cycle-1);
+		long address2 = compute_memory_address(out2, data_width, addr2, addr_width, cycle-1);
 
-	char port1 = (address1 != -1)?1:0;
-	char port2 = (address2 != -1)?1:0;
+		char port1 = (address1 != -1)?1:0;
+		char port2 = (address2 != -1)?1:0;
 
-	// Read (and write if we) data to memory.
-	int i;
-	for (i = 0; i < data_width; i++)
-	{	// Compute which bit we are addressing.
-		long bit_address1 = port1?(i + (address1 * data_width)):-1;
-		long bit_address2 = port2?(i + (address2 * data_width)):-1;
-
-		// Update the output.
-		if (!posedge)
+		// Read (and write if we) data to memory.
+		int i;
+		for (i = 0; i < data_width; i++)
 		{
-			if (port1) update_pin_value(out1[i], node->memory_data[bit_address1], cycle);
-			if (port2) update_pin_value(out2[i], node->memory_data[bit_address2], cycle);
+			// Compute which bit we are addressing.
+			long bit_address1 = port1?(i + (address1 * data_width)):-1;
+			long bit_address2 = port2?(i + (address2 * data_width)):-1;
 
-			if (port1 && we1) node->memory_data[bit_address1] = get_pin_value(data1[i],cycle);
-			if (port2 && we2) node->memory_data[bit_address2] = get_pin_value(data2[i],cycle);
+			// Read the memory bit
+			if (port1)
+				update_pin_value(out1[i], node->memory_data[bit_address1], cycle);
+			if (port2)
+				update_pin_value(out2[i], node->memory_data[bit_address2], cycle);
+
+			// Write to the memory
+			if (port1 && we1)
+				node->memory_data[bit_address1] = get_pin_value(data1[i],cycle-1);
+			if (port2 && we2)
+				node->memory_data[bit_address2] = get_pin_value(data2[i],cycle-1);
 		}
-		else
+	}
+	else
+	{
+		// On falling edge, we hold the previous value.
+		int i;
+		for (i = 0; i < data_width; i++)
 		{
 			update_pin_value(out1[i], get_pin_value(out1[i],cycle-1), cycle);
 			update_pin_value(out2[i], get_pin_value(out2[i],cycle-1), cycle);
@@ -2400,10 +2431,10 @@ pin_names *parse_pin_name_list(char *list)
 }
 
 /*
- * If the given node matches one of the additional_pins (passed via -p),
- * it's added to the lines. (Matches on output pin names, and node name).
+ * If the given node matches one of the additional names (passed via -p),
+ * it's added to the lines. (Matches on output pin names, net names, and node names).
  */
-void add_additional_pins_to_lines(nnode_t *node, pin_names *p, lines_t *l)
+void add_additional_items_to_lines(nnode_t *node, pin_names *p, lines_t *l)
 {
 	if (p->count)
 	{
@@ -2413,11 +2444,26 @@ void add_additional_pins_to_lines(nnode_t *node, pin_names *p, lines_t *l)
 		// Search the output pin names for each user-defined item.
 		for (j = 0; j < node->num_output_pins; j++)
 		{
-			if (node->output_pins[j]->name)
+			npin_t *pin = node->output_pins[j];
+
+			if (pin->name)
 			{
 				for (k = 0; k < p->count; k++)
 				{
-					if (strstr(node->output_pins[j]->name, p->pins[k]))
+					if (strstr(pin->name, p->pins[k]))
+					{
+						add = TRUE;
+						break;
+					}
+				}
+				if (add) break;
+			}
+
+			if (pin->net && pin->net->name)
+			{
+				for (k = 0; k < p->count; k++)
+				{
+					if (strstr(pin->net->name, p->pins[k]))
 					{
 						add = TRUE;
 						break;
@@ -2769,7 +2815,8 @@ void print_time(double time)
  */
 void print_ancestry(nnode_t *bottom_node, int n)
 {
-	n = 1;
+	if (!n) n = 10;
+
 	queue_t *queue = create_queue();
 	queue->add(queue, bottom_node);
 	nnode_t *node;
@@ -2780,7 +2827,7 @@ void print_ancestry(nnode_t *bottom_node, int n)
 	while (n-- && (node = queue->remove(queue)))
 	{
 		char *name = get_pin_name(node->name);
-		printf("  %s (%d):\n", name, node->unique_id);
+		printf("  %s (%ld):\n", name, node->unique_id);
 		free(name);
 		int i;
 		for (i = 0; i < node->num_input_pins; i++)
@@ -2794,8 +2841,7 @@ void print_ancestry(nnode_t *bottom_node, int n)
 			free(name);
 		}
 
-		int count = 0;
-		//if (n == 1)
+		/*int count = 0;
 		{
 			printf(  "  ------------\n");
 			printf(  "  CHILDREN    \n");
@@ -2839,7 +2885,7 @@ void print_ancestry(nnode_t *bottom_node, int n)
 					}
 				}
 			}
-		}
+		}*/
 		printf(  "  ------------\n");
 
 	}

@@ -184,7 +184,7 @@ void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_
 
 int verify_output_vectors(char* output_vector_file, int num_test_vectors);
 
-void add_additional_pins_to_lines(nnode_t *node, pin_names *p, lines_t *l);
+void add_additional_items_to_lines(nnode_t *node, pin_names *p, lines_t *l);
 pin_names *parse_pin_name_list(char *list);
 void free_pin_name_list(pin_names *p);
 hashtable_t *index_pin_name_list(pin_names *list);
@@ -206,6 +206,8 @@ void flag_undriven_input_pins(nnode_t *node);
 
 void print_ancestry(nnode_t *node, int generations);
 nnode_t *print_update_trace(nnode_t *bottom_node, int cycle);
+
+int is_posedge(npin_t *pin, int cycle);
 
 
 #endif
