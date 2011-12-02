@@ -38,25 +38,25 @@ void simulate_netlist(netlist_t *netlist)
 	if (!verify_lines(output_lines))
 		error_message(SIMULATION_ERROR, 0, -1, "Output lines could not be assigned.");
 
+	// Open the output vector file.
 	FILE *out = fopen(OUTPUT_VECTOR_FILE_NAME, "w");
 	if (!out)
 		error_message(SIMULATION_ERROR, 0, -1, "Could not open output vector file.");
 
+	// Open the input vector file.
 	FILE *in_out  = fopen( INPUT_VECTOR_FILE_NAME, "w");
 	if (!in_out)
 		error_message(SIMULATION_ERROR, 0, -1, "Could not open input vector file.");
 
+	// Open the modelsim vector file.
 	FILE *modelsim_out = fopen("test.do", "w");
 	if (!modelsim_out)
 		error_message(SIMULATION_ERROR, 0, -1, "Could not open modelsim output file.");
 
-
 	FILE *in  = NULL;
-	int num_test_vectors;
+	int num_vectors;
 	// Passed via the -t option.
 	char *input_vector_file  = global_args.sim_vector_input_file;
-
-
 
 	// Input vectors can either come from a file or be randomly generated.
 	if (input_vector_file)
@@ -65,22 +65,27 @@ void simulate_netlist(netlist_t *netlist)
 		if (!in)
 			error_message(SIMULATION_ERROR, 0, -1, "Could not open vector input file: %s", input_vector_file);
 
-		num_test_vectors = count_test_vectors(in);
+		num_vectors = count_test_vectors(in);
 
 		// Read the vector headers and check to make sure they match the lines.
 		if (!verify_test_vector_headers(in, input_lines))
 			error_message(SIMULATION_ERROR, 0, -1, "Invalid vector header format in %s.", input_vector_file);
 
-		printf("Simulating %d existing vectors from \"%s\".\n", num_test_vectors, input_vector_file); fflush(stdout);
+		printf("Simulating %d existing vectors from \"%s\".\n", num_vectors, input_vector_file); fflush(stdout);
 	}
 	else
 	{
 		// Passed via the -g option.
-		num_test_vectors = global_args.num_test_vectors;
-		printf("Simulating %d new vectors.\n", num_test_vectors); fflush(stdout);
+		num_vectors = global_args.num_test_vectors;
+		printf("Simulating %d new vectors.\n", num_vectors); fflush(stdout);
 	}
 
-	if (!num_test_vectors)
+	int output_edge;
+	if      (global_args.sim_output_both_edges ) output_edge = -1; // Both edges
+	else if (global_args.sim_output_rising_edge) output_edge =  1; // Rising edge only
+	else                                         output_edge =  0; // Falling edge only
+
+	if (!num_vectors)
 	{
 		error_message(SIMULATION_ERROR, 0, -1, "No vectors to simulate.");
 	}
@@ -104,7 +109,7 @@ void simulate_netlist(netlist_t *netlist)
 
 		// Simulation is done in "waves" of SIM_WAVE_LENGTH cycles at a time.
 		// Every second cycle gets a new vector.
-		int  num_cycles = num_test_vectors * 2;
+		int  num_cycles = num_vectors * 2;
 		int  num_waves = ceil(num_cycles / (double)SIM_WAVE_LENGTH);
 		int  wave;
 		for (wave = 0; wave < num_waves; wave++)
@@ -171,13 +176,13 @@ void simulate_netlist(netlist_t *netlist)
 			simulation_time += wall_time() - simulation_start_time;
 
 			// Write the result of this wave to the output vector file.
-			write_wave_to_file(output_lines, out, cycle_offset, wave_length, global_args.sim_output_both_edges?-1:global_args.sim_output_rising_edge?1:0);
+			write_wave_to_file(output_lines, out, cycle_offset, wave_length, output_edge);
 
 			total_time += wall_time() - wave_start_time;
 
 			// Print netlist-specific statistics.
 			if (!cycle_offset)
-				print_netlist_stats(stages, num_test_vectors);
+				print_netlist_stats(stages, num_vectors);
 
 			// Delay drawing of the progress bar until the second wave to improve the accuracy of the ETA.
 			if ((num_waves == 1) || cycle_offset)
@@ -191,14 +196,14 @@ void simulate_netlist(netlist_t *netlist)
 
 		fflush(out); 
 
-		fprintf(modelsim_out, "run %d\n", num_test_vectors*100);
+		fprintf(modelsim_out, "run %d\n", num_vectors*100);
 
 		printf("\n");
 		// If a second output vector file was given via the -T option, verify that it matches.
 		char *output_vector_file = global_args.sim_vector_output_file;
 		if (output_vector_file)
 		{
-			if (verify_output_vectors(output_vector_file, num_test_vectors))
+			if (verify_output_vectors(output_vector_file, num_vectors))
 				printf("Vector file \"%s\" matches output\n", output_vector_file);
 			else
 				error_message(SIMULATION_ERROR, 0, -1, "Vector files differ.");
@@ -206,7 +211,7 @@ void simulate_netlist(netlist_t *netlist)
 		}
 
 		// Print statistics.
-		print_simulation_stats(stages, num_test_vectors, total_time, simulation_time);
+		print_simulation_stats(stages, num_vectors, total_time, simulation_time);
 
 		free_stages(stages);
 	}
@@ -305,7 +310,7 @@ stages *simulate_first_cycle(netlist_t *netlist, int cycle, pin_names *p, lines_
 }
 
 /*
- * Puts the ordered nodes in stages which can be computed in parallel.
+ * Puts the ordered nodes in stages, each of which can be computed in parallel.
  */
 stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 	stages *s = malloc(sizeof(stages));
@@ -403,18 +408,13 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			oassert(node->num_output_pins == 1);
 			oassert(node->num_input_pins  == 2);
 
-			// Rising edge.
+			// Rising edge: update the flip-flop from the input value of the previous cycle.
 			if (is_posedge(node->input_pins[1], cycle))
-			{
-				// Update the flip-flop from the input value of the previous cycle.
 				update_pin_value(node->output_pins[0], get_pin_value(node->input_pins[0],cycle-1), cycle);
-			}
-			// Falling edge.
+			// Falling edge: maintain the flip-flop value.
 			else
-			{
-				// Maintain the flip-flop value.
 				update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0],cycle-1), cycle);
-			}
+
 			break;
 		}
 		case LT: // < 010 1
@@ -650,8 +650,10 @@ void compute_and_store_value(nnode_t *node, int cycle)
 					select = (select == -1)?i:select;
 				}
 
-				// If the pin comes from an "else" condition or a case "default" condition,
-				// we favour it in the case where there are unknowns.
+				/*
+				 *  If the pin comes from an "else" condition or a case "default" condition,
+				 *  we favour it in the case where there are unknowns.
+				 */
 				if (	   node->related_ast_node
 						&& (node->related_ast_node->type == IF || node->related_ast_node->type == CASE)
 						&& node->input_pins[i]->is_default
@@ -661,28 +663,24 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				}
 			}
 
+			// If there are unknowns and there is a default clause, select it.
 			if (unknown && default_select >= 0)
 			{
 				unknown = FALSE;
 				select = default_select;
 			}
 
-			// If any select pin is unknown, we take the value from the previous cycle.
+			// If any select pin is unknown (and we don't have a default), we take the value from the previous cycle.
 			if (unknown)
 			{
-				// Conform to ModelSim's behaviour where in-line ifs are concerned.
-				if (
-						   node->related_ast_node
-						&& node->related_ast_node->type == IF_Q
-				)
-				{
+				/*
+				 *  Conform to ModelSim's behaviour where in-line ifs are concerned. If the
+				 *  condition is unknown, the inline if's output is unknown.
+				 */
+				if (node->related_ast_node && node->related_ast_node->type == IF_Q)
 					update_pin_value(node->output_pins[0], -1, cycle);
-				}
 				else
-				{
 					update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0], cycle-1), cycle);
-				}
-
 			}
 			// If no selection is made (all 0) we output x.
 			else if (select < 0)
@@ -807,8 +805,7 @@ void update_undriven_input_pins(nnode_t *node, int cycle)
 
 				// Print the trace.
 				nnode_t *root = print_update_trace(node, cycle);
-				fflush(stdout);
-				fflush(stderr);
+
 				// Throw an error.
 				error_message(SIMULATION_ERROR,0,-1,"Odin has detected that an input pin attached to %s isn't being updated.\n"
 						"\tPin name: %s\n"
@@ -965,7 +962,9 @@ int is_node_ready(nnode_t* node, int cycle)
 }
 
 /*
- * Gets the children of the given node. Returns the number of children via the num_children parameter.
+ * Gets the children of the given node. Returns the number of
+ * children via the num_children parameter. Throws warnings
+ * or errors if invalid connection patterns are detected.
  */
 nnode_t **get_children_of(nnode_t *node, int *num_children)
 {
@@ -978,33 +977,30 @@ nnode_t **get_children_of(nnode_t *node, int *num_children)
 		nnet_t *net = pin->net;
 		if (net)
 		{
+			/*
+			 *  Detects a net that may be being driven by two
+			 *  or more pins or has an incorrect driver pin assignment.
+			 */
 			if (net->driver_pin != pin)
 			{
-				//print_ancestry(node, 0);
 				char *pin_name  = get_pin_name(pin->name);
-				char *node_name = get_port_name(node->name);
+				char *node_name = get_pin_name(node->name);
+				char *net_name  = get_pin_name(net->name);
 
-				warning_message(SIMULATION_ERROR, -1, -1, "Found output pin  \n"
-							"\t%s (%ld) \n "
-						" on node \n"
-							"\t%s (%ld)\n"
-						" which is mapped to a net \n"
-							"\t %s \n"
-						" driven by another pin \n"
-							"\t%s (%ld) \n"
-						,
+				warning_message(SIMULATION_ERROR, -1, -1,
+						"Found output pin \"%s\" (%ld) on node \"%s\" (%ld)\n"
+						"             which is mapped to a net \"%s\" (%ld) whose driver pin is \"%s\" (%ld) \n",
 						pin_name,
 						pin->unique_id,
 						node_name,
 						node->unique_id,
-						net->name,
+						net_name,
+						net->unique_id,
 						net->driver_pin->name,
 						net->driver_pin->unique_id
-
-
 				);
-				//sleep(1);
 
+				free(net_name);
 				free(pin_name);
 				free(node_name);
 			}
@@ -1016,34 +1012,30 @@ nnode_t **get_children_of(nnode_t *node, int *num_children)
 				if (fanout_pin && fanout_pin->type == INPUT && fanout_pin->node)
 				{
 					nnode_t *child_node = fanout_pin->node;
-					// Find mismapped pins.
+
+					// Check linkage for inconsistencies.
 					if (fanout_pin->net != net)
 					{
 						print_ancestry(child_node, 0);
 						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
 					}
-
-					if (fanout_pin->net->driver_pin->net != net)
+					else if (fanout_pin->net->driver_pin->net != net)
 					{
 						print_ancestry(child_node, 0);
 						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
 					}
 
-					if (fanout_pin->net->driver_pin->node != node)
+					else if (fanout_pin->net->driver_pin->node != node)
 					{
 						print_ancestry(child_node, 0);
 						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
 					}
-
-					if (fanout_pin->node != child_node)
+					else
 					{
-						print_ancestry(child_node, 0);
-						error_message(SIMULATION_ERROR, -1, -1, "Found mismapped node %s", node->name);
+						// Add child.
+						children = realloc(children, sizeof(nnode_t*) * (count + 1));
+						children[count++] = child_node;
 					}
-
-					// Add child.
-					children = realloc(children, sizeof(nnode_t*) * (count + 1));
-					children[count++] = child_node;
 				}
 			}
 		}
@@ -1130,10 +1122,7 @@ inline int is_clock_node(nnode_t *node)
  */
 int is_posedge(npin_t *pin, int cycle)
 {
-	int current_clock = get_pin_value(pin,cycle);
-	int previous_clock = get_pin_value(pin,cycle-1);
-
-	if (current_clock == 1 && previous_clock != 1)
+	if (get_pin_value(pin,cycle) == 1 && get_pin_value(pin,cycle-1) != 1)
 		return TRUE;
 	else
 		return FALSE;
@@ -1349,6 +1338,9 @@ void compute_hard_ip_node(nnode_t *node, int cycle)
 	free(output_pins);
 }
 
+/*
+ * Computes the given multiply node for the given cycle.
+ */
 void compute_multiply_node(nnode_t *node, int cycle)
 {
 	int i;
@@ -1356,7 +1348,11 @@ void compute_multiply_node(nnode_t *node, int cycle)
 	for (i = 0; i < node->input_port_sizes[0] + node->input_port_sizes[1]; i++)
 	{
 		signed char pin = get_pin_value(node->input_pins[i],cycle);
-		if (pin < 0) { unknown = TRUE; break; }
+		if (pin < 0)
+		{
+			unknown = TRUE;
+			break;
+		}
 	}
 
 	if (unknown)
@@ -1680,7 +1676,7 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 	{
 		if (j == -1)
 		{
-			warning_message(SIMULATION_ERROR, 0, -1, "Could not map single-bit top-level input node '%s' to input vector", node->name);
+			warning_message(SIMULATION_ERROR, 0, -1, "Could not map single-bit node '%s' to input vector", node->name);
 		}
 		else
 		{
@@ -1693,7 +1689,7 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 	else
 	{
 		if (j == -1)
-			warning_message(SIMULATION_ERROR, 0, -1, "Could not map multi-bit top-level input node '%s' to input vector", node->name);
+			warning_message(SIMULATION_ERROR, 0, -1, "Could not map multi-bit node '%s' to input vector", node->name);
 		else
 			insert_pin_into_line(node->output_pins[0], pin_number, l->lines[j], type);
 	}
@@ -1788,8 +1784,6 @@ void write_vector_headers(FILE *file, lines_t *l)
  */
 int verify_test_vector_headers(FILE *in, lines_t *l)
 {
-
-
 	int current_line = 0;
 	int buffer_length = 0;
 
@@ -1819,9 +1813,10 @@ int verify_test_vector_headers(FILE *in, lines_t *l)
 				if(strcmp(l->lines[current_line]->name,buffer))
 				{
 					char *expected_header = generate_vector_header(l);
-					warning_message(SIMULATION_ERROR, 0, -1, "Vector header mismatch: \n "
-							"\tFound:    %s "
-							"\tExpected: %s", read_buffer, expected_header);
+					warning_message(SIMULATION_ERROR, 0, -1,
+							"Vector header mismatch: \n "
+							"  Found:    %s "
+							"  Expected: %s", read_buffer, expected_header);
 					free(expected_header);
 					return FALSE;
 				}
@@ -1857,9 +1852,7 @@ int verify_lines (lines_t *l)
 		{
 			if (!l->lines[i]->pins[j])
 			{
-				warning_message(SIMULATION_ERROR, 0, -1, "A line %d:(%s) has a NULL pin. "
-					"This can be caused when registers are declared "
-					"as reg [X:Y], where Y is greater than zero.", j, l->lines[i]->name);
+				warning_message(SIMULATION_ERROR, 0, -1, "A line %d:(%s) has a NULL pin. ", j, l->lines[i]->name);
 				return FALSE; 
 			}
 		}
@@ -1944,17 +1937,13 @@ void add_test_vector_to_lines(test_vector *v, lines_t *l, int cycle)
 		line_t *line = l->lines[i];
 
 		if (line->number_of_pins < 1)
-		{
-			warning_message(SIMULATION_ERROR, 0, -1, "Found a line '%s' with no pins.", line->name);
-		}
-		else
-		{
-			int j;
-			for (j = 0; j < v->counts[i] && j < line->number_of_pins; j++)
-				update_pin_value(line->pins[j], v->values[i][j], cycle);
+			error_message(SIMULATION_ERROR, 0, -1, "Found a line '%s' with no pins.", line->name);
 
-			for (; j < line->number_of_pins; j++)
-				update_pin_value(line->pins[j], 0, cycle);
+		int j;
+		for (j = 0; j < line->number_of_pins; j++)
+		{
+			if (j < v->counts[i]) update_pin_value(line->pins[j], v->values[i][j], cycle);
+			else                  update_pin_value(line->pins[j], 0, cycle);
 		}
 	}
 }
@@ -1989,7 +1978,8 @@ int compare_test_vectors(test_vector *v1, test_vector *v2)
 			test_vector *v = v1->counts[l] < v2->counts[l] ? v2 : v1;
 			int j;
 			for (j = i; j < v->counts[l]; j++)
-				if (v->values[l][j] != 0) return FALSE;
+				if (v->values[l][j] != 0)
+					return FALSE;
 		}
 	}
 	return TRUE;
@@ -2116,31 +2106,19 @@ test_vector *generate_random_test_vector(lines_t *l, int cycle, hashtable_t *hol
 /*
  * Writes a wave of vectors to the given file. Writes the headers
  * prior to cycle 0.
+ *
+ * When edge is -1, both edges of the clock are written. When edge is 0,
+ * the falling edge is written. When edge is 1, the rising edge is written.
  */ 
 void write_wave_to_file(lines_t *l, FILE* file, int cycle_offset, int wave_length, int edge)
 {
 	if (!cycle_offset)
 		write_vector_headers(file, l);
 
-	// Both edges
-	if (edge == -1)
+	int cycle;
+	for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle++)
 	{
-		int cycle;
-		for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle++)
-			write_vector_to_file(l, file, cycle);
-	}
-	// Falling edge
-	else if (edge == 0)
-	{
-		int cycle;
-		for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle += 2)
-			write_vector_to_file(l, file, cycle);
-	}
-	// Rising edge
-	else
-	{
-		int cycle;
-		for (cycle = cycle_offset + 1; cycle < (cycle_offset + wave_length); cycle += 2)
+		if (edge == -1 || (edge ==  0 &&  is_even_cycle(cycle)) || (edge ==  1 && !is_even_cycle(cycle)))
 			write_vector_to_file(l, file, cycle);
 	}
 }
@@ -2152,24 +2130,27 @@ void write_wave_to_file(lines_t *l, FILE* file, int cycle_offset, int wave_lengt
 void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 {
 	char buffer[BUFFER_MAX_SIZE];
-	int first = TRUE;
 	int i; 
 	for (i = 0; i < l->count; i++)
 	{
-		if (first) first = FALSE;
-		else       fprintf(file, " ");
+		line_t *line = l->lines[i];
+		int num_pins = line->number_of_pins;
 
-		int num_pins = l->lines[i]->number_of_pins;
-
-		if (line_has_unknown_pin(l->lines[i], cycle) || num_pins == 1)
+		if (line_has_unknown_pin(line, cycle) || num_pins == 1)
 		{
+			if ((num_pins + 1) > BUFFER_MAX_SIZE)
+				error_message(SIMULATION_ERROR, 0, -1, "Buffer overflow anticipated while writing vector for line %s.", line->name);
+
 			buffer[0] = 0;
 
 			int j;
 			int known_values = 0;
 			for (j = num_pins - 1; j >= 0 ; j--)
 			{
-				signed char value = get_line_pin_value(l->lines[i],j,cycle);
+				signed char value = get_line_pin_value(line, j, cycle);
+
+				if (value > 1)
+					error_message(SIMULATION_ERROR, 0, -1, "Invalid logic value of %d read from line %s.", value, line->name);
 
 				if (value < 0)
 				{
@@ -2187,19 +2168,27 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 		}
 		else
 		{	
+			// +1 for ceiling, +1 for null, +2 for "OX"
+			if ((num_pins/4 + 1 + 1 + 2) > BUFFER_MAX_SIZE)
+				error_message(SIMULATION_ERROR, 0, -1, "Buffer overflow anticipated while writing vector for line %s.", line->name);
+
 			sprintf(buffer, "0X");
 
-			int value = 0;				
+			int hex_digit = 0;				
 			int j;
 			for (j = num_pins - 1; j >= 0; j--)
 			{
-				signed char pin = get_line_pin_value(l->lines[i],j,cycle);
-				value += pin << j % 4;
+				signed char value = get_line_pin_value(line,j,cycle);
+
+				if (value > 1)
+					error_message(SIMULATION_ERROR, 0, -1, "Invalid logic value of %d read from line %s.", value, line->name);
+
+				hex_digit += value << j % 4;
 				
 				if (!(j % 4))
 				{
-					sprintf(buffer, "%s%X", buffer, value);
-					value = 0;
+					sprintf(buffer, "%s%X", buffer, hex_digit);
+					hex_digit = 0;
 				}
 			}
 		}
@@ -2208,7 +2197,7 @@ void write_vector_to_file(lines_t *l, FILE *file, int cycle)
 		//while (strlen(buffer) < strlen(l->lines[i]->name))
 		//	strcat(buffer," ");
 
-		fprintf(file,"%s",buffer);
+		fprintf(file,"%s ",buffer);
 	}
 	fprintf(file, "\n");
 }
@@ -2296,8 +2285,11 @@ void write_vector_to_modelsim_file(lines_t *l, FILE *modelsim_out, int cycle)
  * Returns false if the files differ and true if they are identical, with the exception of
  * number format.
  */
-int verify_output_vectors(char* output_vector_file, int num_test_vectors)
+int verify_output_vectors(char* output_vector_file, int num_vectors)
 {
+	if (global_args.sim_output_both_edges)
+		num_vectors *= 2;
+
 	int error = FALSE;
 
 	// The filename cannot be the same as our default output file.
@@ -2323,7 +2315,7 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 		char buffer1[BUFFER_MAX_SIZE];
 		char buffer2[BUFFER_MAX_SIZE];
 		// Start at cycle -1 to check the headers.
-		for (cycle = -1; cycle < num_test_vectors; cycle++)
+		for (cycle = -1; cycle < num_vectors; cycle++)
 		{
 			if (!get_next_vector(existing_out, buffer1))
 			{
@@ -2334,7 +2326,7 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 			else if (!get_next_vector(current_out, buffer2))
 			{
 				error = TRUE;
-				warning_message(SIMULATION_ERROR, 0, -1,"Simulation produced fewer than %d vectors. \n", num_test_vectors);
+				warning_message(SIMULATION_ERROR, 0, -1,"Simulation produced fewer than %d vectors. \n", num_vectors);
 				break;
 			}
 			// The headers differ.
@@ -2362,7 +2354,7 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 					trim_string(buffer1, "\n\t");
 					trim_string(buffer2, "\n\t");
 					error = TRUE;
-					warning_message(SIMULATION_ERROR, 0, -1, "Cycle %d mismatch:\n"
+					warning_message(SIMULATION_ERROR, 0, -1, "Vector %d mismatch:\n"
 							"\t%s in %s\n"
 							"\t%s in %s\n",
 							cycle, buffer2, OUTPUT_VECTOR_FILE_NAME, buffer1, output_vector_file
@@ -2377,7 +2369,7 @@ int verify_output_vectors(char* output_vector_file, int num_test_vectors)
 		if (!error && get_next_vector(existing_out, buffer1))
 		{
 			error = TRUE;
-			warning_message(SIMULATION_ERROR, 0, -1,"%s contains more than %d vectors.\n", output_vector_file, num_test_vectors);
+			warning_message(SIMULATION_ERROR, 0, -1,"%s contains more than %d vectors.\n", output_vector_file, num_vectors);
 		}
 
 		fclose(existing_out);
