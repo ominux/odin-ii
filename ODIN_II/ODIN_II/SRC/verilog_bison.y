@@ -87,6 +87,16 @@ int yywrap()
 %left '*' '/' '%'
 %left '~' '!'
 %left '{' '}'
+%left UOR
+%left UAND
+%left UNOT
+%left UNAND
+%left UNOR
+%left UXNOR
+%left UXOR
+%left ULNOT
+%left UADD
+%left UMINUS
 
 %nonassoc LOWER_THAN_ELSE
 %nonassoc vELSE
@@ -270,16 +280,16 @@ event_expression: primary							{$$ = $1;}
 	;
 
 expression: primary								{$$ = $1;}
-	| '+' expression							{$$ = newUnaryOperation(ADD, $2, yylineno);}
-	| '-' expression							{$$ = newUnaryOperation(MINUS, $2, yylineno);}
-	| '~' expression							{$$ = newUnaryOperation(BITWISE_NOT, $2, yylineno);}
-	| '&' expression							{$$ = newUnaryOperation(BITWISE_AND, $2, yylineno);}
-	| '|' expression							{$$ = newUnaryOperation(BITWISE_OR, $2, yylineno);}
-	| voNAND expression							{$$ = newUnaryOperation(BITWISE_NAND, $2, yylineno);}
-	| voNOR expression							{$$ = newUnaryOperation(BITWISE_NOR, $2, yylineno);}
-	| voXNOR  expression							{$$ = newUnaryOperation(BITWISE_XNOR, $2, yylineno);}
-	| '!' expression							{$$ = newUnaryOperation(LOGICAL_NOT, $2, yylineno);}
-	| '^' expression							{$$ = newUnaryOperation(BITWISE_XOR, $2, yylineno);}
+	| '+' expression %prec UADD						{$$ = newUnaryOperation(ADD, $2, yylineno);}
+	| '-' expression %prec UMINUS						{$$ = newUnaryOperation(MINUS, $2, yylineno);}
+	| '~' expression %prec UNOT						{$$ = newUnaryOperation(BITWISE_NOT, $2, yylineno);}
+	| '&' expression %prec UAND						{$$ = newUnaryOperation(BITWISE_AND, $2, yylineno);}
+	| '|' expression %prec UOR						{$$ = newUnaryOperation(BITWISE_OR, $2, yylineno);}
+	| voNAND expression %prec UNAND						{$$ = newUnaryOperation(BITWISE_NAND, $2, yylineno);}
+	| voNOR expression %prec UNOR						{$$ = newUnaryOperation(BITWISE_NOR, $2, yylineno);}
+	| voXNOR  expression %prec UXNOR					{$$ = newUnaryOperation(BITWISE_XNOR, $2, yylineno);}
+	| '!' expression %prec ULNOT						{$$ = newUnaryOperation(LOGICAL_NOT, $2, yylineno);}
+	| '^' expression %prec UXOR						{$$ = newUnaryOperation(BITWISE_XOR, $2, yylineno);}
 	| expression '^' expression						{$$ = newBinaryOperation(BITWISE_XOR, $1, $3, yylineno);}
 	| expression '*' expression						{$$ = newBinaryOperation(MULTIPLY, $1, $3, yylineno);}
 	| expression '/' expression						{$$ = newBinaryOperation(DIVIDE, $1, $3, yylineno);}
