@@ -262,7 +262,6 @@ FILE* open_source_file(char* filename)
 	extern global_args_t global_args;
 	extern config_t configuration;
 	extern int current_parse_file;
-
 	
 	FILE* src_file = fopen(filename, "r"); //Look for the file in the PWD
 	if (src_file != NULL)
@@ -323,8 +322,6 @@ FILE* veri_preproc(FILE *source)
 	preproc_producer = tmpfile();
 	preproc_producer = freopen(NULL, "r+", preproc_producer);
 
-	
-	
 	if (preproc_producer == NULL) 
 	{
 		perror("preproc_producer : fdopen - returning original FILE pointer");
@@ -333,14 +330,70 @@ FILE* veri_preproc(FILE *source)
 	}
 	
 	/* to thread or not to thread, that is the question. Wether yac will block when waitin */
-	fprintf(stderr, "Preprocessing verilog.");
+	fprintf(stderr, "Preprocessing verilog.\n");
+
 	veri_preproc_bootstraped(source, preproc_producer, veri_initial);
 	rewind(preproc_producer);	
 	return preproc_producer;
 }
 
-void veri_preproc_bootstraped(FILE *source, FILE *preproc_producer, veri_include *current_include)
+/*
+ * Returns a new temporary file with the comments removed.
+ * Preserves the line numbers by keeping newlines in place.
+ */
+FILE *remove_comments(FILE *source)
 {
+	FILE *destination = tmpfile();
+	destination = freopen(NULL, "r+", destination);
+	rewind(source);
+
+	char line[MaxLine];
+	int in_multiline_comment = FALSE;
+	while (fgets(line, MaxLine, source))
+	{
+		int i;
+		for (i = 0; i < strlen(line); i++)
+		{
+			if (!in_multiline_comment)
+			{
+				// For a single line comment, skip the rest of the line.
+				if (line[i] == '/' && line[i+1] == '/')
+				{
+					break;
+				}
+				// For a multi-line comment, set the flag and skip over the *.
+				else if (line[i] == '/' && line[i+1] == '*')
+				{
+					i++; // Skip the *.
+					in_multiline_comment = TRUE;
+				}
+				else
+				{
+					if (line[i] != '\n')
+						fputc(line[i], destination);
+				}
+			}
+			else
+			{
+				// If we're in a multi-line comment, search for the */
+				if (line[i] == '*' && line[i+1] == '/')
+				{
+					i++; // Skip the /
+					in_multiline_comment = FALSE;
+				}
+			}
+		}
+		fputc('\n', destination);
+	}
+	rewind(destination);
+	return destination;
+}
+
+void veri_preproc_bootstraped(FILE *original_source, FILE *preproc_producer, veri_include *current_include)
+{
+	// Strip the comments from the source file producing a temporary source file.
+	FILE *source = remove_comments(original_source);
+
 	int line_number = 1;
 	veri_flag_stack *skip = (veri_flag_stack *)calloc(1, sizeof(veri_flag_stack));;
 	char line[MaxLine];
@@ -446,25 +499,10 @@ void veri_preproc_bootstraped(FILE *source, FILE *preproc_producer, veri_include
 				value = trim(strtok(NULL, "\r\n"));
 				//printf("value is: %s\n", value);
 
-				// however, be aware of "`define SYMBOL 1 + 2 + 3 + 4 // comment!"
-				// if a comment is found, terminate string there
-				// fortunately, we don't need to worry about /* */ style comments 
-				// because they shouldn't comment out the rest of the line, 
-				// unless it dangles past one line
 				if ( value ) {
-					p = value ;
-					while (*p) {
-						if (*p == '/')
-							if ( *(p+1) == '/' ) {
-								*p = '\0' ;
-								break; 
-							}
-						p++ ;
-					}
 					// trim it again just in case
-					value = trim(value) ;
+					value = trim(value);
 				}
-				
 				add_veri_define(token, value, line_number, current_include);
 			}
 			/* If we encounter a `undef preprocessor directive we want to remove the corresponding
@@ -571,6 +609,7 @@ void veri_preproc_bootstraped(FILE *source, FILE *preproc_producer, veri_include
 		line_number++;
 		token = NULL;
 	}
+	fclose(source);
 	free(skip);
 }
 
