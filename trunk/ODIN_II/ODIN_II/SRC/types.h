@@ -439,7 +439,8 @@ struct signal_list_t_t
 	npin_t **signal_list;	
 	int signal_list_size;
 
-	short is_memory;
+	char is_memory;
+	char is_adder;
 };
 
 struct char_list_t_t 

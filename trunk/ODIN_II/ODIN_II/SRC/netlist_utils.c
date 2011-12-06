@@ -567,6 +567,7 @@ signal_list_t *init_signal_list_structure()
 	list->signal_list_size = 0;
 	list->signal_list = NULL;
 	list->is_memory = FALSE;
+	list->is_adder = FALSE;
 
 	return list;
 }

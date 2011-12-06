@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 	return 0;
 } 
 
-static const char *optString = "hc:V:WREh:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA:";
+static const char *optString = "hc:V:WREh:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA";
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
