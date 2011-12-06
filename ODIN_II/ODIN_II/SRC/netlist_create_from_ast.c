@@ -493,7 +493,7 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 			{
 				return_sig_list = create_pins(node, NULL, instance_name_prefix);
 				/* children are traversed in the create_pin function */
-				skip_children = TRUE;
+				//skip_children = TRUE;
 				break;
 			}
 			/* ---------------------- */
@@ -655,18 +655,25 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 
 signal_list_t *concatenate_signal_lists(signal_list_t **signal_lists, int num_signal_lists)
 {
-	int i, j;
+	signal_list_t *return_list = init_signal_list_structure();
 
-	for (i = num_signal_lists - 2; i >= 0; i--)
+	int i;
+	for (i = num_signal_lists - 1; i >= 0; i--)
 	{
+		// When concatenating, ignore the carry out from adders so that they occupy the expected width.
+		if (signal_lists[i]->is_adder)
+			signal_lists[i]->signal_list_size--;
+
+		int j;
 		for (j = 0; j < signal_lists[i]->signal_list_size; j++)
 		{
-			add_pin_to_signal_list(signal_lists[num_signal_lists - 1], signal_lists[i]->signal_list[j]);
+			npin_t *pin = signal_lists[i]->signal_list[j];
+			add_pin_to_signal_list(return_list, pin);
 		}
 		clean_signal_list_structure(signal_lists[i]);
 	}
 
-	return signal_lists[num_signal_lists - 1];
+	return return_list;
 }
 
 /*---------------------------------------------------------------------------------------------
@@ -2186,8 +2193,9 @@ signal_list_t *create_operation_node(ast_node_t *op, signal_list_t **input_lists
 			break;
 		case ADD: // +
 			/* add the largest bit width + the other input padded with 0's */
+			return_list->is_adder = TRUE;
 			output_port_width = max_input_port_width + 1;
-			input_port_width = output_port_width - 1;
+			input_port_width = max_input_port_width;
 			break;
 		case MINUS: // -
 			/* subtract the largest bit width + the other input padded with 0's ... concern for 2's comp */

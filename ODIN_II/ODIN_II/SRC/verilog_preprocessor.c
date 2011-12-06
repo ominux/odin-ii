@@ -397,7 +397,7 @@ void veri_preproc_bootstraped(FILE *original_source, FILE *preproc_producer, ver
 	int line_number = 1;
 	veri_flag_stack *skip = (veri_flag_stack *)calloc(1, sizeof(veri_flag_stack));;
 	char line[MaxLine];
-	char *token, *p;
+	char *token;
 	FILE *included_file = NULL;
 	veri_include *new_include = NULL;
 
