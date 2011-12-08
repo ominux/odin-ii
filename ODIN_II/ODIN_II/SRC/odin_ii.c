@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 	return 0;
 } 
 
-static const char *optString = "hc:V:WREh:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA";
+static const char *optString = "hc:V:WREh:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA3";
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
@@ -144,7 +144,8 @@ void get_options(int argc, char **argv)
 	global_args.sim_vector_input_file = NULL;
 	global_args.sim_vector_output_file = NULL;
 	global_args.sim_additional_pins = NULL;
-	global_args.num_test_vectors = 0;
+	global_args.sim_num_test_vectors = 0;
+	global_args.sim_generate_three_valued_logic = 0;
 	global_args.sim_hold_low = NULL;
 	global_args.sim_hold_high = NULL;
 	global_args.sim_output_both_edges = 0;
@@ -211,7 +212,10 @@ void get_options(int argc, char **argv)
 				exit(-1);
 			break;
 			case 'g':
-				global_args.num_test_vectors = atoi(optarg);
+				global_args.sim_num_test_vectors = atoi(optarg);
+			break;
+			case '3':
+				global_args.sim_generate_three_valued_logic = 1;
 			break;
 			case 'L':
 				global_args.sim_hold_low = optarg;
@@ -277,7 +281,7 @@ void print_usage()
 			" One of:\n"
 			"  -c <config_file_name.xml>\n"
 			"  -V <verilog_file_name.v>\n"
-			"  -b <input_blif_fil_name.blif>\n"
+			"  -b <input_blif_file_name.blif>\n"
 			" Other options:\n"
 			"  -o <output_path and file name>\n"
 			"  -a <architecture_file_in_VPR6.0_form>\n"
@@ -288,11 +292,13 @@ void print_usage()
 			"      Without this option, less useful warnings such as those about padding and \n"
 			"     additional drivers will not be printed.\n"
 			"  -h Print help\n"
-			" Simulation options:\n"
-			"  -g <Number of random test vectors>\n"
+			"\n"
+			" Simulation: Produces input_vectors, output_vectors, and ModelSim test.do file.\n"
+			"  -g <Number of random test vectors to generate>\n"
 			"   -L <Comma-separated list of primary inputs to hold high at cycle 0, and low for all subsequent cycles.>\n"
 			"   -H <Comma-separated list of primary inputs to hold low at cycle 0, and high for all subsequent cycles.>\n"
-			"  -t <input vectors file>: Supply an input vector file\n"
+			"   -3 Generate three valued logic. (Default is binary.)\n"
+			"  -t <input vectors file>: Supply a predefined input vector file\n"
 			"  -T <output vectors file>: Supply an output vector file to check output vectors against.\n"
 			"  -E Output after both edges of the clock. (Default is to output only after the falling edge.)\n"
 			"  -R Output after rising edge of the clock only. (Default is to output only after the falling edge.)\n"
@@ -384,7 +390,7 @@ void do_high_level_synthesis()
  *-------------------------------------------------------------------------------------------*/
 void do_simulation_of_netlist()
 {
-	if (!global_args.num_test_vectors && !global_args.sim_vector_input_file)
+	if (!global_args.sim_num_test_vectors && !global_args.sim_vector_input_file)
 		return;
 
 	printf("Netlist Simulation Begin\n");
