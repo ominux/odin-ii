@@ -2103,9 +2103,9 @@ test_vector *generate_random_test_vector(lines_t *l, int cycle, hashtable_t *hol
 			}
 			else
 			{
-				//value = (rand() % 2);
+				value = (rand() % 2);
 				// Generate random three-valued logic.
-				value = (rand() % 3) - 1;
+				//value = (rand() % 3) - 1;
 			}
 
 			v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));		
