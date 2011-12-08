@@ -76,7 +76,7 @@ void simulate_netlist(netlist_t *netlist)
 	else
 	{
 		// Passed via the -g option.
-		num_vectors = global_args.num_test_vectors;
+		num_vectors = global_args.sim_num_test_vectors;
 		printf("Simulating %d new vectors.\n", num_vectors); fflush(stdout);
 	}
 
@@ -2103,9 +2103,11 @@ test_vector *generate_random_test_vector(lines_t *l, int cycle, hashtable_t *hol
 			}
 			else
 			{
-				value = (rand() % 2);
-				// Generate random three-valued logic.
-				//value = (rand() % 3) - 1;
+				// Passed via the -3 option.
+				if (global_args.sim_generate_three_valued_logic)
+					value = (rand() % 3) - 1;
+				else
+					value = (rand() % 2);
 			}
 
 			v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));		

@@ -134,15 +134,27 @@ struct global_args_t_t
 
 	int all_warnings;
 
+	/////////////////////
 	// For simulation.
-	int num_test_vectors;
-	char *sim_vector_input_file;   // Input vectors to simulate.
-	char *sim_vector_output_file;  // Existing output to verify against.
+	/////////////////////
+	// Generate this number of random vectors.
+	int sim_num_test_vectors;
+	// Input vectors to simulate instead of generating vectors.
+	char *sim_vector_input_file;
+	// Existing output vectors to verify against.
+	char *sim_vector_output_file;
+	// Tells the simulator whether or not to generate random vectors which include the unknown logic value.
+	int sim_generate_three_valued_logic;
+	// Output both falling and rising edges in the output_vectors file.
 	int sim_output_both_edges;
+	// Output only on rising edge.
 	int sim_output_rising_edge;
+	// Additional pins, nets, and nodes to output.
 	char *sim_additional_pins;
-	char *sim_hold_high;           // Comma-separated list of primary input pins to hold high for all cycles but the first.
-	char *sim_hold_low;            // Comma-separated list of primary input pins to hold low for all cycles but the first.
+	// Comma-separated list of primary input pins to hold high for all cycles but the first.
+	char *sim_hold_high;
+	// Comma-separated list of primary input pins to hold low for all cycles but the first.
+	char *sim_hold_low;
 };
 
 #endif // TYPES_H
