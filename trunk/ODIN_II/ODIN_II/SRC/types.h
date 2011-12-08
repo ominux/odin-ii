@@ -416,7 +416,9 @@ struct npin_t_t
 	int  cycle;       // The last cycle the pin was computed for.
 	signed char values[SIM_WAVE_LENGTH]; // The values for the current wave.
 	unsigned long coverage;
-	signed char is_default;  // The pin is feeding a mux from logic representing an else or default.
+
+	char is_default; // The pin is feeding a mux from logic representing an else or default.
+	char is_implied; // This signal is implied.
 };
 
 struct nnet_t_t
