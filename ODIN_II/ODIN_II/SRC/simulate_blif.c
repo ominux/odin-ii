@@ -632,6 +632,8 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			oassert(node->num_input_port_sizes >= 2);
 			oassert(node->input_port_sizes[0] == node->input_port_sizes[1]);
 
+			ast_node_t *ast_node = node->related_ast_node;
+
 			// Figure out which pin is being selected.
 			int unknown = FALSE;
 			int select = -1;
@@ -654,8 +656,8 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				 *  If the pin comes from an "else" condition or a case "default" condition,
 				 *  we favour it in the case where there are unknowns.
 				 */
-				if (	   node->related_ast_node
-						&& (node->related_ast_node->type == IF || node->related_ast_node->type == CASE)
+				if (	   ast_node
+						&& (ast_node->type == IF || ast_node->type == CASE)
 						&& node->input_pins[i]->is_default
 				)
 				{
@@ -677,7 +679,7 @@ void compute_and_store_value(nnode_t *node, int cycle)
 				 *  Conform to ModelSim's behaviour where in-line ifs are concerned. If the
 				 *  condition is unknown, the inline if's output is unknown.
 				 */
-				if (node->related_ast_node && node->related_ast_node->type == IF_Q)
+				if (ast_node && ast_node->type == IF_Q)
 					update_pin_value(node->output_pins[0], -1, cycle);
 				else
 					update_pin_value(node->output_pins[0], get_pin_value(node->output_pins[0], cycle-1), cycle);
@@ -689,8 +691,19 @@ void compute_and_store_value(nnode_t *node, int cycle)
 			}
 			else
 			{
-				signed char pin = get_pin_value(node->input_pins[select + node->input_port_sizes[0]],cycle);
-				update_pin_value(node->output_pins[0], pin, cycle);
+				npin_t *pin = node->input_pins[select + node->input_port_sizes[0]];
+
+				// Drive implied drivers to unknown value.
+				/*if (pin->is_implied && ast_node && (ast_node->type == CASE))
+				{
+					update_pin_value(node->output_pins[0], -1, cycle);
+				}
+				else*/
+				{
+					signed char value = get_pin_value(pin,cycle);
+					update_pin_value(node->output_pins[0], value, cycle);
+				}
+
 			}
 			break;
 		}
@@ -2090,9 +2103,9 @@ test_vector *generate_random_test_vector(lines_t *l, int cycle, hashtable_t *hol
 			}
 			else
 			{
-				value = (rand() % 2);
+				//value = (rand() % 2);
 				// Generate random three-valued logic.
-				//value = (rand() % 3) - 1;
+				value = (rand() % 3) - 1;
 			}
 
 			v->values[v->count] = realloc(v->values[v->count], sizeof(signed char) * (v->counts[v->count] + 1));		

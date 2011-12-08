@@ -222,6 +222,7 @@ npin_t* allocate_npin() {
 	new_pin->coverage = 0;
 
 	new_pin->is_default = FALSE;
+	new_pin->is_implied = FALSE;
 
 	return new_pin;
 }
