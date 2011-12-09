@@ -237,7 +237,7 @@ void simulate_cycle(int cycle, stages *s)
 	{
 		int j;
 		#ifdef _OPENMP
-		#pragma omp parallel for if (s->counts[i] >= SIM_PARALLEL_THRESHOLD)
+		#pragma omp parallel for if (s->counts[i] >= s->parallel_threshold)
 		#endif
 		for (j = 0; j < s->counts[i]; j++)
 			compute_and_store_value(s->stages[i][j], cycle);
@@ -319,6 +319,7 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 	s->count  = 1;
 	s->num_connections = 0;
 	s->num_nodes = num_ordered_nodes;
+	s->parallel_threshold = 150;
 
 	const int index_table_size = (num_ordered_nodes/100)+10;
 
@@ -385,7 +386,7 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 	// Record the number of nodes in parallelizable stages (for statistical purposes).
 	s->num_parallel_nodes = 0;
 	for (i = 0; i < s->count; i++)
-		if (s->counts[i] >= SIM_PARALLEL_THRESHOLD)
+		if (s->counts[i] >= s->parallel_threshold)
 			s->num_parallel_nodes += s->counts[i];
 
 	return s;
@@ -2782,6 +2783,7 @@ void print_netlist_stats(stages *stages, int num_vectors)
 	printf("  Degree:          %3.2f\n", stages->num_connections/(float)stages->num_nodes);
 	printf("  Stages:          %d\n",    stages->count);
 	#ifdef _OPENMP
+	printf("  Threshold:       %d\n",    stages->parallel_threshold);
 	printf("  Parallel nodes:  %d (%4.1f%%)\n", stages->num_parallel_nodes, (stages->num_parallel_nodes/(double)stages->num_nodes) * 100);
 	#endif
 	printf("\n");
