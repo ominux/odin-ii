@@ -78,10 +78,10 @@ typedef struct {
 	int 	   count;  // Number of stages.
 	// Statistics.
 	int    num_nodes;          // The total number of nodes.
-	int    num_connections;    // The sum of all the children found under every node.
-	int    num_parallel_nodes; // The number of nodes in stages larger than SIM_PARALLEL_THRESHOLD
-
-	int  parallel_threshold; // Number of nodes which must be present in a stage before it is computed in parallel.
+	int    num_connections;    // The sum of the number of children found under every node.
+	int    num_parallel_nodes; // The number of nodes while will be computed in parallel.
+	double *sequential_times;
+	double *parallel_times;
 } stages;
 
 typedef struct {
