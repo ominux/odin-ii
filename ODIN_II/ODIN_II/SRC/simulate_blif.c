@@ -232,15 +232,63 @@ void simulate_netlist(netlist_t *netlist)
  */
 void simulate_cycle(int cycle, stages *s)
 {
+	#ifdef _OPENMP
+	char sequential_test = (cycle >= 1 && cycle <=  7);
+	char parallel_test   = (cycle >= 8 && cycle <= 14);
+	#endif
+
 	int i;
 	for(i = 0; i < s->count; i++)
 	{
 		int j;
 		#ifdef _OPENMP
-		#pragma omp parallel for if (s->counts[i] >= s->parallel_threshold)
+		double time = 0.0;
+		if (sequential_test || parallel_test)
+			time = wall_time();
+
+		char compute_in_parallel =
+				     parallel_test
+				|| (!sequential_test && !parallel_test && s->sequential_times[i] > s->parallel_times[i]);
+		//compute_in_parallel = 0;
+
+		if (compute_in_parallel)
+		{
+			#pragma omp parallel for schedule(static)
+			for (j = 0; j < s->counts[i]; j++)
+				compute_and_store_value(s->stages[i][j], cycle);
+		}
+		else
+		{
 		#endif
-		for (j = 0; j < s->counts[i]; j++)
-			compute_and_store_value(s->stages[i][j], cycle);
+			for (j = 0; j < s->counts[i]; j++)
+				compute_and_store_value(s->stages[i][j], cycle);
+		#ifdef _OPENMP
+		}
+
+		if (sequential_test)
+		{
+			// Take the minimum sequential time.
+			time = wall_time() - time;
+			if (s->sequential_times[i] == 0 || time < s->sequential_times[i])
+				s->sequential_times[i] = time;
+		}
+		else if (parallel_test)
+		{
+			// Take the minimum parallel time.
+			time = wall_time() - time;
+			if (s->parallel_times[i] == 0 || time < s->parallel_times[i])
+				s->parallel_times[i] = time;
+		}
+
+		if (cycle == 15)
+		{
+			//printf("%.10f\t %.10f\t %.10f\t %d\t%d\n", s->sequential_times[i], s->parallel_times[i], s->sequential_times[i]/s->parallel_times[i], s->counts[i], compute_in_parallel);
+
+			// Record the number of nodes in parallelizable stages (for statistical purposes).
+			if (compute_in_parallel)
+				s->num_parallel_nodes += s->counts[i];
+		}
+		#endif
 	}
 }
 
@@ -319,7 +367,7 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 	s->count  = 1;
 	s->num_connections = 0;
 	s->num_nodes = num_ordered_nodes;
-	s->parallel_threshold = 150;
+	s->num_parallel_nodes = 0;
 
 	const int index_table_size = (num_ordered_nodes/100)+10;
 
@@ -383,11 +431,8 @@ stages *stage_ordered_nodes(nnode_t **ordered_nodes, int num_ordered_nodes) {
 	stage_children->destroy(stage_children);
 	stage_nodes   ->destroy(stage_nodes);
 
-	// Record the number of nodes in parallelizable stages (for statistical purposes).
-	s->num_parallel_nodes = 0;
-	for (i = 0; i < s->count; i++)
-		if (s->counts[i] >= s->parallel_threshold)
-			s->num_parallel_nodes += s->counts[i];
+	s->sequential_times = calloc(s->count, sizeof(double));
+	s->parallel_times   = calloc(s->count, sizeof(double));
 
 	return s;
 }
@@ -2783,7 +2828,6 @@ void print_netlist_stats(stages *stages, int num_vectors)
 	printf("  Degree:          %3.2f\n", stages->num_connections/(float)stages->num_nodes);
 	printf("  Stages:          %d\n",    stages->count);
 	#ifdef _OPENMP
-	printf("  Threshold:       %d\n",    stages->parallel_threshold);
 	printf("  Parallel nodes:  %d (%4.1f%%)\n", stages->num_parallel_nodes, (stages->num_parallel_nodes/(double)stages->num_nodes) * 100);
 	#endif
 	printf("\n");
@@ -3003,7 +3047,7 @@ nnode_t *print_update_trace(nnode_t *bottom_node, int cycle)
 /*
  * Gets the current time in seconds.
  */
-double wall_time()
+inline double wall_time()
 {
 	struct timeval tv;
 	gettimeofday(&tv, 0);
