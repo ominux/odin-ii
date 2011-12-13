@@ -425,8 +425,9 @@ struct npin_t_t
 
 	////////////////////
 	// For simulation
-	int  cycle;       // The last cycle the pin was computed for.
-	signed char values[SIM_WAVE_LENGTH]; // The values for the current wave.
+	int *cycle;          // The last cycle the pin was computed for.
+	signed char *values; // The values for the current wave.
+
 	unsigned long coverage;
 
 	char is_default; // The pin is feeding a mux from logic representing an else or default.

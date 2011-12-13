@@ -214,11 +214,9 @@ npin_t* allocate_npin() {
 	new_pin->pin_node_idx = -1;
 	new_pin->mapping = NULL;
 	
-	new_pin->cycle  = -1;
-	int i; 
-	for (i = 0; i < SIM_WAVE_LENGTH; i++) {
-		new_pin->values[i] = -1;
-	}
+	new_pin->cycle  = NULL;
+	new_pin->values = NULL;
+
 	new_pin->coverage = 0;
 
 	new_pin->is_default = FALSE;

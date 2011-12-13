@@ -330,9 +330,11 @@ void do_high_level_synthesis()
 	global_param_table_sc = sc_new_string_cache();
 
 	/* parse to abstract syntax tree */
-	printf("Parser starting - we'll create an abstract syntax tree.  Note this tree can be viewed using GraphViz (see dosumentation)\n");
+	printf("Parser starting - we'll create an abstract syntax tree.  "
+			"Note this tree can be viewed using GraphViz (see documentation)\n");
 	parse_to_ast();
-	/* Note that the entry point for ast optimzations is done per module with the function void next_parsed_verilog_file(ast_node_t *file_items_list) */
+	/* Note that the entry point for ast optimzations is done per module with the
+	 * function void next_parsed_verilog_file(ast_node_t *file_items_list) */
 
 	/* after the ast is made potentiatlly do tagging for downstream links to verilog */
 	if (global_args.high_level_block != NULL)
@@ -340,12 +342,14 @@ void do_high_level_synthesis()
 		add_tag_data();
 	}
 
-	/* Now that we have a parse tree (abstract syntax tree [ast]) of the Verilog we want to make into a netlist. */
-	printf("Converting AST into a Netlist - Note this netlist can be viewed using GraphViz (see dosumentation)\n");
+	/* Now that we have a parse tree (abstract syntax tree [ast]) of
+	 * the Verilog we want to make into a netlist. */
+	printf("Converting AST into a Netlist. "
+			"Note this netlist can be viewed using GraphViz (see documentation)\n");
 	create_netlist();
 
-	check_netlist(verilog_netlist); // can't levelize yet since the large muxes can look like combinational loops when they're not
-
+	// Can't levelize yet since the large muxes can look like combinational loops when they're not
+	check_netlist(verilog_netlist);
 
 	/* Report on Logical Memory usage */
 	report_memory_distribution();
@@ -364,17 +368,14 @@ void do_high_level_synthesis()
 	printf("Performing Partial Map to target device\n");
 	partial_map_top(verilog_netlist);
 
-
-
 	/* check for problems in the partial mapped netlist */
 	printf("Check for liveness and combinational loops\n");
 	#ifdef VPR5
 	levelize_and_check_for_combinational_loop_and_liveness(TRUE, verilog_netlist);
 	#endif
 
-
-
-	/* point for outputs.  This includes soft and hard mapping all structures to the target format.  Some of these could be considred optimizations */
+	/* point for outputs.  This includes soft and hard mapping all structures to the
+	 * target format.  Some of these could be considred optimizations */
 	printf("Outputting the netlist to the specified output format\n");
 	output_top(verilog_netlist);
 
