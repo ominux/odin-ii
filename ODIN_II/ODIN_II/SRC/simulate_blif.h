@@ -76,12 +76,14 @@ typedef struct {
 	nnode_t ***stages; // Stages.
 	int       *counts; // Number of nodes in each stage.
 	int 	   count;  // Number of stages.
+	double *sequential_times; // Sequential execution time values for each stage for tuning.
+	double *parallel_times;   // Parallel execution time values for each stage for tuning.
+
 	// Statistics.
 	int    num_nodes;          // The total number of nodes.
 	int    num_connections;    // The sum of the number of children found under every node.
+	int    *num_children;      // Number of children per stage.
 	int    num_parallel_nodes; // The number of nodes while will be computed in parallel.
-	double *sequential_times;
-	double *parallel_times;
 } stages;
 
 typedef struct {
@@ -112,13 +114,21 @@ void compute_generic_node(nnode_t *node, int cycle);
 
 void update_pin_value(npin_t *pin, signed char value, int cycle);
 signed char get_pin_value(npin_t *pin, int cycle);
-inline void set_pin(npin_t *pin, signed char value, int cycle);
-inline int get_values_offset(int cycle); 
+
+inline int get_values_offset(int cycle);
+
+inline int get_pin_cycle(npin_t *pin);
+inline void set_pin_cycle(npin_t *pin, int cycle);
+void initialize_pin(npin_t *pin);
+
 inline int is_even_cycle(int cycle);
 inline int is_clock_node(nnode_t *node);
 
 signed char get_line_pin_value(line_t *line, int pin_num, int cycle);
 int line_has_unknown_pin(line_t *line, int cycle);
+
+void compute_flipflop_node(nnode_t *node, int cycle);
+void compute_mux_2_node(nnode_t *node, int cycle);
 
 int *multiply_arrays(int *a, int a_length, int *b, int b_length);
 void compute_single_port_memory(
