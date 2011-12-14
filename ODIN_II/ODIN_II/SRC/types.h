@@ -66,9 +66,6 @@ typedef struct netlist_stats_t_t netlist_stats_t;
 /* for errors in the netlist simulation */
 #define SIMULATION_ERROR -8
 
-// Number of cycles to compute in each wave.
-#define SIM_WAVE_LENGTH 16
-
 /* unique numbers to mark the nodes as we DFS traverse the netlist */
 #define PARTIAL_MAP_TRAVERSE_VALUE 10
 #define OUTPUT_TRAVERSE_VALUE 12

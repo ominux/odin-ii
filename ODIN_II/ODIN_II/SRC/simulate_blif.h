@@ -44,7 +44,12 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "hard_blocks.h"
 #include "types.h"
 
-#define BUFFER_MAX_SIZE 4096
+/*
+ * Number of values to store for each pin at one time.
+ * Determines how frequently we have to write to disk.
+ */
+#define SIM_WAVE_LENGTH 16
+#define BUFFER_MAX_SIZE 1024
 
 #define INPUT_VECTOR_FILE_NAME "input_vectors"
 #define OUTPUT_VECTOR_FILE_NAME "output_vectors"

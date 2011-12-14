@@ -115,6 +115,7 @@ void simulate_netlist(netlist_t *netlist)
 		int  num_cycles = num_vectors * 2;
 		int  num_waves = ceil(num_cycles / (double)SIM_WAVE_LENGTH);
 		int  wave;
+		test_vector *v = 0;
 		for (wave = 0; wave < num_waves; wave++)
 		{
 			double wave_start_time = wall_time();
@@ -124,7 +125,6 @@ void simulate_netlist(netlist_t *netlist)
 
 			// Assign vectors to lines, either by reading or generating them.
 			// Every second cycle gets a new vector.
-			test_vector *v = 0;
 			int cycle;
 			for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
 			{
@@ -166,13 +166,16 @@ void simulate_netlist(netlist_t *netlist)
 					simulate_cycle(cycle, stages);
 				}
 				else
-				{	// The first cycle produces the stages, and adds additional lines as specified by the -p option.
+				{
+					/* The first cycle produces the stages, and adds additional
+					 * lines as specified by the -p option. */
 					pin_names *p = parse_pin_name_list(global_args.sim_additional_pins);
 					stages = simulate_first_cycle(netlist, cycle, p, output_lines);
 					free_pin_name_list(p);
 					// Make sure the output lines are still OK after adding custom lines.
 					if (!verify_lines(output_lines))
-						error_message(SIMULATION_ERROR, 0, -1, "Problem detected with the output lines after the first cycle.");
+						error_message(SIMULATION_ERROR, 0, -1,
+								"Problem detected with the output lines after the first cycle.");
 				}
 			}
 
@@ -189,7 +192,8 @@ void simulate_netlist(netlist_t *netlist)
 
 			// Delay drawing of the progress bar until the second wave to improve the accuracy of the ETA.
 			if ((num_waves == 1) || cycle_offset)
-				progress_bar_position = print_progress_bar(cycle/(double)num_cycles, progress_bar_position, progress_bar_length, total_time);
+				progress_bar_position = print_progress_bar(
+						cycle/(double)num_cycles, progress_bar_position, progress_bar_length, total_time);
 		}
 
 		free_pin_name_list(hold_high);
@@ -240,10 +244,24 @@ void simulate_netlist(netlist_t *netlist)
 void simulate_cycle(int cycle, stages *s)
 {
 	#ifdef _OPENMP
+	// -1 for cycle 0, -1 for the last cycle in the wave.
+	const int test_cycles = SIM_WAVE_LENGTH - 2;
+
+	const int st_length = test_cycles/2;
+	const int st_start = 1;
+	const int st_end = st_start + (st_length-1);
+
+	const int pt_length = test_cycles - st_length;
+	const int pt_start = st_end + 1;
+	const int pt_end = pt_start + (pt_length-1);
+
+	if (test_cycles < 2)
+		error_message(SIMULATION_ERROR, -1, -1, "SIM_WAVE_LENGTH is too small.");
+
 	// Range of cycles over which to test the sequential run times of each stage.
-	char sequential_test = (cycle >= 1 && cycle <=  7);
+	char sequential_test = (cycle >= st_start && cycle <= st_end);
 	// Range of cycles over which to test the parallel run times of each stage.
-	char parallel_test   = (cycle >= 8 && cycle <= 14);
+	char parallel_test   = (cycle >= pt_start && cycle <= pt_end);
 	#endif
 
 	int i;
@@ -291,9 +309,10 @@ void simulate_cycle(int cycle, stages *s)
 				s->parallel_times[i] = time;
 		}
 
-		if (cycle == 15)
+		if (cycle == pt_end + 1)
 		{
 			//printf("%.10f\t %.10f\t %.10f\t %d\t %d\t %f\n", s->sequential_times[i], s->parallel_times[i], s->sequential_times[i]/s->parallel_times[i], s->counts[i], compute_in_parallel, s->num_children[i]/(double)s->counts[i]);
+			//printf("%d %d %d %d %d %d\n", st_length, pt_length, st_start, st_end, pt_start, pt_end);
 
 			// Record the number of nodes in parallelizable stages.
 			if (compute_in_parallel)
@@ -1029,20 +1048,17 @@ void update_pin_value(npin_t *pin, signed char value, int cycle)
 {
 	if (!pin->values)
 		initialize_pin(pin);
+
 	pin->values[get_values_offset(cycle)] = value;
 	set_pin_cycle(pin, cycle);
 }
 
 /*
  * Gets the value of a pin. Pins should be checked using this function only.
- *
- * Initializes the pin if need be.
  */
 signed char get_pin_value(npin_t *pin, int cycle)
 {
-	if (!pin->values)
-		initialize_pin(pin);
-	if (cycle < 0)
+	if (!pin->values || cycle < 0)
 		return -1;
 	return pin->values[get_values_offset(cycle)];
 }
@@ -1056,14 +1072,43 @@ inline int get_values_offset(int cycle)
 }
 
 /*
+ * Gets the cycle of the given pin
+ */
+inline int get_pin_cycle(npin_t *pin)
+{
+	if (!pin->cycle)
+		return -1;
+	else
+		return *(pin->cycle);
+}
+
+/*
+ * Sets the cycle of the given pin.
+ *
+ * Only called from update_pin_value.
+ */
+inline void set_pin_cycle(npin_t *pin, int cycle)
+{
+	*(pin->cycle) = cycle;
+}
+
+/*
+ * Returns FALSE if the cycle is odd.
+ */
+inline int is_even_cycle(int cycle)
+{
+	return !((cycle + 2) % 2);
+}
+
+/*
  * Allocates memory for the pin's value and cycle.
  *
  * Checks to see if this pin's net has a different driver, and
  * initialises that pin too.
  *
- * Fanout pins will share the same
- * memory locations for cycle and values so that the values
- * don't have to be propagated throught the net.
+ * Fanout pins will share the same memory locations for cycle
+ * and values so that the values don't have to be propagated
+ * through the net.
  */
 void initialize_pin(npin_t *pin)
 {
@@ -1095,40 +1140,6 @@ void initialize_pin(npin_t *pin)
 			}
 		}
 	}
-}
-
-/*
- * Gets the cycle of the given pin.
- *
- * Initializes the pin if need be.
- */
-inline int get_pin_cycle(npin_t *pin)
-{
-	if (!pin->cycle)
-		initialize_pin(pin);
-
-	return *(pin->cycle);
-}
-
-/*
- * Sets the cycle of the given pin.
- *
- * Initializes the pin if need be.
- */
-inline void set_pin_cycle(npin_t *pin, int cycle)
-{
-	if (!pin->cycle)
-		initialize_pin(pin);
-
-	*(pin->cycle) = cycle;
-}
-
-/*
- * Returns FALSE if the cycle is odd.
- */
-inline int is_even_cycle(int cycle)
-{
-	return !((cycle + 2) % 2);
 }
 
 /*
@@ -2370,8 +2381,11 @@ void write_wave_to_modelsim_file(netlist_t *netlist, lines_t *l, FILE* modelsim_
 	}
 
 	int cycle;
-	for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle += 2)
-		write_vector_to_modelsim_file(l, modelsim_out, cycle);
+	for (cycle = cycle_offset; cycle < (cycle_offset + wave_length); cycle ++)
+	{
+		if (!is_even_cycle(cycle))
+			write_vector_to_modelsim_file(l, modelsim_out, cycle);
+	}
 }
 
 /*
