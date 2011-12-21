@@ -1672,6 +1672,8 @@ void compute_single_port_memory(
 			// Update the output.
 			if (address_ok)
 				update_pin_value(out[i], node->memory_data[bit_address], cycle);
+			else
+				update_pin_value(out[i], -1, cycle);
 
 			// If write is enabled, copy the input to memory.
 			if (address_ok && we)
@@ -1726,8 +1728,13 @@ void compute_dual_port_memory(
 			// Read the memory bit
 			if (port1)
 				update_pin_value(out1[i], node->memory_data[bit_address1], cycle);
+			else
+				update_pin_value(out1[i], -1, cycle);
+
 			if (port2)
 				update_pin_value(out2[i], node->memory_data[bit_address2], cycle);
+			else
+				update_pin_value(out2[i], -1, cycle);
 
 			// Write to the memory
 			if (port1 && we1)
@@ -1755,24 +1762,17 @@ void compute_dual_port_memory(
 long compute_memory_address(npin_t **out, int data_width, npin_t **addr, int addr_width, int cycle)
 {
 	long address = 0;
-	int unknown = FALSE;
 	int i;
 	for (i = 0; i < addr_width; i++)
-	{	// If any address pins are x's, write x's to the output and return.
+	{
+		// If any address pins are x's, write x's we return -1.
 		if (get_pin_value(addr[i],cycle) < 0)
-		{
-			int j;
-			for (j = 0; j < data_width; j++)
-				update_pin_value(out[j], -1, cycle);
+			return -1;
 
-			unknown = TRUE;
-			break;
-		}
 		address += get_pin_value(addr[i],cycle) << (i);
 	}
 
-	if (!unknown) return address;
-	else          return -1;
+	return address;
 }
 
 /*
