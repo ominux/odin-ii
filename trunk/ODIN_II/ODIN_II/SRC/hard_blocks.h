@@ -36,6 +36,8 @@ extern void output_hard_blocks(FILE *out);
 extern int hard_block_port_size(t_model *hb, char *pname);
 extern enum PORTS hard_block_port_direction(t_model *hb, char *pname);
 extern void instantiate_hard_block(nnode_t *node, short mark, netlist_t *netlist);
+t_model_ports *get_model_port(t_model_ports *ports, char *name);
+
 
 #endif
 

@@ -47,6 +47,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "memories.h"
 #include "simulate_blif.h"
 #include "errors.h"
+#include "netlist_visualizer.h"
 
 global_args_t global_args;
 int current_parse_file;

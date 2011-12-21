@@ -3728,7 +3728,7 @@ signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 					sc_spot = sc_add_string(input_nets_sc, pin_name);
 					input_nets_sc->data[sc_spot] = (void*)new_net;
 				}
-			current_out_idx += j;
+				current_out_idx += j;
 			}
 		}
 	}

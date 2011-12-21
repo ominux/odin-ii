@@ -24,7 +24,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "string_cache.h"
 #include "odin_util.h"
 #include "read_xml_arch_file.h"
-//#include "simulate_blif.h"
+#include "simulate_blif.h"
 
 #ifndef TRUE
 #define TRUE 1
@@ -412,23 +412,20 @@ struct npin_t_t
 	long unique_id;
 	ids type;         // INPUT or OUTPUT
 	char *name;
-
 	nnet_t *net;      // related net
 	int pin_net_idx;
-
 	nnode_t *node;    // related node
 	int pin_node_idx; // pin on the node where we're located
 	char *mapping;    // name of mapped port from hard block
 
 	////////////////////
 	// For simulation
-	int *cycle;          // The last cycle the pin was computed for.
 	signed char *values; // The values for the current wave.
-
+	int *cycle;          // The last cycle the pin was computed for.
 	unsigned long coverage;
-
 	char is_default; // The pin is feeding a mux from logic representing an else or default.
 	char is_implied; // This signal is implied.
+	////////////////////
 };
 
 struct nnet_t_t
@@ -444,6 +441,12 @@ struct nnet_t_t
 
 	short unique_net_data_id;
 	void *net_data;
+
+	/////////////////////
+	// For simulation
+	signed char values[SIM_WAVE_LENGTH];  // Stores the values of all connected pins.
+	int cycle;                            // Stores the cycle of all connected pins.
+	//////////////////////
 };
 
 struct signal_list_t_t 

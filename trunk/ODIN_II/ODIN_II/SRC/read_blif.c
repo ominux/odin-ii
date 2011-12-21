@@ -584,7 +584,7 @@ void create_hard_block_nodes(hard_block_models *models, FILE *file, hashtable_t 
 		npin_t *new_pin = allocate_npin();
 		new_pin->name = strdup(name);
 		new_pin->type = OUTPUT;
-		new_pin->mapping = strdup(mapping);
+		new_pin->mapping = get_hard_block_port_name(mapping);
 
 		add_a_output_pin_to_node_spot_idx(new_node, new_pin, i);
 
