@@ -975,3 +975,78 @@ mark_clock_node (
 	/* Mark it as a special set of inputs */
 	clock_node->type = CLOCK_NODE;
 }
+
+/*
+ * Gets the index of the first output pin with the given mapping
+ * on the given node.
+ */
+int get_output_pin_index_from_mapping(nnode_t *node, char *name)
+{
+	int i;
+	for (i = 0; i < node->num_output_pins; i++)
+	{
+		npin_t *pin = node->output_pins[i];
+		if (!strcmp(pin->mapping, name))
+			return i;
+	}
+
+	return -1;
+}
+
+/*
+ * Gets the index of the first output port containing a pin with the given
+ * mapping.
+ */
+int get_output_port_index_from_mapping(nnode_t *node, char *name)
+{
+	int i;
+	int pin_number = 0;
+	for (i = 0; i < node->num_output_port_sizes; i++)
+	{
+		int j;
+		for (j = 0; j < node->output_port_sizes[i]; j++, pin_number++)
+		{
+			npin_t *pin = node->output_pins[pin_number];
+			if (!strcmp(pin->mapping, name))
+				return i;
+		}
+	}
+	return -1;
+}
+
+/*
+ * Gets the index of the first pin with the given mapping.
+ */
+int get_input_pin_index_from_mapping(nnode_t *node, char *name)
+{
+	int i;
+	for (i = 0; i < node->num_input_pins; i++)
+	{
+		npin_t *pin = node->input_pins[i];
+		if (!strcmp(pin->mapping, name))
+			return i;
+	}
+
+	return -1;
+}
+
+/*
+ * Gets the port index of the first port containing a pin with
+ * the given mapping.
+ */
+int get_input_port_index_from_mapping(nnode_t *node, char *name)
+{
+	int i;
+	int pin_number = 0;
+	for (i = 0; i < node->num_input_port_sizes; i++)
+	{
+		int j;
+		for (j = 0; j < node->input_port_sizes[i]; j++, pin_number++)
+		{
+			npin_t *pin = node->input_pins[pin_number];
+			if (!strcmp(pin->mapping, name))
+				return i;
+		}
+	}
+	return -1;
+}

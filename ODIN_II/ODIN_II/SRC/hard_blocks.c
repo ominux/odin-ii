@@ -21,6 +21,8 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 */ 
 
+
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -28,89 +30,132 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "types.h"
 #include "globals.h"
 #include "hard_blocks.h"
+
+t_model *single_port_rams = NULL;
+t_model *dual_port_rams = NULL;
+
 #include "memories.h"
 
 STRING_CACHE *hard_block_names = NULL;
 
 #ifdef VPR6
-void register_hard_blocks()
+
+void cache_hard_block_names()
 {
 	t_model *hard_blocks = NULL;
-	t_model_ports *hb_ports = NULL;
 
 	hard_blocks = Arch.models;
 	hard_block_names = sc_new_string_cache();
-	while (hard_blocks != NULL)
+	while (hard_blocks)
 	{
 		sc_add_string(hard_block_names, hard_blocks->name);
-		/* Set the size of data inputs/outputs on single/dual port ram 
-		 * blocks to 1 to ensure that all memories are split to 
-		 * single bit width
-		 */
-		if (strcmp(hard_blocks->name, "single_port_ram") == 0)
-		{
-			//hard_blocks->outputs->size = 1;
-
-			/* Need to determine the split size based on min, max, or fixed */
-			if (configuration.split_memory_depth != 0)
-			{
-				hb_ports = hard_blocks->inputs;
-				while (hb_ports && strcmp(hb_ports->name, "addr"))
-					hb_ports = hb_ports->next;
-
-				if (hb_ports == NULL)
-					error_message(1, 0, -1, "No \"addr\" port on single port RAM");
-
-				if (configuration.split_memory_depth == -1) /* MIN */
-					split_size = hb_ports->min_size;
-				if (configuration.split_memory_depth == -2) /* MAX */
-					split_size = hb_ports->size;
-				else
-				{
-					split_size     = configuration.split_memory_depth;
-					hb_ports->size = configuration.split_memory_depth;
-				}
-			}
-
-			hb_ports = hard_blocks->inputs;
-			while ((hb_ports != NULL) && (strcmp(hb_ports->name, "data") != 0))
-				hb_ports = hb_ports->next;
-			if (hb_ports != NULL)
-				hb_ports->size = 1;
-		}
-
-		if (strcmp(hard_blocks->name, "dual_port_ram") == 0)
-		{
-			hb_ports = hard_blocks->outputs;
-			//hb_ports->size = 1;
-
-			if (hb_ports->next != NULL)
-				hb_ports->next->size = 1;
-
-			hb_ports = hard_blocks->inputs;
-
-			while (hb_ports)
-			{
-				if ((strcmp(hb_ports->name, "data1") == 0) || (strcmp(hb_ports->name, "data2") == 0))
-					hb_ports->size = 1;
-				if ((strcmp(hb_ports->name, "addr1") == 0) || (strcmp(hb_ports->name, "addr2") == 0))
-				{
-					if (configuration.split_memory_depth == -1) /* MIN */
-						split_size = hb_ports->min_size;
-					if (configuration.split_memory_depth == -2) /* MAX */
-						split_size = hb_ports->size;
-					else
-					{
-						split_size     = configuration.split_memory_depth;
-						hb_ports->size = configuration.split_memory_depth;
-					}
-				}
-				hb_ports = hb_ports->next;
-			}
-		}
 		hard_blocks = hard_blocks->next;
 	}
-	return;
+}
+
+t_model_ports *get_model_port(t_model_ports *ports, char *name)
+{
+	while (ports && strcmp(ports->name, name))
+		ports = ports->next;
+
+	return ports;
+}
+
+
+
+void register_hard_blocks()
+{
+	cache_hard_block_names();
+	single_port_rams = find_hard_block("single_port_ram");
+	dual_port_rams   = find_hard_block("dual_port_ram");
+
+	if (single_port_rams)
+	{
+		t_model_ports *hb_ports;
+
+		if (configuration.split_memory_width)
+		{
+			hb_ports = get_model_port(single_port_rams->inputs, "data");
+			hb_ports->size = 1;
+
+			hb_ports = get_model_port(single_port_rams->outputs, "out");
+			hb_ports->size = 1;
+		}
+
+		if (configuration.split_memory_depth)
+		{
+			hb_ports = get_model_port(single_port_rams->inputs, "addr");
+
+			// Need to determine the split size based on min, max, or fixed
+			if (configuration.split_memory_depth == -1) /* MIN */
+				split_size = hb_ports->min_size;
+			if (configuration.split_memory_depth == -2) /* MAX */
+				split_size = hb_ports->size;
+			else
+			{
+				split_size     = configuration.split_memory_depth;
+				hb_ports->size = configuration.split_memory_depth;
+			}
+		}
+		else
+		{
+			hb_ports = get_model_port(single_port_rams->inputs, "addr");
+			split_size = hb_ports->size;
+		}
+
+		configuration.split_memory_depth = split_size;
+
+	}
+
+	if (dual_port_rams)
+	{
+		t_model_ports *hb_ports;
+
+		if (configuration.split_memory_width)
+		{
+			hb_ports = get_model_port(dual_port_rams->inputs, "data1");
+			hb_ports->size = 1;
+			hb_ports = get_model_port(dual_port_rams->inputs, "data2");
+			hb_ports->size = 1;
+
+			hb_ports = get_model_port(dual_port_rams->outputs, "out1");
+			hb_ports->size = 1;
+			hb_ports = get_model_port(dual_port_rams->outputs, "out2");
+			hb_ports->size = 1;
+		}
+
+		if (configuration.split_memory_depth)
+		{
+			hb_ports = get_model_port(dual_port_rams->inputs, "addr1");
+			if (configuration.split_memory_depth == -1) /* MIN */
+				split_size = hb_ports->min_size;
+			if (configuration.split_memory_depth == -2) /* MAX */
+				split_size = hb_ports->size;
+			else
+			{
+				split_size     = configuration.split_memory_depth;
+				hb_ports->size = configuration.split_memory_depth;
+			}
+
+			hb_ports = get_model_port(dual_port_rams->inputs, "addr2");
+			if (configuration.split_memory_depth == -1) /* MIN */
+				split_size = hb_ports->min_size;
+			if (configuration.split_memory_depth == -2) /* MAX */
+				split_size = hb_ports->size;
+			else
+			{
+				split_size     = configuration.split_memory_depth;
+				hb_ports->size = configuration.split_memory_depth;
+			}
+		}
+		else if (!single_port_rams)
+		{
+			hb_ports = get_model_port(dual_port_rams->inputs, "addr1");
+			split_size = hb_ports->size;
+		}
+
+		configuration.split_memory_depth = split_size;
+	}
 }
 
 void deregister_hard_blocks()
@@ -124,8 +169,8 @@ t_model* find_hard_block(char *name)
 	t_model *hard_blocks;
 
 	hard_blocks = Arch.models;
-	while (hard_blocks != NULL)
-		if (strcmp(hard_blocks->name, name) == 0)
+	while (hard_blocks)
+		if (!strcmp(hard_blocks->name, name))
 			return hard_blocks;
 		else
 			hard_blocks = hard_blocks->next;

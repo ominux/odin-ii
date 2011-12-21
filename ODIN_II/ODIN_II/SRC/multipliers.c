@@ -260,40 +260,12 @@ void init_mult_distribution()
 void record_mult_distribution(nnode_t *node)
 {
 	int a, b;
-//	int i;
 
 	oassert(hard_multipliers != NULL);
 	oassert(node != NULL);
 
 	a = node->input_port_sizes[0];
 	b = node->input_port_sizes[1];
-//	i = node->input_port_sizes[0] - 1;
-//	a = i;
-//	while (i >= 0)
-//	{
-		/* Check to see if the name is the zero_string */
-//		if ((node->input_pins[i]->net->name == NULL) || (strcmp(node->input_pins[i]->net->name, zero_string) != 0))
-//		{
-//			a = i + 1;
-//			i = -1;
-//		}
-//		else
-//			i--;
-//	}
-
-//	i = node->input_port_sizes[1] - 1;
-//	b = i;
-//	while (i >= 0)
-//	{
-		/* Check to see if the name is the zero_string */
-//		if ((node->input_pins[node->input_port_sizes[0]+i]->net->name == NULL) || (strcmp(node->input_pins[node->input_port_sizes[0] + i]->net->name, zero_string) != 0))
-//		{
-//			b = i + 1;
-//			i = -1;
-//		}
-//		else
-//			i--;
-//	}
 
 	mults[a * hard_multipliers->inputs->size + b] += 1;
 	return;
@@ -596,11 +568,7 @@ void define_mult_function(nnode_t *node, short type, FILE *out)
 
 	for (i = 0; i < node->num_output_pins; i++)
 	{
-//		if (node->output_pins[i]->name == NULL)
-			j = sprintf(buffer, " %s[%d]=%s", hard_multipliers->outputs->name, i, node->output_pins[i]->name);
-//			j = sprintf(buffer, " %s~%d=%s-%d", hard_multipliers->outputs->name, i, node->output_pins[i]->net->driver_pin->node->name, i);
-//		else
-//			j = sprintf(buffer, " %s~%d=%s", hard_multipliers->outputs->name, i, node->output_pins[i]->net->driver_pin->node->name);
+		j = sprintf(buffer, " %s[%d]=%s", hard_multipliers->outputs->name, i, node->output_pins[i]->name);
 		if (count + j > 79)
 		{
 			fprintf(out, "\\\n");
@@ -982,8 +950,8 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 {
 	int diffa, diffb, diffout, i;
 	int sizea, sizeb, sizeout;
-	struct s_linked_vptr *plist = NULL;
-	t_pb_type *physical = NULL;
+
+
 	int testa, testb;
 
 	oassert(node->type == MULTIPLY);
@@ -1001,10 +969,10 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 
 	if (configuration.split_hard_multiplier == 1)
 	{
-		plist = hard_multipliers->pb_types;
-		while ((diffa + diffb != 0) && (plist != NULL))
+		struct s_linked_vptr *plist = hard_multipliers->pb_types;
+		while ((diffa + diffb) && plist)
 		{
-			physical = (t_pb_type *)(plist->data_vptr);
+			t_pb_type *physical = (t_pb_type *)(plist->data_vptr);
 			plist = plist->next;
 			testa = physical->ports[0].num_pins;
 			testb = physical->ports[1].num_pins;
@@ -1090,7 +1058,7 @@ void iterate_multipliers(netlist_t *netlist)
 	int a0, a1, b0, b1;
 	nnode_t *node;
 
-	/* Can only perform the optimization if hard multipliers exist! */
+	/* Can only perform the optimisation if hard multipliers exist! */
 	if (hard_multipliers == NULL)
 		return;
 

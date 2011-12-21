@@ -161,14 +161,16 @@ void simulate_netlist(netlist_t *netlist)
 			// Perform simulation
 			for (cycle = cycle_offset; cycle < cycle_offset + wave_length; cycle++)
 			{
+				//original_simulate_cycle(netlist, cycle);
+
 				if (cycle)
 				{
 					simulate_cycle(cycle, stages);
 				}
 				else
 				{
-					/* The first cycle produces the stages, and adds additional
-					 * lines as specified by the -p option. */
+					// The first cycle produces the stages, and adds additional
+					// lines as specified by the -p option.
 					pin_names *p = parse_pin_name_list(global_args.sim_additional_pins);
 					stages = simulate_first_cycle(netlist, cycle, p, output_lines);
 					free_pin_name_list(p);
@@ -320,6 +322,47 @@ void simulate_cycle(int cycle, stages *s)
 		}
 		#endif
 	}
+}
+
+void original_simulate_cycle(netlist_t *netlist, int cycle)
+{
+	queue_t *queue = create_queue();
+
+	// Enqueue top input nodes
+	int i;
+	for (i = 0; i < netlist->num_top_input_nodes; i++)
+		enqueue_node_if_ready(queue,netlist->top_input_nodes[i],cycle);
+
+	// Enqueue constant nodes.
+	nnode_t *constant_nodes[] = {netlist->gnd_node, netlist->vcc_node, netlist->pad_node};
+	int num_constant_nodes = 3;
+	for (i = 0; i < num_constant_nodes; i++)
+		enqueue_node_if_ready(queue,constant_nodes[i],cycle);
+
+	nnode_t *node;
+	while ((node = queue->remove(queue)))
+	{
+		compute_and_store_value(node, cycle);
+
+		// Enqueue child nodes which are ready, not already queued, and not already complete.
+		int num_children = 0;
+		nnode_t **children = get_children_of(node, &num_children);
+
+		for (i = 0; i < num_children; i++)
+		{
+			nnode_t* node = children[i];
+
+			if (!node->in_queue && is_node_ready(node, cycle) && !is_node_complete(node, cycle))
+			{
+				node->in_queue = TRUE;
+				queue->add(queue,node);
+			}
+		}
+		free(children);
+
+		node->in_queue = FALSE;
+	}
+	queue->destroy(queue);
 }
 
 /*
@@ -911,14 +954,17 @@ int is_node_complete(nnode_t* node, int cycle)
  */
 int is_node_ready(nnode_t* node, int cycle)
 {
-	flag_undriven_input_pins(node);
-	update_undriven_input_pins(node, cycle);
+	if (!cycle)
+	{
+		flag_undriven_input_pins(node);
+		update_undriven_input_pins(node, cycle);
+	}
 
 	if (node->type == FF_NODE)
 	{
 		npin_t *D_pin     = node->input_pins[0];
 		npin_t *clock_pin = node->input_pins[1];
-		// Flip-flops depend on the input from the previous cycle and the clock from this cycle.
+		// Flip-flops depend on the D input from the previous cycle and the clock from this cycle.
 		if
 		(
 			   (get_pin_cycle(D_pin    ) < cycle-1)
@@ -1068,7 +1114,7 @@ signed char get_pin_value(npin_t *pin, int cycle)
  */
 inline int get_values_offset(int cycle)
 {
-	return (((cycle) + (SIM_WAVE_LENGTH+1)) % (SIM_WAVE_LENGTH+1));
+	return (((cycle) + (SIM_WAVE_LENGTH)) % (SIM_WAVE_LENGTH));
 }
 
 /*
@@ -1120,26 +1166,33 @@ void initialize_pin(npin_t *pin)
 	if (pin->cycle || pin->values)
 		return;
 
-	pin->cycle    = malloc(sizeof(int));
-	pin->values   = malloc(SIM_WAVE_LENGTH * sizeof(signed char));
-	*(pin->cycle) = -1;
-
-	int i;
-	for (i = 0; i < SIM_WAVE_LENGTH; i++)
-		pin->values[i] = -1;
-
 	if (pin->net)
 	{
+		pin->values = pin->net->values;
+		pin->cycle  = &(pin->net->cycle);
+
+		int i;
 		for (i = 0; i < pin->net->num_fanout_pins; i++)
 		{
 			npin_t *fanout_pin = pin->net->fanout_pins[i];
 			if (fanout_pin)
 			{
-				fanout_pin->values = pin->values;
-				fanout_pin->cycle  = pin->cycle;
+				fanout_pin->values = pin->net->values;
+				fanout_pin->cycle  = &(pin->net->cycle);
 			}
 		}
 	}
+	else
+	{
+		pin->values = malloc(SIM_WAVE_LENGTH * sizeof(signed char));
+		pin->cycle  = malloc(sizeof(int));
+	}
+
+	int i;
+	for (i = 0; i < SIM_WAVE_LENGTH; i++)
+		pin->values[i] = -1;
+
+	set_pin_cycle(pin, -1);
 }
 
 /*
@@ -1259,179 +1312,7 @@ void compute_mux_2_node(nnode_t *node, int cycle)
 	}
 }
 
-/*
- * Computes the given memory node.
- */
-void compute_memory_node(nnode_t *node, int cycle)
-{
-	char *clock_name = "clk";
 
-	char *we_name = "we";
-	char *addr_name = "addr";
-	char *data_name = "data";
-
-	char *we_name1 = "we1";
-	char *addr_name1 = "addr1";
-	char *data_name1 = "data1";
-	char *we_name2 = "we2";
-	char *addr_name2 = "addr2";
-	char *data_name2 = "data2";
-	char *out_name1 = "out1";
-	char *out_name2 = "out2";
-
-	ast_node_t *ast_node = node->related_ast_node;
-	char *identifier = ast_node->children[0]->types.identifier;
-
-	if (!strcmp(identifier, SINGLE_PORT_MEMORY_NAME))
-	{
-		int posedge = 0;
-		int we = 0;
-		int data_width = 0;
-		int addr_width = 0;
-		npin_t **addr = NULL;
-		npin_t **data = NULL;
-		npin_t **out = NULL;
-
-		int i;
-		for (i = 0; i < node->num_input_pins; i++)
-		{
-			npin_t *pin = node->input_pins[i];
-			npin_t **pin_p = &node->input_pins[i];
-
-			if (!strcmp(pin->mapping, we_name))
-			{
-				we = get_pin_value(pin, cycle-1);
-			}
-			else if (!strcmp(pin->mapping, addr_name))
-			{
-				if (!addr) addr = pin_p;
-				addr_width++;
-			}
-			else if (!strcmp(pin->mapping, data_name))
-			{
-				if (!data) data = pin_p;
-				data_width++;
-			}
-			else if (!strcmp(pin->mapping, clock_name))
-			{
-				posedge = is_posedge(pin, cycle);
-			}
-		}
-
-		out = node->output_pins;
-
-		if (!node->memory_data)
-			instantiate_memory(node, data_width, addr_width);
-
-		compute_single_port_memory(
-			node,
-			data,
-			out,
-			data_width,
-			addr,
-			addr_width,
-			we,
-			posedge,
-			cycle
-		);
-	}
-	else if (!strcmp(identifier, DUAL_PORT_MEMORY_NAME))
-	{
-		int posedge = 0;
-		int we1 = 0;
-		int data_width1 = 0;
-		int addr_width1 = 0;
-		int we2 = 0;
-		int data_width2 = 0;
-		int addr_width2 = 0;
-
-		npin_t **addr1 = NULL;
-		npin_t **data1 = NULL;
-		npin_t **out1 = NULL;
-		npin_t **addr2 = NULL;
-		npin_t **data2 = NULL;
-		npin_t **out2 = NULL;
-
-		int i;
-		for (i = 0; i < node->num_input_pins; i++)
-		{
-			npin_t *pin = node->input_pins[i];
-			npin_t **pin_p = &node->input_pins[i];
-
-			if (!strcmp(pin->mapping, we_name1))
-			{
-				we1 = get_pin_value(pin, cycle-1);
-			}
-			else if (!strcmp(pin->mapping, we_name2))
-			{
-				we2 = get_pin_value(pin, cycle-1);
-			}
-			else if (!strcmp(pin->mapping, addr_name1) )
-			{
-				if (!addr1) addr1 = pin_p;
-				addr_width1++;
-			}
-			else if (!strcmp(pin->mapping, addr_name2))
-			{
-				if (!addr2) addr2 = pin_p;
-				addr_width2++;
-			}
-			else if (!strcmp(pin->mapping, data_name1))
-			{
-				if (!data1) data1 = pin_p;
-				data_width1++;
-			}
-			else if (!strcmp(pin->mapping, data_name2))
-			{
-				if (!data2) data2 = pin_p;
-				data_width2++;
-			}
-			else if (!strcmp(pin->mapping, clock_name))
-			{
-				posedge = is_posedge(pin, cycle);
-			}
-		}
-
-		for (i = 0; i < node->num_output_pins; i++)
-		{
-			npin_t *pin = node->output_pins[i];
-			npin_t **pin_p = &node->output_pins[i];
-
-			if      (!strcmp(pin->mapping, out_name1) && !out1) out1 = pin_p;
-			else if (!strcmp(pin->mapping, out_name2) && !out2) out2 = pin_p;
-		}
-
-		if (addr_width1 != addr_width2)
-			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory addresses are not the same width.");
-
-		if (data_width1 != data_width2)
-			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory data ports are not the same width.");
-
-		if (!node->memory_data)
-			instantiate_memory(node, data_width2, addr_width2);
-
-		compute_dual_port_memory(
-			node,
-			data1,
-			data2,
-			out1,
-			out2,
-			data_width1,
-			addr1,
-			addr2,
-			addr_width1,
-			we1,
-			we2,
-			posedge,
-			cycle
-		);
-	}
-	else
-	{
-		error_message(SIMULATION_ERROR, 0, -1,
-				"Could not resolve memory hard block %s to a valid type.", node->name);
-	}
-}
 
 // TODO: Needs to be verified.
 void compute_hard_ip_node(nnode_t *node, int cycle)
@@ -1600,6 +1481,165 @@ int *multiply_arrays(int *a, int a_length, int *b, int b_length)
 		}
 	}
 	return result;
+}
+
+/*
+ * Computes the given memory node.
+ */
+void compute_memory_node(nnode_t *node, int cycle)
+{
+	ast_node_t *ast_node = node->related_ast_node;
+	char *identifier = ast_node->children[0]->types.identifier;
+
+	if (!strcmp(identifier, SINGLE_PORT_MEMORY_NAME))
+	{
+		int posedge = 0;
+		int we = 0;
+		int data_width = 0;
+		int addr_width = 0;
+		npin_t **addr = NULL;
+		npin_t **data = NULL;
+		npin_t **out = NULL;
+
+		int i;
+		for (i = 0; i < node->num_input_pins; i++)
+		{
+			npin_t *pin = node->input_pins[i];
+			npin_t **pin_p = &node->input_pins[i];
+
+			if (!strcmp(pin->mapping, "we"))
+			{
+				we = get_pin_value(pin, cycle-1);
+			}
+			else if (!strcmp(pin->mapping, "addr"))
+			{
+				if (!addr) addr = pin_p;
+				addr_width++;
+			}
+			else if (!strcmp(pin->mapping, "data"))
+			{
+				if (!data) data = pin_p;
+				data_width++;
+			}
+			else if (!strcmp(pin->mapping, "clk"))
+			{
+				posedge = is_posedge(pin, cycle);
+			}
+		}
+
+		out = node->output_pins;
+
+		if (!node->memory_data)
+			instantiate_memory(node, data_width, addr_width);
+
+		compute_single_port_memory(
+			node,
+			data,
+			out,
+			data_width,
+			addr,
+			addr_width,
+			we,
+			posedge,
+			cycle
+		);
+	}
+	else if (!strcmp(identifier, DUAL_PORT_MEMORY_NAME))
+	{
+		int posedge = 0;
+		int we1 = 0;
+		int data_width1 = 0;
+		int addr_width1 = 0;
+		int we2 = 0;
+		int data_width2 = 0;
+		int addr_width2 = 0;
+
+		npin_t **addr1 = NULL;
+		npin_t **data1 = NULL;
+		npin_t **out1  = NULL;
+		npin_t **addr2 = NULL;
+		npin_t **data2 = NULL;
+		npin_t **out2  = NULL;
+
+		int i;
+		for (i = 0; i < node->num_input_pins; i++)
+		{
+			npin_t *pin = node->input_pins[i];
+			npin_t **pin_p = &node->input_pins[i];
+
+			if (!strcmp(pin->mapping, "we1"))
+			{
+				we1 = get_pin_value(pin, cycle-1);
+			}
+			else if (!strcmp(pin->mapping, "we2"))
+			{
+				we2 = get_pin_value(pin, cycle-1);
+			}
+			else if (!strcmp(pin->mapping, "addr1") )
+			{
+				if (!addr1) addr1 = pin_p;
+				addr_width1++;
+			}
+			else if (!strcmp(pin->mapping, "addr2"))
+			{
+				if (!addr2) addr2 = pin_p;
+				addr_width2++;
+			}
+			else if (!strcmp(pin->mapping, "data1"))
+			{
+				if (!data1) data1 = pin_p;
+				data_width1++;
+			}
+			else if (!strcmp(pin->mapping, "data2"))
+			{
+				if (!data2) data2 = pin_p;
+				data_width2++;
+			}
+			else if (!strcmp(pin->mapping, "clk"))
+			{
+				posedge = is_posedge(pin, cycle);
+			}
+		}
+
+		for (i = 0; i < node->num_output_pins; i++)
+		{
+			npin_t *pin = node->output_pins[i];
+			npin_t **pin_p = &node->output_pins[i];
+
+			if      (!strcmp(pin->mapping, "out1") && !out1) out1 = pin_p;
+			else if (!strcmp(pin->mapping, "out2") && !out2) out2 = pin_p;
+		}
+
+		if (addr_width1 != addr_width2)
+			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory addresses are not the same width.");
+
+		if (data_width1 != data_width2)
+			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory data ports are not the same width.");
+
+		if (!node->memory_data)
+			instantiate_memory(node, data_width2, addr_width2);
+
+		compute_dual_port_memory(
+			node,
+			data1,
+			data2,
+			out1,
+			out2,
+			data_width1,
+			addr1,
+			addr2,
+			addr_width1,
+			we1,
+			we2,
+			posedge,
+			cycle
+		);
+	}
+	else
+	{
+		error_message(SIMULATION_ERROR, 0, -1,
+				"Could not resolve memory hard block %s to a valid type.", node->name);
+	}
 }
 
 /*
@@ -1846,7 +1886,6 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 		else
 			insert_pin_into_line(node->output_pins[0], pin_number, l->lines[j], type);
 	}
-
 }
 
 /*

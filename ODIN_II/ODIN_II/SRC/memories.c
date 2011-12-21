@@ -26,7 +26,11 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "errors.h"
 #include "netlist_utils.h"
 #include "node_creation_library.h"
+#include "hard_blocks.h"
 #include "memories.h"
+
+t_model *single_port_rams;
+t_model *dual_port_rams;
 
 struct s_linked_vptr *sp_memory_list;
 struct s_linked_vptr *dp_memory_list;
@@ -34,6 +38,12 @@ struct s_linked_vptr *split_list;
 struct s_linked_vptr *memory_instances = NULL;
 struct s_linked_vptr *memory_port_size_list = NULL;
 int split_size = 0;
+
+
+void pad_dp_memory_width(nnode_t *node, netlist_t *netlist);
+void pad_sp_memory_width(nnode_t *node, netlist_t *netlist);
+void pad_memory_output_port(nnode_t *node, netlist_t *netlist, t_model *model, char *port_name);
+void pad_memory_input_port(nnode_t *node, netlist_t *netlist, t_model *model, char *port_name);
 
 int
 get_memory_port_size(char *name)
@@ -1041,6 +1051,31 @@ iterate_memories(netlist_t *netlist)
 			split_dp_memory_width(node);
 		}
 	}
+	else
+	{
+		temp = sp_memory_list;
+		sp_memory_list = NULL;
+		while (temp != NULL)
+		{
+			node = (nnode_t *)temp->data_vptr;
+			oassert(node != NULL);
+			oassert(node->type == MEMORY);
+			temp = delete_in_vptr_list(temp);
+			pad_sp_memory_width(node, netlist);
+		}
+
+
+		temp = dp_memory_list;
+		dp_memory_list = NULL;
+		while (temp != NULL)
+		{
+			node = (nnode_t *)temp->data_vptr;
+			oassert(node != NULL);
+			oassert(node->type == MEMORY);
+			temp = delete_in_vptr_list(temp);
+			pad_dp_memory_width(node, netlist);
+		}
+	}
 
 	return;
 }
@@ -1051,8 +1086,7 @@ iterate_memories(netlist_t *netlist)
  * Clean up the memory by deleting the list structure of memories
  *      during optimization.
  *-----------------------------------------------------------------------*/
-void 
-clean_memories()
+void clean_memories()
 {
 	while (sp_memory_list != NULL)
 		sp_memory_list = delete_in_vptr_list(sp_memory_list);
@@ -1061,3 +1095,107 @@ clean_memories()
 	return;
 }
 
+/*
+ * Pads the width of a dual port memory to that specified in the arch file.
+ */
+void pad_dp_memory_width(nnode_t *node, netlist_t *netlist)
+{
+	oassert(node->type == MEMORY);
+	oassert(dual_port_rams != NULL);
+
+	pad_memory_input_port(node, netlist, dual_port_rams, "data1");
+	pad_memory_input_port(node, netlist, dual_port_rams, "data2");
+
+	pad_memory_output_port(node, netlist, dual_port_rams, "out1");
+	pad_memory_output_port(node, netlist, dual_port_rams, "out2");
+}
+
+/*
+ * Pads the width of a single port memory to that specified in the arch file.
+ */
+void pad_sp_memory_width(nnode_t *node, netlist_t *netlist)
+{
+	oassert(node->type == MEMORY);
+	oassert(single_port_rams != NULL);
+
+	pad_memory_input_port (node, netlist, single_port_rams, "data");
+
+	pad_memory_output_port(node, netlist, single_port_rams, "out");
+}
+
+/*
+ * Pads the given output port to the width specified in the given model.
+ */
+void pad_memory_output_port(nnode_t *node, netlist_t *netlist, t_model *model, char *port_name)
+{
+	int port_number = get_output_port_index_from_mapping(node, port_name);
+	int port_index  = get_output_pin_index_from_mapping (node, port_name);
+
+	int port_size = node->output_port_sizes[port_number];
+
+	t_model_ports *ports = get_model_port(model->outputs, port_name);
+
+	int target_size = ports->size;
+	int diff        = target_size - port_size;
+
+	if (diff > 0)
+	{
+		allocate_more_node_output_pins(node, diff);
+
+		// Shift other pins to the right, if any.
+		int i;
+		for (i = node->num_output_pins - 1; i >= port_index + target_size; i--)
+			move_a_output_pin(node, i - diff, i);
+
+		for (i = port_index + port_size; i < port_index + target_size; i++)
+		{
+			// Add new pins to the higher order spots.
+			npin_t *new_pin = allocate_npin();
+			new_pin->mapping = strdup(port_name);
+			add_a_output_pin_to_node_spot_idx(node, new_pin, i);
+		}
+		node->output_port_sizes[port_number] = target_size;
+	}
+}
+
+/*
+ * Pads the given input port to the width specified in the given model.
+ */
+void pad_memory_input_port(nnode_t *node, netlist_t *netlist, t_model *model, char *port_name)
+{
+	oassert(node->type == MEMORY);
+	oassert(model != NULL);
+
+	int port_number = get_input_port_index_from_mapping(node, port_name);
+	int port_index  = get_input_pin_index_from_mapping (node, port_name);
+
+	oassert(port_number != -1);
+	oassert(port_index  != -1);
+
+	int port_size = node->input_port_sizes[port_number];
+
+	t_model_ports *ports = get_model_port(model->inputs, port_name);
+
+	int target_size = ports->size;
+	int diff        = target_size - port_size;
+
+
+	// Expand the inputs
+	if (diff > 0)
+	{
+		allocate_more_node_input_pins(node, diff);
+
+		// Shift other pins to the right, if any.
+		int i;
+		for (i = node->num_input_pins - 1; i >= port_index + target_size; i--)
+			move_a_input_pin(node, i - diff, i);
+
+		for (i = port_index + port_size; i < port_index + target_size; i++)
+		{
+			add_a_input_pin_to_node_spot_idx(node, get_a_pad_pin(netlist), i);
+			node->input_pins[i]->mapping = strdup(port_name);
+		}
+
+		node->input_port_sizes[port_number] = target_size;
+	}
+}
