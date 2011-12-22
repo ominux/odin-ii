@@ -39,7 +39,6 @@ t_model *dual_port_rams = NULL;
 STRING_CACHE *hard_block_names = NULL;
 
 #ifdef VPR6
-
 void cache_hard_block_names()
 {
 	t_model *hard_blocks = NULL;
@@ -60,8 +59,6 @@ t_model_ports *get_model_port(t_model_ports *ports, char *name)
 
 	return ports;
 }
-
-
 
 void register_hard_blocks()
 {
@@ -102,9 +99,7 @@ void register_hard_blocks()
 			hb_ports = get_model_port(single_port_rams->inputs, "addr");
 			split_size = hb_ports->size;
 		}
-
 		configuration.split_memory_depth = split_size;
-
 	}
 
 	if (dual_port_rams)
@@ -153,7 +148,6 @@ void register_hard_blocks()
 			hb_ports = get_model_port(dual_port_rams->inputs, "addr1");
 			split_size = hb_ports->size;
 		}
-
 		configuration.split_memory_depth = split_size;
 	}
 }
