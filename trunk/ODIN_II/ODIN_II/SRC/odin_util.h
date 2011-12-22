@@ -23,7 +23,7 @@ char *make_simple_name(char *input, char *flatten_string, char flatten_char);
 void *my_malloc_struct(size_t bytes_to_alloc);
 
 void reverse_string(char *token, int length);
-char *append_string(char *string, char *appendage);
+char *append_string(char *string, char *appendage, ...);
 
 int is_binary_string(char *string);
 int is_octal_string(char *string);

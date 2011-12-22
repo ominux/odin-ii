@@ -515,12 +515,23 @@ long long int pow2(int to_the_power)
  * Returns a new string consisting of the original string
  * plus the appendage. Leaves the original string
  * intact.
+ *
+ * Handles format strings as well.
  */
-char *append_string(char *string, char *appendage)
+char *append_string(char *string, char *appendage, ...)
 {
-	char *new_string = (char *)malloc(strlen(string) + strlen(appendage) + 1);
+	char buffer[BUFSIZE];
+
+	va_list ap;
+
+	va_start(ap, appendage);
+	vsnprintf(buffer, BUFSIZE * sizeof(char), appendage, ap);
+	va_end(ap);
+
+
+	char *new_string = (char *)malloc(strlen(string) + strlen(buffer) + 1);
 	strcpy(new_string, string);
-	strcat(new_string, appendage);
+	strcat(new_string, buffer);
 	return new_string;
 }
 
