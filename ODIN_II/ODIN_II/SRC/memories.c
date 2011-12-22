@@ -60,11 +60,6 @@ get_memory_port_size(char *name)
 	return -1;
 }
 
-void 
-init_memory_distribution()
-{
-	return;
-}
 
 void 
 report_memory_distribution()
@@ -760,6 +755,8 @@ split_sp_memory_width(nnode_t *node)
 	return;
 }
 
+
+
 /*-------------------------------------------------------------------------
  * (function: split_dp_memory_width)
  *
@@ -890,9 +887,6 @@ split_dp_memory_width(nnode_t *node)
 		{
 			new_node->num_output_pins = 1;
 			new_node->output_pins = (npin_t **)malloc(sizeof(void*));
-//			new_node->output_pins[0] = copy_output_npin(node->output_pins[i]);
-//			add_a_driver_pin_to_net(data1_net, new_node->output_pins[0]);
-//			free_npin(node->output_pins[i]);
 			new_node->output_pins[0] = node->output_pins[i];
 			node->output_pins[i] = NULL;
 			new_node->output_pins[0]->pin_node_idx = 0;
@@ -902,17 +896,11 @@ split_dp_memory_width(nnode_t *node)
 		{
 			new_node->num_output_pins = 2;
 			new_node->output_pins = (npin_t **)malloc(sizeof(void*)*2);
-//			new_node->output_pins[0] = copy_output_npin(node->output_pins[i]);
-//			new_node->output_pins[1] = copy_output_npin(node->output_pins[i+data_diff1+1]);
-//			add_a_driver_pin_to_net(data1_net, new_node->output_pins[0]);
-//			free_npin(node->output_pins[i]);
 			new_node->output_pins[0] = node->output_pins[i];
 			node->output_pins[i] = NULL;
 			new_node->output_pins[0]->pin_node_idx = 0;
 			new_node->output_pins[0]->node = new_node;
 
-//			add_a_driver_pin_to_net(data2_net, new_node->output_pins[1]);
-//			free_npin(node->output_pins[i+data_diff1+1]);
 			new_node->output_pins[1] = node->output_pins[i+data_diff1+1];
 			node->output_pins[i+data_diff1+1] = NULL;
 			new_node->output_pins[1]->pin_node_idx = 1;
@@ -983,6 +971,284 @@ split_dp_memory_width(nnode_t *node)
 	return;
 }
 
+/*
+ * Width-splits the given memory up into chunks the of the
+ * width specified in the arch file.
+ */
+void split_sp_memory_to_arch_width(nnode_t *node)
+{
+	char *port_name = "data";
+	t_model *model = single_port_rams;
+
+	int data_port_number = get_input_port_index_from_mapping(node, port_name);
+
+	oassert(data_port_number != -1);
+
+	int data_port_size = node->input_port_sizes[data_port_number];
+
+	// Get the target width from the arch.
+	t_model_ports *ports = get_model_port(model->inputs, port_name);
+	int target_size  = ports->size;
+
+	int num_memories = ceil((double)data_port_size / (double)target_size);
+	if (data_port_size > target_size)
+	{
+		int i;
+		int data_pins_moved = 0;
+		int output_pins_moved = 0;
+		for (i = 0; i < num_memories; i++)
+		{
+			nnode_t *new_node = allocate_nnode();
+			new_node->name = append_string(node->name, "-%d",i);
+			sp_memory_list = insert_in_vptr_list(sp_memory_list, new_node);
+
+			/* Copy properties from the original node */
+			new_node->type = node->type;
+			new_node->related_ast_node = node->related_ast_node;
+			new_node->traverse_visited = node->traverse_visited;
+			new_node->node_data = NULL;
+
+			int j;
+			for (j = 0; j < node->num_input_port_sizes; j++)
+				add_input_port_information(new_node, 0);
+
+			add_output_port_information(new_node, 0);
+
+			int index = 0;
+			int old_index = 0;
+			for (j = 0; j < node->num_input_port_sizes; j++)
+			{
+				// Move this node's share of data pins out of the data port of the original node.
+				if (j == data_port_number)
+				{
+					// Skip over data pins we've already moved.
+					old_index += data_pins_moved;
+					int k;
+					for (k = 0; k < target_size && data_pins_moved < data_port_size; k++)
+					{
+						allocate_more_node_input_pins(new_node, 1);
+						new_node->input_port_sizes[j]++;
+						remap_pin_to_new_node(node->input_pins[old_index], new_node, index);
+						index++;
+						old_index++;
+						data_pins_moved++;
+					}
+					int remaining_data_pins = data_port_size - data_pins_moved;
+					// Skip over pins we have yet to copy.
+					old_index += remaining_data_pins;
+				}
+				else
+				{
+					int k;
+					for (k = 0; k < node->input_port_sizes[j]; k++)
+					{
+						allocate_more_node_input_pins(new_node, 1);
+						new_node->input_port_sizes[j]++;
+						// Copy pins for all but the last memory. the last one get the original pins moved to it.
+						if (i < num_memories - 1)
+							add_a_input_pin_to_node_spot_idx(new_node, copy_input_npin(node->input_pins[old_index]), index);
+						else
+							remap_pin_to_new_node(node->input_pins[old_index], new_node, index);
+						index++;
+						old_index++;
+					}
+				}
+			}
+
+			index = 0;
+			old_index = 0;
+			old_index += output_pins_moved;
+
+			int k;
+			for (k = 0; k < target_size && output_pins_moved < data_port_size; k++)
+			{
+				allocate_more_node_output_pins(new_node, 1);
+				new_node->output_port_sizes[0]++;
+				remap_pin_to_new_node(node->output_pins[old_index], new_node, index);
+				index++;
+				old_index++;
+				output_pins_moved++;
+			}
+		}
+		// Free the original node.
+		free_nnode(node);
+	}
+}
+
+void split_dp_memory_to_arch_width(nnode_t *node)
+{
+	char *data1_name = "data1";
+	char *data2_name = "data2";
+	char *out1_name = "out1";
+	char *out2_name = "out2";
+
+	t_model *model = dual_port_rams;
+
+	int data1_port_number = get_input_port_index_from_mapping(node, data1_name);
+	int data2_port_number = get_input_port_index_from_mapping(node, data2_name);
+
+	int out1_port_number  = get_output_port_index_from_mapping(node, out1_name);
+	int out2_port_number  = get_output_port_index_from_mapping(node, out2_name);
+
+	oassert(data1_port_number != -1);
+	oassert(data2_port_number != -1);
+	oassert(out1_port_number  != -1);
+	oassert(out2_port_number  != -1);
+
+	int data1_port_size = node->input_port_sizes[data1_port_number];
+	int data2_port_size = node->input_port_sizes[data2_port_number];
+
+	int out1_port_size  = node->output_port_sizes[out1_port_number];
+	int out2_port_size  = node->output_port_sizes[out2_port_number];
+
+	oassert(data1_port_size == data2_port_size);
+	oassert(out1_port_size  == out2_port_size);
+	oassert(data1_port_size == out1_port_size);
+
+	// Get the target width from the arch.
+	t_model_ports *ports = get_model_port(model->inputs, data1_name);
+	int target_size  = ports->size;
+
+	int num_memories = ceil((double)data1_port_size / (double)target_size);
+	if (data1_port_size > target_size)
+	{
+		int i;
+		int data1_pins_moved = 0;
+		int data2_pins_moved = 0;
+		int out1_pins_moved  = 0;
+		int out2_pins_moved  = 0;
+		for (i = 0; i < num_memories; i++)
+		{
+			nnode_t *new_node = allocate_nnode();
+			new_node->name = append_string(node->name, "-%d",i);
+			dp_memory_list = insert_in_vptr_list(dp_memory_list, new_node);
+
+			/* Copy properties from the original node */
+			new_node->type = node->type;
+			new_node->related_ast_node = node->related_ast_node;
+			new_node->traverse_visited = node->traverse_visited;
+			new_node->node_data = NULL;
+
+			int j;
+			for (j = 0; j < node->num_input_port_sizes; j++)
+				add_input_port_information(new_node, 0);
+
+			int index = 0;
+			int old_index = 0;
+			for (j = 0; j < node->num_input_port_sizes; j++)
+			{
+				// Move this node's share of data pins out of the data port of the original node.
+				if (j == data1_port_number)
+				{
+					// Skip over data pins we've already moved.
+					old_index += data1_pins_moved;
+					int k;
+					for (k = 0; k < target_size && data1_pins_moved < data1_port_size; k++)
+					{
+						allocate_more_node_input_pins(new_node, 1);
+						new_node->input_port_sizes[j]++;
+						remap_pin_to_new_node(node->input_pins[old_index], new_node, index);
+						index++;
+						old_index++;
+						data1_pins_moved++;
+					}
+					int remaining_data_pins = data1_port_size - data1_pins_moved;
+					// Skip over pins we have yet to copy.
+					old_index += remaining_data_pins;
+				}
+				else if (j == data2_port_number)
+				{
+					// Skip over data pins we've already moved.
+					old_index += data2_pins_moved;
+					int k;
+					for (k = 0; k < target_size && data2_pins_moved < data2_port_size; k++)
+					{
+						allocate_more_node_input_pins(new_node, 1);
+						new_node->input_port_sizes[j]++;
+						remap_pin_to_new_node(node->input_pins[old_index], new_node, index);
+						index++;
+						old_index++;
+						data2_pins_moved++;
+					}
+					int remaining_data_pins = data2_port_size - data2_pins_moved;
+					// Skip over pins we have yet to copy.
+					old_index += remaining_data_pins;
+				}
+				else
+				{
+					int k;
+					for (k = 0; k < node->input_port_sizes[j]; k++)
+					{
+						allocate_more_node_input_pins(new_node, 1);
+						new_node->input_port_sizes[j]++;
+						// Copy pins for all but the last memory. the last one get the original pins moved to it.
+						if (i < num_memories - 1)
+							add_a_input_pin_to_node_spot_idx(new_node, copy_input_npin(node->input_pins[old_index]), index);
+						else
+							remap_pin_to_new_node(node->input_pins[old_index], new_node, index);
+						index++;
+						old_index++;
+					}
+				}
+			}
+
+
+			for (j = 0; j < node->num_output_port_sizes; j++)
+				add_output_port_information(new_node, 0);
+
+			index = 0;
+			old_index = 0;
+			for (j = 0; j < node->num_output_port_sizes; j++)
+			{
+				// Move this node's share of data pins out of the data port of the original node.
+				if (j == out1_port_number)
+				{
+					// Skip over data pins we've already moved.
+					old_index += out1_pins_moved;
+					int k;
+					for (k = 0; k < target_size && out1_pins_moved < out1_port_size; k++)
+					{
+						allocate_more_node_output_pins(new_node, 1);
+						new_node->output_port_sizes[j]++;
+						remap_pin_to_new_node(node->output_pins[old_index], new_node, index);
+						index++;
+						old_index++;
+						out1_pins_moved++;
+					}
+					int remaining_pins = out1_port_size - out1_pins_moved;
+					// Skip over pins we have yet to copy.
+					old_index += remaining_pins;
+				}
+				else if (j == out2_port_number)
+				{
+					// Skip over data pins we've already moved.
+					old_index += out2_pins_moved;
+					int k;
+					for (k = 0; k < target_size && out2_pins_moved < out2_port_size; k++)
+					{
+						allocate_more_node_output_pins(new_node, 1);
+						new_node->output_port_sizes[j]++;
+						remap_pin_to_new_node(node->output_pins[old_index], new_node, index);
+						index++;
+						old_index++;
+						out2_pins_moved++;
+					}
+					int remaining_pins = out2_port_size - out2_pins_moved;
+					// Skip over pins we have yet to copy.
+					old_index += remaining_pins;
+				}
+				else
+				{
+					oassert(FALSE);
+				}
+			}
+		}
+		// Free the original node.
+		free_nnode(node);
+	}
+}
+
+
 /*-------------------------------------------------------------------------
  * (function: iterate_memories)
  *
@@ -1027,7 +1293,7 @@ iterate_memories(netlist_t *netlist)
 	}
 
 	/* Split memory up on width */
-	if (configuration.split_memory_width == 1)
+	if (configuration.split_memory_width)
 	{
 		temp = sp_memory_list;
 		sp_memory_list = NULL;
@@ -1061,7 +1327,31 @@ iterate_memories(netlist_t *netlist)
 			oassert(node != NULL);
 			oassert(node->type == MEMORY);
 			temp = delete_in_vptr_list(temp);
+			split_sp_memory_to_arch_width(node);
+		}
+
+
+		temp = sp_memory_list;
+		sp_memory_list = NULL;
+		while (temp != NULL)
+		{
+			node = (nnode_t *)temp->data_vptr;
+			oassert(node != NULL);
+			oassert(node->type == MEMORY);
+			temp = delete_in_vptr_list(temp);
 			pad_sp_memory_width(node, netlist);
+		}
+
+
+		temp = dp_memory_list;
+		dp_memory_list = NULL;
+		while (temp != NULL)
+		{
+			node = (nnode_t *)temp->data_vptr;
+			oassert(node != NULL);
+			oassert(node->type == MEMORY);
+			temp = delete_in_vptr_list(temp);
+			split_dp_memory_to_arch_width(node);
 		}
 
 
