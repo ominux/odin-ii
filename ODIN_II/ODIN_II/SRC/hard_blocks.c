@@ -38,6 +38,15 @@ t_model *dual_port_rams = NULL;
 
 STRING_CACHE *hard_block_names = NULL;
 
+
+t_model_ports *get_model_port(t_model_ports *ports, char *name)
+{
+	while (ports && strcmp(ports->name, name))
+		ports = ports->next;
+
+	return ports;
+}
+
 #ifdef VPR6
 void cache_hard_block_names()
 {
@@ -52,13 +61,7 @@ void cache_hard_block_names()
 	}
 }
 
-t_model_ports *get_model_port(t_model_ports *ports, char *name)
-{
-	while (ports && strcmp(ports->name, name))
-		ports = ports->next;
 
-	return ports;
-}
 
 void register_hard_blocks()
 {
