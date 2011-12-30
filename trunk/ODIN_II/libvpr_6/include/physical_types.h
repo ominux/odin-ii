@@ -178,7 +178,6 @@ struct s_interconnect
 
 	char *input_string;
 	char *output_string;
-	float area;
 
 	t_pin_to_pin_annotation *annotations;	/* [0..num_annotations-1] */
 	int num_annotations;
@@ -329,7 +328,6 @@ struct s_pb_type
 	t_mode *parent_mode;
 	int depth; /* depth of pb_type */
 
-	float area;
 	float max_internal_delay;
 	t_pin_to_pin_annotation *annotations;	/* [0..num_annotations-1] */
 	int num_annotations;

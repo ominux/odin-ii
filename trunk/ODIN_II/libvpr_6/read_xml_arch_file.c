@@ -747,7 +747,6 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 	
 	pb_type->annotations = NULL;
 	pb_type->num_annotations = 0;
-	pb_type->area = 0;
 	i = 0;
 	/* Determine if this is a leaf or container pb_type */
 	if(pb_type->blif_model != NULL) {
@@ -805,8 +804,6 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 			pb_type->num_modes = 0;
 			assert(CountChildren(Parent, "mode", 0) == 0);
 		}
-
-		pb_type->area = GetFloatProperty(Parent, "area", FALSE, 0);
 	} else {
 		/* container pb_type, process modes */
 		assert(pb_type->class_type == UNKNOWN_CLASS);
@@ -918,8 +915,6 @@ static void ProcessInterconnect(INOUTP ezxml_t Parent,
 			Prop = FindProperty(Cur, "name", TRUE);
 			mode->interconnect[i].name = my_strdup(Prop);
 			ezxml_set_attr(Cur, "name", NULL);
-
-			mode->interconnect[i].area = GetFloatProperty(Cur, "area", FALSE, 0);
 
 			/* Process delay and capacitance annotations */
 			num_annotations = 0;
@@ -1796,7 +1791,7 @@ XmlReadArch(INP const char *ArchFile, INP boolean timing_enabled,
     
 	/* Root node should be architecture */ 
 	CheckElement(Cur, "architecture");
-	/* jedit, do version processing properly with string delimiting on the . */
+	/* TODO: do version processing properly with string delimiting on the . */
 	Prop = FindProperty(Cur, "version", FALSE);
     if(Prop != NULL)
 	{
@@ -2355,7 +2350,7 @@ static void SyncModelsPbTypes_rec(INOUTP struct s_arch *arch, INOUTP t_pb_type *
 
 		for(p = 0; p < pb_type->num_ports; p++) {
 			found = FALSE;
-			/* jedit check if INPUT matches INPUT and OUTPUT matches OUTPUT (not yet done) */
+			/* TODO: Parse error checking - check if INPUT matches INPUT and OUTPUT matches OUTPUT (not yet done) */
 			model_port = model_match_prim->inputs;
 			while(model_port && !found) {
 				if(strcmp(model_port->name, pb_type->ports[p].name) == 0) {
