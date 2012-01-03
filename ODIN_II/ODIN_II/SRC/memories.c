@@ -1073,6 +1073,10 @@ void split_sp_memory_to_arch_width(nnode_t *node)
 		// Free the original node.
 		free_nnode(node);
 	}
+	else
+	{
+		sp_memory_list = insert_in_vptr_list(sp_memory_list, node);
+	}
 }
 
 void split_dp_memory_to_arch_width(nnode_t *node)
@@ -1110,6 +1114,9 @@ void split_dp_memory_to_arch_width(nnode_t *node)
 	int target_size  = ports->size;
 
 	int num_memories = ceil((double)data1_port_size / (double)target_size);
+
+	//printf("%d %d\n", data1_port_size, target_size);
+
 	if (data1_port_size > target_size)
 	{
 		int i;
@@ -1192,7 +1199,6 @@ void split_dp_memory_to_arch_width(nnode_t *node)
 				}
 			}
 
-
 			for (j = 0; j < node->num_output_port_sizes; j++)
 				add_output_port_information(new_node, 0);
 
@@ -1246,6 +1252,12 @@ void split_dp_memory_to_arch_width(nnode_t *node)
 		// Free the original node.
 		free_nnode(node);
 	}
+	else
+	{
+		// If we're not splitting, put the original memory node back.
+		dp_memory_list = insert_in_vptr_list(dp_memory_list, node);
+	}
+
 }
 
 
@@ -1354,7 +1366,6 @@ iterate_memories(netlist_t *netlist)
 			split_dp_memory_to_arch_width(node);
 		}
 
-
 		temp = dp_memory_list;
 		dp_memory_list = NULL;
 		while (temp != NULL)
@@ -1382,7 +1393,6 @@ void clean_memories()
 		sp_memory_list = delete_in_vptr_list(sp_memory_list);
 	while (dp_memory_list != NULL)
 		dp_memory_list = delete_in_vptr_list(dp_memory_list);
-	return;
 }
 
 /*
@@ -1398,6 +1408,8 @@ void pad_dp_memory_width(nnode_t *node, netlist_t *netlist)
 
 	pad_memory_output_port(node, netlist, dual_port_rams, "out1");
 	pad_memory_output_port(node, netlist, dual_port_rams, "out2");
+
+	dp_memory_list = insert_in_vptr_list(dp_memory_list, node);
 }
 
 /*
@@ -1411,6 +1423,8 @@ void pad_sp_memory_width(nnode_t *node, netlist_t *netlist)
 	pad_memory_input_port (node, netlist, single_port_rams, "data");
 
 	pad_memory_output_port(node, netlist, single_port_rams, "out");
+
+	sp_memory_list = insert_in_vptr_list(sp_memory_list, node);
 }
 
 /*
