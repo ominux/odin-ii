@@ -163,7 +163,7 @@ void get_options(int argc, char **argv)
 	configuration.output_preproc_source = 0;
 	configuration.debug_output_path = ".";
 	configuration.arch_file = NULL;
-	configuration.split_memory_width = 0;
+	configuration.split_memory_width = TRUE;
 	configuration.split_memory_depth = 15;
 
 	configuration.fixed_hard_multiplier = 1;
