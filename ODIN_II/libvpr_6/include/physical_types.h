@@ -361,7 +361,7 @@ typedef struct s_pb_type t_pb_type;
 */
 struct s_type_descriptor  /* TODO rename this.  maybe physical type descriptor or complex logic block or physical logic block*/
 {
-    const char *name;
+    char *name;
     int num_pins;
     int capacity;
 
