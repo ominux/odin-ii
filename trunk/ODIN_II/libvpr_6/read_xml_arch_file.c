@@ -1079,7 +1079,7 @@ ProcessModels(INOUTP ezxml_t Node, OUTP struct s_arch *arch)
 	child = ezxml_child(Node, "model");
 	while (child != NULL)
 	{
-		temp = (t_model*)malloc(sizeof(t_model));
+		temp = (t_model*)my_calloc(1, sizeof(t_model));
 		temp->used = 0;
 		temp->inputs = temp->outputs = temp->instances = NULL;
 		Prop = FindProperty(child, "name", TRUE);
@@ -1100,7 +1100,7 @@ ProcessModels(INOUTP ezxml_t Node, OUTP struct s_arch *arch)
 		{
 			while (p != NULL)
 			{
-				tp = (t_model_ports*)malloc(sizeof(t_model_ports));
+				tp = (t_model_ports*)my_calloc(1, sizeof(t_model_ports));
 				Prop = FindProperty(p, "name", TRUE);
 				tp->name = my_strdup(Prop);
 				ezxml_set_attr(p, "name", NULL);
@@ -1137,7 +1137,7 @@ ProcessModels(INOUTP ezxml_t Node, OUTP struct s_arch *arch)
 		{
 			while (p != NULL)
 			{
-				tp = (t_model_ports*)malloc(sizeof(t_model_ports));
+				tp = (t_model_ports*)my_calloc(1, sizeof(t_model_ports));
 				Prop = FindProperty(p, "name", TRUE);
 				tp->name = my_strdup(Prop);
 				ezxml_set_attr(p, "name", NULL);
@@ -2220,7 +2220,7 @@ static void CreateModelLibrary(OUTP struct s_arch *arch) {
 	model_library[0].inputs = NULL;
 	model_library[0].instances = NULL;
 	model_library[0].next = &model_library[1];
-	model_library[0].outputs = my_malloc(sizeof(t_model_ports));
+	model_library[0].outputs = my_calloc(1, sizeof(t_model_ports));
 	model_library[0].outputs->dir = OUT_PORT;
 	model_library[0].outputs->name = my_strdup("inpad");
 	model_library[0].outputs->next = NULL;
@@ -2231,7 +2231,7 @@ static void CreateModelLibrary(OUTP struct s_arch *arch) {
 
 	model_library[1].name = my_strdup("output");
 	model_library[1].index = 1;
-	model_library[1].inputs = my_malloc(sizeof(t_model_ports));
+	model_library[1].inputs = my_calloc(1, sizeof(t_model_ports));
 	model_library[1].inputs->dir = IN_PORT;
 	model_library[1].inputs->name = my_strdup("outpad");
 	model_library[1].inputs->next = NULL;
@@ -2245,7 +2245,7 @@ static void CreateModelLibrary(OUTP struct s_arch *arch) {
 
 	model_library[2].name = my_strdup("latch");
 	model_library[2].index = 2;
-	model_library[2].inputs = my_malloc(2 * sizeof(t_model_ports));
+	model_library[2].inputs = my_calloc(2, sizeof(t_model_ports));
 	model_library[2].inputs[0].dir = IN_PORT;
 	model_library[2].inputs[0].name = my_strdup("D");
 	model_library[2].inputs[0].next = &model_library[2].inputs[1];
@@ -2262,7 +2262,7 @@ static void CreateModelLibrary(OUTP struct s_arch *arch) {
 	model_library[2].inputs[1].is_clock = TRUE;	
 	model_library[2].instances = NULL;
 	model_library[2].next = &model_library[3];
-	model_library[2].outputs = my_malloc(sizeof(t_model_ports));
+	model_library[2].outputs = my_calloc(1, sizeof(t_model_ports));
 	model_library[2].outputs->dir = OUT_PORT;
 	model_library[2].outputs->name = my_strdup("Q");
 	model_library[2].outputs->next = NULL;
@@ -2273,7 +2273,7 @@ static void CreateModelLibrary(OUTP struct s_arch *arch) {
 
 	model_library[3].name = my_strdup("names");
 	model_library[3].index = 3;
-	model_library[3].inputs = my_malloc(sizeof(t_model_ports));
+	model_library[3].inputs = my_calloc(1, sizeof(t_model_ports));
 	model_library[3].inputs->dir = IN_PORT;
 	model_library[3].inputs->name = my_strdup("in");
 	model_library[3].inputs->next = NULL;
@@ -2283,7 +2283,7 @@ static void CreateModelLibrary(OUTP struct s_arch *arch) {
 	model_library[3].inputs->is_clock = FALSE;
 	model_library[3].instances = NULL;
 	model_library[3].next = NULL;
-	model_library[3].outputs = my_malloc(sizeof(t_model_ports));
+	model_library[3].outputs = my_calloc(1, sizeof(t_model_ports));
 	model_library[3].outputs->dir = OUT_PORT;
 	model_library[3].outputs->name = my_strdup("out");
 	model_library[3].outputs->next = NULL;

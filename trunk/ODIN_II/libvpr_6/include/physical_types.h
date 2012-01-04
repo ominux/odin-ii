@@ -166,6 +166,9 @@ struct s_pin_to_pin_annotation
 typedef struct s_pin_to_pin_annotation t_pin_to_pin_annotation;
 
 
+struct s_pb_graph_edge;
+
+
 /** Describes interconnect edge inside a cluster
  * type: type of the interconnect
  * input_string: input string verbatim to parse later
@@ -182,6 +185,9 @@ struct s_interconnect
 	t_pin_to_pin_annotation *annotations;	/* [0..num_annotations-1] */
 	int num_annotations;
 	int parent_mode_index;
+
+	struct s_pb_graph_edge *edges;
+	int num_edges;
 };
 typedef struct s_interconnect t_interconnect;
 
@@ -203,7 +209,6 @@ struct s_mode
 };
 typedef struct s_mode t_mode;
 
-struct s_pb_graph_edge;
 
 
 enum e_pb_graph_pin_type
