@@ -683,6 +683,7 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 			printf("[LINE %d] Unknown class %s in pb_type %s\n", Parent->line, class_name, pb_type->name);
 			exit(1);
 		}
+		free(class_name);
 	}
 	
 	if(mode == NULL) {
@@ -1351,7 +1352,7 @@ SetupEmptyType()
     type->Fc_in = 0;
     type->Fc_out = 0;
 	type->pb_type = NULL;
-	type->area = UNDEFINED; /* jedit check to make sure this is not being tabulated into total area */
+	type->area = UNDEFINED;
 	
 	/* Used as lost area filler, no definition */ 
 	type->grid_loc_def = NULL;
@@ -1425,6 +1426,7 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 	char *default_name;
 	t_port *in_port;
 	t_port *out_port;
+	int i, j;
 	
 	if(strcmp(lut_pb_type->name, "lut") != 0) {
 		default_name = my_strdup("lut");
@@ -1480,6 +1482,22 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 	lut_pb_type->modes[1].pb_type_children = my_calloc(1, sizeof(t_pb_type));
 	alloc_and_load_default_child_for_pb_type(lut_pb_type, default_name, lut_pb_type->modes[1].pb_type_children);
 	/* moved annotations to child so delete old annotations */
+	for(i = 0; i < lut_pb_type->num_annotations; i++) {
+		for(j = 0; j < lut_pb_type->annotations[i].num_value_prop_pairs; j++) {
+			free(lut_pb_type->annotations[i].value[j]);
+		}
+		free(lut_pb_type->annotations[i].value);
+		free(lut_pb_type->annotations[i].prop);
+		if(lut_pb_type->annotations[i].input_pins) {
+			free(lut_pb_type->annotations[i].input_pins);
+		}
+		if(lut_pb_type->annotations[i].output_pins) {
+			free(lut_pb_type->annotations[i].output_pins);
+		}
+		if(lut_pb_type->annotations[i].clock) {
+			free(lut_pb_type->annotations[i].clock);
+		}
+	}
 	lut_pb_type->num_annotations = 0;
 	free(lut_pb_type->annotations);
 	lut_pb_type->annotations = NULL;
