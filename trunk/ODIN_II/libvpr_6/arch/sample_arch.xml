@@ -141,59 +141,39 @@ Architecture based off Stratix IV
 
       <pb_type name="clb">
         <input name="I" num_pins="33" equivalent="true"/>
-        <output name="O" num_pins="20" equivalent="false"/>
+        <output name="O" num_pins="10" equivalent="false"/>
         <clock name="clk" num_pins="1"/>
 
         <!-- Describe basic logic element, Virtex V-like fracturable LUTs to more closely match ifar delay numbers -->
         <pb_type name="ble" num_pb="10">
           <input name="in" num_pins="6"/>
-             <output name="out" num_pins="2"/>
+             <output name="out" num_pins="1"/>
              <clock name="clk" num_pins="1"/>
              <pb_type name="soft_logic" num_pb="1">
                <input name="in" num_pins="6"/>
-               <output name="out" num_pins="2"/>
-            <mode name="n2_lut5">
-              <pb_type name="lut5" blif_model=".names" num_pb="2" class="lut">
-                <input name="in" num_pins="5" port_class="lut_in"/>
-                <output name="out" num_pins="1" port_class="lut_out"/>
-                <!-- LUT timing using delay matrix -->
-                <delay_matrix type="max" in_port="lut5.in" out_port="lut5.out">
-                  2.690e-10
-                  2.690e-10
-                  2.690e-10
-                  2.690e-10
-                  2.690e-10
-                </delay_matrix>
-              </pb_type>
-              <interconnect>
-                <direct name="direct1" input="soft_logic.in[4:0]" output="lut5[0:0].in[4:0]"/>
-                <direct name="direct2" input="lut5[0:0].out" output="soft_logic.out[0:0]"/>
-                <direct name="direct3" input="soft_logic.in[4:0]" output="lut5[1:1].in[4:0]"/>
-                <direct name="direct4" input="lut5[1:1].out" output="soft_logic.out[1:1]"/>
-              </interconnect>
-            </mode>
-            <mode name="n1_lut6">
-              <pb_type name="lut6" blif_model=".names" num_pb="1" class="lut">
-                <input name="in" num_pins="6" port_class="lut_in"/>
-                <output name="out" num_pins="1" port_class="lut_out"/>
+               <output name="out" num_pins="1"/>
+                <mode name="n1_lut6">
+                  <pb_type name="lut6" blif_model=".names" num_pb="1" class="lut">
+                    <input name="in" num_pins="6" port_class="lut_in"/>
+                    <output name="out" num_pins="1" port_class="lut_out"/>
 
-                <!-- LUT timing using delay matrix -->
-                <delay_matrix type="max" in_port="lut6.in" out_port="lut6.out">
-                  2.690e-10
-                  2.690e-10
-                  2.690e-10
-                  2.690e-10
-                  2.690e-10
-                  2.690e-10
-                </delay_matrix>
-              </pb_type>
-              <interconnect>
-                <direct name="direct1" input="soft_logic.in[5:0]" output="lut6[0:0].in[5:0]"/>
-                <direct name="direct2" input="lut6[0:0].out" output="soft_logic.out[0:0]"/>
-              </interconnect>
-            </mode>
+                    <!-- LUT timing using delay matrix -->
+                    <delay_matrix type="max" in_port="lut6.in" out_port="lut6.out">
+                      2.690e-10
+                      2.690e-10
+                      2.690e-10
+                      2.690e-10
+                      2.690e-10
+                      2.690e-10
+                    </delay_matrix>
+                  </pb_type>
+                  <interconnect>
+                    <direct name="direct1" input="soft_logic.in[5:0]" output="lut6[0:0].in[5:0]"/>
+                    <direct name="direct2" input="lut6[0:0].out" output="soft_logic.out[0:0]"/>
+                  </interconnect>
+                </mode>
              </pb_type>
-          <pb_type name="ff" blif_model=".latch" num_pb="2" class="flipflop">
+          <pb_type name="ff" blif_model=".latch" num_pb="1" class="flipflop">
             <input name="D" num_pins="1" port_class="D"/>
             <output name="Q" num_pins="1" port_class="Q"/>
             <clock name="clk" num_pins="1" port_class="clock"/>
@@ -203,12 +183,9 @@ Architecture based off Stratix IV
           <interconnect>
             <!-- Two ff, make ff available to only corresponding luts -->
             <direct name="direct1" input="ble.in" output="soft_logic.in"/>
-            <direct name="direct2" input="soft_logic.out[0:0]" output="ff[0:0].D"/>
-            <direct name="direct3" input="soft_logic.out[1:1]" output="ff[1:1].D"/>
-            <direct name="direct4" input="ble.clk" output="ff[0:0].clk"/>
-            <direct name="direct5" input="ble.clk" output="ff[1:1].clk"/>
-            <mux name="mux1" input="ff[0:0].Q soft_logic.out[0:0]" output="ble.out[0:0]"/>
-            <mux name="mux2" input="ff[1:1].Q soft_logic.out[1:1]" output="ble.out[1:1]"/>
+            <direct name="direct2" input="soft_logic.out" output="ff.D"/>
+            <direct name="direct4" input="ble.clk" output="ff.clk"/>
+            <mux name="mux1" input="ff.Q soft_logic.out" output="ble.out"/>
            </interconnect>
         </pb_type>
         <interconnect>
