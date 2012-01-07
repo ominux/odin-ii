@@ -185,9 +185,6 @@ struct s_interconnect
 	t_pin_to_pin_annotation *annotations;	/* [0..num_annotations-1] */
 	int num_annotations;
 	int parent_mode_index;
-
-	struct s_pb_graph_edge *edges;
-	int num_edges;
 };
 typedef struct s_interconnect t_interconnect;
 
