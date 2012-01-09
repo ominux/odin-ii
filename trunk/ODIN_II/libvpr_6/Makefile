@@ -10,7 +10,8 @@ LIB_FLAGS = rcs
 
 EXE = read_arch
 
-FLAGS = $(DEBUG_FLAGS) $(WARN_FLAGS) $(INC_FLAGS)
+FLAGS = $(OPT_FLAGS) $(WARN_FLAGS) $(INC_FLAGS)
+#FLAGS = $(DEBUG_FLAGS) $(WARN_FLAGS) $(INC_FLAGS)
 FLAGS += -MD -MP
 
 OBJS = read_xml_arch_file.o read_xml_util.o ezxml.o ReadLine.o util.o 
