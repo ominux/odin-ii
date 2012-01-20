@@ -172,7 +172,7 @@
           <clock name="clk" num_pins="1"/>
 
           <mode name="mem_1024x32_sp">
-            <pb_type name="mem_1024x32_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1" area="1000">
+            <pb_type name="mem_1024x32_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1">
               <input name="addr" num_pins="10" port_class="address"/>
               <input name="data" num_pins="32" port_class="data_in"/>
               <input name="we" num_pins="1" port_class="write_en"/>
@@ -193,7 +193,7 @@
             </interconnect>
           </mode>
           <mode name="mem_2048x16_dp">
-            <pb_type name="mem_2048x16_dp" blif_model=".subckt dual_port_ram" class="memory" num_pb="1" area="1000">
+            <pb_type name="mem_2048x16_dp" blif_model=".subckt dual_port_ram" class="memory" num_pb="1">
               <input name="addr1" num_pins="11" port_class="address1"/>
               <input name="addr2" num_pins="11" port_class="address2"/>
               <input name="data1" num_pins="16" port_class="data_in1"/>
@@ -227,7 +227,7 @@
           </mode>
 
           <mode name="mem_2048x16_sp">
-            <pb_type name="mem_2048x16_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1" area="1000">
+            <pb_type name="mem_2048x16_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1">
               <input name="addr" num_pins="11" port_class="address"/>
               <input name="data" num_pins="16" port_class="data_in"/>
               <input name="we" num_pins="1" port_class="write_en"/>
@@ -248,7 +248,7 @@
             </interconnect>
           </mode>
           <mode name="mem_4096x8_dp">
-            <pb_type name="mem_4096x8_dp" blif_model=".subckt dual_port_ram" class="memory" num_pb="1" area="1000">
+            <pb_type name="mem_4096x8_dp" blif_model=".subckt dual_port_ram" class="memory" num_pb="1">
               <input name="addr1" num_pins="12" port_class="address1"/>
               <input name="addr2" num_pins="12" port_class="address2"/>
               <input name="data1" num_pins="8" port_class="data_in1"/>
@@ -282,7 +282,7 @@
           </mode>
 
           <mode name="mem_4096x8_sp">
-            <pb_type name="mem_4096x8_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1" area="1000">
+            <pb_type name="mem_4096x8_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1">
               <input name="addr" num_pins="12" port_class="address"/>
               <input name="data" num_pins="8" port_class="data_in"/>
               <input name="we" num_pins="1" port_class="write_en"/>
@@ -303,7 +303,7 @@
             </interconnect>
           </mode>
           <mode name="mem_8192x4_dp">
-            <pb_type name="mem_8192x4_dp" blif_model=".subckt dual_port_ram" class="memory" num_pb="1" area="1000">
+            <pb_type name="mem_8192x4_dp" blif_model=".subckt dual_port_ram" class="memory" num_pb="1">
               <input name="addr1" num_pins="13" port_class="address1"/>
               <input name="addr2" num_pins="13" port_class="address2"/>
               <input name="data1" num_pins="4" port_class="data_in1"/>
@@ -337,7 +337,7 @@
           </mode>
 
           <mode name="mem_8192x4_sp">
-            <pb_type name="mem_8192x4_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1" area="1000">
+            <pb_type name="mem_8192x4_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1">
               <input name="addr" num_pins="13" port_class="address"/>
               <input name="data" num_pins="4" port_class="data_in"/>
               <input name="we" num_pins="1" port_class="write_en"/>
@@ -358,7 +358,7 @@
             </interconnect>
           </mode>
           <mode name="mem_16384x2_dp">
-            <pb_type name="mem_16384x2_dp" blif_model=".subckt dual_port_ram" class="memory" num_pb="1" area="1000">
+            <pb_type name="mem_16384x2_dp" blif_model=".subckt dual_port_ram" class="memory" num_pb="1">
               <input name="addr1" num_pins="14" port_class="address1"/>
               <input name="addr2" num_pins="14" port_class="address2"/>
               <input name="data1" num_pins="2" port_class="data_in1"/>
@@ -392,7 +392,7 @@
           </mode>
 
           <mode name="mem_16384x2_sp">
-            <pb_type name="mem_16384x2_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1" area="1000">
+            <pb_type name="mem_16384x2_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1">
               <input name="addr" num_pins="14" port_class="address"/>
               <input name="data" num_pins="2" port_class="data_in"/>
               <input name="we" num_pins="1" port_class="write_en"/>
@@ -413,7 +413,7 @@
             </interconnect>
           </mode>
           <mode name="mem_32768x1_dp">
-            <pb_type name="mem_32768x1_dp" blif_model=".subckt dual_port_ram" class="memory" num_pb="1" area="1000">
+            <pb_type name="mem_32768x1_dp" blif_model=".subckt dual_port_ram" class="memory" num_pb="1">
               <input name="addr1" num_pins="15" port_class="address1"/>
               <input name="addr2" num_pins="15" port_class="address2"/>
               <input name="data1" num_pins="1" port_class="data_in1"/>
@@ -447,7 +447,7 @@
           </mode>
 
           <mode name="mem_32768x1_sp">
-            <pb_type name="mem_32768x1_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1" area="1000">
+            <pb_type name="mem_32768x1_sp" blif_model=".subckt single_port_ram" class="memory" num_pb="1">
               <input name="addr" num_pins="15" port_class="address"/>
               <input name="data" num_pins="1" port_class="data_in"/>
               <input name="we" num_pins="1" port_class="write_en"/>
@@ -496,7 +496,7 @@
                   <input name="B_cfg" num_pins="9"/>
                   <output name="OUT_cfg" num_pins="18"/>
 
-                  <pb_type name="mult_9x9" blif_model=".subckt multiply" num_pb="1" area="300">
+                  <pb_type name="mult_9x9" blif_model=".subckt multiply" num_pb="1">
                     <input name="a" num_pins="9"/>
                     <input name="b" num_pins="9"/>
                     <output name="out" num_pins="18"/>
@@ -541,7 +541,7 @@
                   <input name="B_cfg" num_pins="18"/>
                   <output name="OUT_cfg" num_pins="36"/>
 
-                  <pb_type name="mult_18x18" blif_model=".subckt multiply" num_pb="1"  area="1000">
+                  <pb_type name="mult_18x18" blif_model=".subckt multiply" num_pb="1" >
                     <input name="a" num_pins="18"/>
                     <input name="b" num_pins="18"/>
                     <output name="out" num_pins="36"/>
@@ -602,7 +602,7 @@
               <input name="B_cfg" num_pins="36"/>
               <output name="OUT_cfg" num_pins="72"/>
 
-              <pb_type name="mult_36x36" blif_model=".subckt multiply" num_pb="1" area="4000">
+              <pb_type name="mult_36x36" blif_model=".subckt multiply" num_pb="1">
                 <input name="a" num_pins="36"/>
                 <input name="b" num_pins="36"/>
                 <output name="out" num_pins="72"/>
