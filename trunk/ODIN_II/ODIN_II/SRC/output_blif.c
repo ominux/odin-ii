@@ -437,8 +437,9 @@ void define_logical_function(nnode_t *node, short type, FILE *out)
 			else
 			{
 				int line_number = node->related_ast_node?node->related_ast_node->line_number:0;
+				warning_message(NETLIST_ERROR, line_number, -1, "Net %s driving node %s is itself undriven.", net->name, node->name);
 
-				error_message(NETLIST_ERROR, line_number, -1, "Net %s driving node %s is itself undriven.", net->name, node->name);
+				fprintf(out, " %s", "unconn");
 			}
 		}
 		/* now print the output */
@@ -689,25 +690,31 @@ void define_decoded_mux(nnode_t *node, FILE *out)
 		{
 			/* now hookup the input wires with their respective ports.  [1+i] to skip output spot. */
 			/* Just print the driver_pin->name NOT driver_pin->node->name -- KEN */
-			if (node->input_pins[i]->net->driver_pin == NULL)
+			nnet_t *net = node->input_pins[i]->net;
+			if (!net->driver_pin)
 			{
-				fprintf(out, " %s", node->input_pins[i]->name);
+				// Add a warning for an undriven net.
+				int line_number = node->related_ast_node?node->related_ast_node->line_number:0;
+				warning_message(NETLIST_ERROR, line_number, -1, "Net %s driving node %s is itself undriven.", net->name, node->name);
+
+				fprintf(out, " %s", "unconn");
 			}
 			else
 			{
-				if ((node->input_pins[i]->net->driver_pin->node->type == MULTIPLY) ||
-				    (node->input_pins[i]->net->driver_pin->node->type == HARD_IP) ||
-				    (node->input_pins[i]->net->driver_pin->node->type == MEMORY))
+				if ((net->driver_pin->node->type == MULTIPLY) ||
+				    (net->driver_pin->node->type == HARD_IP) ||
+				    (net->driver_pin->node->type == MEMORY))
 				{
-					fprintf(out, " %s", node->input_pins[i]->net->driver_pin->name); 
+					fprintf(out, " %s", net->driver_pin->name);
 				}
 				else
 				{
-					fprintf(out, " %s", node->input_pins[i]->net->driver_pin->node->name); 
+					fprintf(out, " %s", net->driver_pin->node->name);
 				}
 			}
 		}
-		/* now print the output */
+
+		// Now print the output
 		fprintf(out, " %s", node->name);
 	}
 	fprintf(out, "\n");
