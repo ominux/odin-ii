@@ -1,7 +1,7 @@
 #!/bin/bash 
 
 TEST_DIR="REGRESSION_TESTS/BENCHMARKS/MICROBENCHMARKS"
-ARCH="$TEST_DIR/k4_N10_memSize32768_memData32.xml"
+ARCH="../libvpr_6/arch/sample_arch.xml"
 
 for benchmark in $TEST_DIR/*.v
 do 
