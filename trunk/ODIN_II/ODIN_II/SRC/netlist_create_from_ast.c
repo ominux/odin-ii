@@ -313,11 +313,11 @@ ast_node_t *find_top_module()
 		{
 			/* Check to see if the module is a hard block - a hard block is 
 				never the top level! */
-#ifdef VPR6
+			#ifdef VPR6
 			if ((sc_spot = sc_lookup_string(hard_block_names, ast_modules[i]->types.module.module_instantiations_instance[j]->children[0]->types.identifier)) == -1)
-#endif
+			#endif
 			{
-				/* get the module index from the string cache */
+				// get the module index from the string cache
 				if ((sc_spot = sc_lookup_string(module_names_to_idx, 
 								ast_modules[i]->types.module.module_instantiations_instance[j]->children[0]->types.identifier)) == -1)
 				{
@@ -646,7 +646,7 @@ signal_list_t *netlist_expand_ast_of_module(ast_node_t* node, char *instance_nam
 			case RAM: 
 				connect_memory_and_alias(node, instance_name_prefix);
 				break;
-			case HARD_BLOCK: 
+			case HARD_BLOCK:
 				connect_hard_block_and_alias(node, instance_name_prefix);
 				break;
 			#endif
@@ -1248,31 +1248,26 @@ void create_symbol_table_for_module(ast_node_t* module_items, char *module_name)
  *-------------------------------------------------------------------------*/
 void connect_memory_and_alias(ast_node_t* hb_instance, char *instance_name_prefix)
 {
-	t_model *hb_model;
 	ast_node_t *hb_connect_list;
 	int i, j;
 	long sc_spot_output;
 	long sc_spot_input_new, sc_spot_input_old;
-
-	/* See if the hard block declared is supported by FPGA architecture */
-	hb_model = find_hard_block(hb_instance->children[0]->types.identifier);
-	if (hb_model == NULL)
-	{
-		printf("Found Hard Block %s: Not supported by FPGA Architecture\n", hb_instance->children[0]->types.identifier);
-		oassert(FALSE);
-	}
 
 	/* Note: Hard Block port matching is checked in earlier node processing */
 	hb_connect_list = hb_instance->children[1]->children[1];
 	for (i = 0; i < hb_connect_list->num_children; i++)
 	{
 		int port_size;
-		enum PORTS port_dir;
+
 		ast_node_t *hb_var_node = hb_connect_list->children[i]->children[0];
 		ast_node_t *hb_instance_var_node = hb_connect_list->children[i]->children[1];
+		char *ip_name = hb_var_node->types.identifier;
+
+
 
 		/* We can ignore inputs since they are already resolved */
-		port_dir = hard_block_port_direction(hb_model, hb_var_node->types.identifier);
+		enum PORTS port_dir = (!strcmp(ip_name, "out") || !strcmp(ip_name, "out1") || !strcmp(ip_name, "out2"))
+				?OUT_PORT:IN_PORT;
 		if ((port_dir == OUT_PORT) || (port_dir == INOUT_PORT))
 		{
 			char *name_of_hb_input;
@@ -1397,11 +1392,11 @@ void connect_hard_block_and_alias(ast_node_t* hb_instance, char *instance_name_p
 	long sc_spot_input_new, sc_spot_input_old;
 
 	/* See if the hard block declared is supported by FPGA architecture */
-	hb_model = find_hard_block(hb_instance->children[0]->types.identifier);
-	if (hb_model == NULL)
+	char *identifier = hb_instance->children[0]->types.identifier;
+	hb_model = find_hard_block(identifier);
+	if (!hb_model)
 	{
-		printf("Found Hard Block %s: Not supported by FPGA Architecture\n", hb_instance->children[0]->types.identifier);
-		oassert(FALSE);
+		error_message(NETLIST_ERROR, hb_instance->line_number, hb_instance->file_number, "Found Hard Block \"%s\": Not supported by FPGA Architecture\n", identifier);
 	}
 
 	/* Note: Hard Block port matching is checked in earlier node processing */
@@ -3118,32 +3113,17 @@ void pad_with_zeros(ast_node_t* node, signal_list_t *list, int pad_size, char *i
  *------------------------------------------------------------------------*/
 signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name_prefix, t_model* hb_model)
 {
-	signal_list_t **in_list, *return_list;
-	nnode_t *block_node;
+	if (!hb_model || strcmp(hb_model->name, "dual_port_ram"))
+		error_message(NETLIST_ERROR, block->line_number, block->file_number, "Error in creating dual port ram\n");
+
+	block->type = RAM;
+
 	ast_node_t *block_instance = block->children[1];
 	ast_node_t *block_list = block_instance->children[1];
 	ast_node_t *block_connect;
-	char *ip_name;
-	t_model_ports *hb_ports;
-	int i, j, current_idx, current_out_idx;
-	int out_port_size1, out_port_size2;
-
-	out_port_size1 = 0;
-	out_port_size2 = 0;
-	if ((hb_model == NULL) || (strcmp(hb_model->name, "dual_port_ram") != 0))
-	{
-		printf("Error in creating dual port ram\n");
-		oassert(FALSE);
-	}
-
-	// EDDIE: Uses new enum in ids: RAM (opposed to MEMORY from operation_t previously)
-	block->type = RAM;
-	return_list = init_signal_list_structure();
-	current_idx = 0;
-	current_out_idx = 0;
 
 	/* create the node */
-	block_node = allocate_nnode();
+	nnode_t *block_node = allocate_nnode();
 	/* store all of the relevant info */
 	block_node->related_ast_node = block;
 	block_node->type = HARD_IP;
@@ -3153,35 +3133,35 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 	hb_model->used = 1;
 
 	/* Need to do a sanity check to make sure ports line up */
+	t_model_ports *hb_ports;
+	int i;
 	for (i = 0; i < block_list->num_children; i++)
 	{
 		block_connect = block_list->children[i];
-		ip_name = block_connect->children[0]->types.identifier;
+		char *ip_name = block_connect->children[0]->types.identifier;
 		hb_ports = hb_model->inputs;
-		while ((hb_ports != NULL) && (strcmp(hb_ports->name, ip_name) != 0))
+
+		while (hb_ports && strcmp(hb_ports->name, ip_name))
 			hb_ports = hb_ports->next;
-		if (hb_ports == NULL)
+
+		if (!hb_ports)
 		{
 			hb_ports = hb_model->outputs;
 			while ((hb_ports != NULL) && (strcmp(hb_ports->name, ip_name) != 0))
 				hb_ports = hb_ports->next;
 		}
 
-		if (hb_ports == NULL)
-		{
-			printf("Non-existant port %s in hard block %s\n", ip_name, block->children[0]->types.identifier);
-			block_connect->children[1]->hb_port = NULL;
-			oassert(FALSE);
-		}
+		if (!hb_ports)
+			error_message(NETLIST_ERROR, block->line_number, block->file_number, "Non-existant port %s in hard block %s\n", ip_name, block->children[0]->types.identifier);
 
 		/* Link the signal to the port definition */
 		block_connect->children[1]->hb_port = (void *)hb_ports;
 	}
 
-
-
-
-	in_list = (signal_list_t **)malloc(sizeof(signal_list_t *)*block_list->num_children);
+	signal_list_t **in_list = (signal_list_t **)malloc(sizeof(signal_list_t *)*block_list->num_children);
+	int out_port_size1 = 0;
+	int out_port_size2 = 0;
+	int current_idx = 0;
 	for (i = 0; i < block_list->num_children; i++)
 	{
 		int port_size;
@@ -3191,7 +3171,7 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 		block_connect = block_list->children[i]->children[0];
 		block_port_connect = block_list->children[i]->children[1];
 		hb_ports = (t_model_ports *)block_list->children[i]->children[1]->hb_port;
-		ip_name = block_connect->types.identifier;
+		char *ip_name = block_connect->types.identifier;
 
 		if (hb_ports->dir == IN_PORT)
 		{
@@ -3210,6 +3190,7 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 				if (port_size < hb_ports->size)
 					min_size = hb_ports->size - port_size;
 
+			int j;
 			for (j = 0; j < port_size; j++)
 				in_list[i]->signal_list[j]->mapping = ip_name;
 
@@ -3231,13 +3212,17 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 	if (out_port_size2 != 0)
 		oassert(out_port_size2 == out_port_size1);
 
+	int current_out_idx = 0;
+	signal_list_t *return_list = init_signal_list_structure();
 	for (i = 0; i < block_list->num_children; i++)
 	{
-		int out_port_size;
+
 
 		block_connect = block_list->children[i]->children[0];
 		hb_ports = (t_model_ports *)block_list->children[i]->children[1]->hb_port;
-		ip_name = block_connect->types.identifier;
+		char *ip_name = block_connect->types.identifier;
+
+		int out_port_size;
 		if (strcmp(hb_ports->name, "out1") == 0)
 			out_port_size = out_port_size1;
 		else
@@ -3245,54 +3230,38 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 
 		if (hb_ports->dir != IN_PORT)
 		{
-			char *alias_name;
-			t_memory_port_sizes *ps;
-
 			allocate_more_node_output_pins(block_node, out_port_size);
 			add_output_port_information(block_node, out_port_size);
 
-			alias_name = make_full_ref_name(
+			char *alias_name = make_full_ref_name(
 					instance_name_prefix,
 					block->children[0]->types.identifier,
 					block->children[1]->children[0]->types.identifier,
-					block_connect->types.identifier, -1);
-			ps = (t_memory_port_sizes *)malloc(sizeof(t_memory_port_sizes));
+					ip_name, -1);
+
+			t_memory_port_sizes *ps = (t_memory_port_sizes *)malloc(sizeof(t_memory_port_sizes));
 			ps->size = out_port_size;
 			ps->name = alias_name;
 			memory_port_size_list = insert_in_vptr_list(memory_port_size_list, ps);
 
 			/* make the implicit output list and hook up the outputs */
+			int j;
 			for (j = 0; j < out_port_size; j++)
 			{
-				npin_t *new_pin1;
-				npin_t *new_pin2;
-				nnet_t *new_net;
-				char *pin_name;
-				long sc_spot;
+				char *pin_name = make_full_ref_name(
+						instance_name_prefix,
+						block->children[0]->types.identifier,
+						block->children[1]->children[0]->types.identifier,
+						ip_name,
+						(out_port_size > 1) ? j : -1
+				);
 
-				if (out_port_size > 1)
-					pin_name = make_full_ref_name(
-							instance_name_prefix,
-							block->children[0]->types.identifier,
-							block->children[1]->children[0]->types.identifier,
-							block_connect->types.identifier,
-							j
-					);
 
-				else
-					pin_name = make_full_ref_name(
-							instance_name_prefix,
-							block->children[0]->types.identifier,
-							block->children[1]->children[0]->types.identifier,
-							block_connect->types.identifier,
-							-1
-					);
-
-				new_pin1 = allocate_npin();
+				npin_t *new_pin1 = allocate_npin();
 				new_pin1->mapping = make_signal_name(hb_ports->name, -1);
 				new_pin1->name = pin_name;
-				new_pin2 = allocate_npin();
-				new_net = allocate_nnet();
+				npin_t *new_pin2 = allocate_npin();
+				nnet_t *new_net = allocate_nnet();
 				new_net->name = hb_ports->name;
 				/* hook the output pin into the node */
 				add_a_output_pin_to_node_spot_idx(block_node, new_pin1, current_out_idx + j);
@@ -3305,7 +3274,7 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 				add_pin_to_signal_list(return_list, new_pin2);
 
 				/* add the net to the list of inputs */
-				sc_spot = sc_add_string(input_nets_sc, pin_name);
+				long sc_spot = sc_add_string(input_nets_sc, pin_name);
 				input_nets_sc->data[sc_spot] = (void*)new_net;
 			}
 			current_out_idx += j;
@@ -3313,9 +3282,7 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
 	}
 
 	for (i = 0; i < block_list->num_children; i++)
-	{
 		clean_signal_list_structure(in_list[i]);
-	}
 
 	dp_memory_list = insert_in_vptr_list(dp_memory_list, block_node);
 	block_node->type = MEMORY;
@@ -3330,33 +3297,21 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
  *------------------------------------------------------------------------*/
 signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_name_prefix, t_model* hb_model)
 {
-	signal_list_t **in_list, *return_list;
-	nnode_t *block_node;
-	ast_node_t *block_instance = block->children[1];
-	ast_node_t *block_list = block_instance->children[1];
-	ast_node_t *block_connect;
-	char *ip_name = NULL;
-	t_model_ports *hb_ports;
-	int i, j, current_idx, current_out_idx;
-	int out_port_size = 0;
-
-	if ((hb_model == NULL) || (strcmp(hb_model->name, "single_port_ram") != 0))
-	{
-		printf("Error in creating single port ram\n");
-		oassert(FALSE);
-	}
+	if (!hb_model || strcmp(hb_model->name, "single_port_ram"))
+		error_message(NETLIST_ERROR, block->line_number, block->file_number, "Error in creating single port ram\n");
 
 	// EDDIE: Uses new enum in ids: RAM (opposed to MEMORY from operation_t previously)
 	block->type = RAM;
-	return_list = init_signal_list_structure();
-	current_idx = 0;
-	current_out_idx = 0;
+	signal_list_t *return_list = init_signal_list_structure();
+	int current_idx = 0;
 
 	/* create the node */
-	block_node = allocate_nnode();
+	nnode_t *block_node = allocate_nnode();
 	/* store all of the relevant info */
 	block_node->related_ast_node = block;
 	block_node->type = HARD_IP;
+	ast_node_t *block_instance = block->children[1];
+	ast_node_t *block_list = block_instance->children[1];
 	block_node->name = hard_node_name(block_node,
 			instance_name_prefix,
 			block->children[0]->types.identifier,
@@ -3367,26 +3322,28 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
 	hb_model->used = 1;
 
 	/* Need to do a sanity check to make sure ports line up */
+	ast_node_t *block_connect;
+	char *ip_name = NULL;
+	int i;
+	t_model_ports *hb_ports;
 	for (i = 0; i < block_list->num_children; i++)
 	{
 		block_connect = block_list->children[i];
 		ip_name = block_connect->children[0]->types.identifier;
 		hb_ports = hb_model->inputs;
-		while ((hb_ports != NULL) && (strcmp(hb_ports->name, ip_name) != 0))
+
+		while (hb_ports && strcmp(hb_ports->name, ip_name))
 			hb_ports = hb_ports->next;
-		if (hb_ports == NULL)
+
+		if (!hb_ports)
 		{
 			hb_ports = hb_model->outputs;
-			while ((hb_ports != NULL) && (strcmp(hb_ports->name, ip_name) != 0))
+			while (hb_ports && strcmp(hb_ports->name, ip_name))
 				hb_ports = hb_ports->next;
 		}
 
-		if (hb_ports == NULL)
-		{
-			printf("Non-existant port %s in hard block %s\n", ip_name, block->children[0]->types.identifier);
-			block_connect->children[1]->hb_port = NULL;
-			oassert(FALSE);
-		}
+		if (!hb_ports)
+			error_message(NETLIST_ERROR, block->line_number, block->file_number, "Non-existant port %s in hard block %s\n", ip_name, block->children[0]->types.identifier);
 
 		/* Link the signal to the port definition */
 		block_connect->children[1]->hb_port = (void *)hb_ports;
@@ -3395,24 +3352,24 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
 	/* Need to make sure ALL ports are defined */
 	hb_ports = hb_model->inputs;
 	i = 0;
-	while (hb_ports != NULL)
+	while (hb_ports)
 	{
 		i++;
 		hb_ports = hb_ports->next;
-	}
-	hb_ports = hb_model->outputs;
-	while (hb_ports != NULL)
-	{
-		i++;
-		hb_ports = hb_ports->next;
-	}
-	if (i != block_list->num_children)
-	{
-		printf("Not all ports defined in hard block %s\n", ip_name);
-		oassert(FALSE);
 	}
 
-	in_list = (signal_list_t **)malloc(sizeof(signal_list_t *)*block_list->num_children);
+	hb_ports = hb_model->outputs;
+	while (hb_ports)
+	{
+		i++;
+		hb_ports = hb_ports->next;
+	}
+
+	if (i != block_list->num_children)
+		error_message(NETLIST_ERROR, block->line_number, block->file_number, "Not all ports defined in hard block %s\n", ip_name);
+
+	signal_list_t **in_list = (signal_list_t **)malloc(sizeof(signal_list_t *)*block_list->num_children);
+	int out_port_size = 0;
 	for (i = 0; i < block_list->num_children; i++)
 	{
 		int port_size;
@@ -3422,7 +3379,7 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
 		block_connect = block_list->children[i]->children[0];
 		block_port_connect = block_list->children[i]->children[1];
 		hb_ports = (t_model_ports *)block_list->children[i]->children[1]->hb_port;
-		ip_name = block_connect->types.identifier;
+		char *ip_name = block_connect->types.identifier;
 
 		if (hb_ports->dir == IN_PORT)
 		{
@@ -3438,6 +3395,7 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
 				if (port_size < hb_ports->size)
 					min_size = hb_ports->size - port_size;
 
+			int j;
 			for (j = 0; j < port_size; j++)
 				in_list[i]->signal_list[j]->mapping = ip_name;
 
@@ -3456,59 +3414,46 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
 		}
 	}
 
+	int current_out_idx = 0;
 	for (i = 0; i < block_list->num_children; i++)
 	{
 		block_connect = block_list->children[i]->children[0];
 		hb_ports = (t_model_ports *)block_list->children[i]->children[1]->hb_port;
-		ip_name = block_connect->types.identifier;
+		char *ip_name = block_connect->types.identifier;
 
 		if (hb_ports->dir != IN_PORT)
 		{
-			char *alias_name;
-			t_memory_port_sizes *ps;
-
 			allocate_more_node_output_pins(block_node, out_port_size);
 			add_output_port_information(block_node, out_port_size);
 
-			alias_name = make_full_ref_name(
+			char *alias_name = make_full_ref_name(
 					instance_name_prefix,
 					block->children[0]->types.identifier,
 					block->children[1]->children[0]->types.identifier,
-					block_connect->types.identifier, -1
+					ip_name, -1
 			);
-			ps = (t_memory_port_sizes *)malloc(sizeof(t_memory_port_sizes));
+			t_memory_port_sizes *ps = (t_memory_port_sizes *)malloc(sizeof(t_memory_port_sizes));
 			ps->size = out_port_size;
 			ps->name = alias_name;
 			memory_port_size_list = insert_in_vptr_list(memory_port_size_list, ps);
 
 			/* make the implicit output list and hook up the outputs */
+			int j;
 			for (j = 0; j < out_port_size; j++)
 			{
-				npin_t *new_pin1;
-				npin_t *new_pin2;
-				nnet_t *new_net;
-				char *pin_name;
-				long sc_spot;
+				char *pin_name = make_full_ref_name(instance_name_prefix,
+					block->children[0]->types.identifier,
+					block->children[1]->children[0]->types.identifier,
+					ip_name,
+					(out_port_size > 1) ? j : -1
+				);
 
-				if (out_port_size > 1)
-					pin_name = make_full_ref_name(instance_name_prefix,
-							block->children[0]->types.identifier,
-							block->children[1]->children[0]->types.identifier,
-							block_connect->types.identifier, j
-					);
-				else
-					pin_name = make_full_ref_name(
-							instance_name_prefix,
-							block->children[0]->types.identifier,
-							block->children[1]->children[0]->types.identifier,
-							block_connect->types.identifier, -1
-					);
-
-				new_pin1 = allocate_npin();
+				npin_t *new_pin1 = allocate_npin();
 				new_pin1->mapping = make_signal_name(hb_ports->name, -1);
 				new_pin1->name = pin_name;
-				new_pin2 = allocate_npin();
-				new_net = allocate_nnet();
+				npin_t *new_pin2 = allocate_npin();
+
+				nnet_t *new_net = allocate_nnet();
 				new_net->name = hb_ports->name;
 				/* hook the output pin into the node */
 				add_a_output_pin_to_node_spot_idx(block_node, new_pin1, current_out_idx + j);
@@ -3521,7 +3466,7 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
 				add_pin_to_signal_list(return_list, new_pin2);
 
 				/* add the net to the list of inputs */
-				sc_spot = sc_add_string(input_nets_sc, pin_name);
+				long sc_spot = sc_add_string(input_nets_sc, pin_name);
 				input_nets_sc->data[sc_spot] = (void*)new_net;
 			}
 			current_out_idx += j;
@@ -3536,6 +3481,313 @@ signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_na
 	sp_memory_list = insert_in_vptr_list(sp_memory_list, block_node);
 	block_node->type = MEMORY;
 	block->net_node = block_node;
+
+	return return_list;
+}
+
+/*
+ * Creates an architecture independent memory block which will be mapped
+ * to soft logic during the partial map.
+ */
+signal_list_t *create_soft_single_port_ram_block(ast_node_t* block, char *instance_name_prefix)
+{
+	char *identifier = block->children[0]->types.identifier;
+
+	if (strcmp(identifier, "single_port_ram"))
+		error_message(NETLIST_ERROR, block->line_number, block->file_number, "Error in creating soft single port ram\n");
+
+	block->type = RAM;
+
+	// create the node
+	nnode_t *block_node = allocate_nnode();
+	// store all of the relevant info
+	block_node->related_ast_node = block;
+	block_node->type = HARD_IP;
+	ast_node_t *block_instance = block->children[1];
+	ast_node_t *block_list = block_instance->children[1];
+	block_node->name = hard_node_name(block_node,
+			instance_name_prefix,
+			identifier,
+			block_instance->children[0]->types.identifier
+	);
+
+	int i;
+	signal_list_t **in_list = (signal_list_t **)malloc(sizeof(signal_list_t *)*block_list->num_children);
+	int out_port_size = 0;
+	int current_idx = 0;
+	for (i = 0; i < block_list->num_children; i++)
+	{
+		in_list[i] = NULL;
+		ast_node_t *block_connect = block_list->children[i]->children[0];
+		ast_node_t *block_port_connect = block_list->children[i]->children[1];
+
+		char *ip_name = block_connect->types.identifier;
+
+		if (strcmp(ip_name, "out"))
+		{
+			// Create the pins for port if needed
+			in_list[i] = create_pins(block_port_connect, NULL, instance_name_prefix);
+			int port_size = in_list[i]->signal_list_size;
+			if (!strcmp(ip_name, "data"))
+				out_port_size = port_size;
+
+			int j;
+			for (j = 0; j < port_size; j++)
+				in_list[i]->signal_list[j]->mapping = ip_name;
+
+			// allocate the pins needed
+			allocate_more_node_input_pins(block_node, port_size);
+
+			// record this port size
+			add_input_port_information(block_node, port_size);
+
+			// hookup the input pins
+			hookup_hb_input_pins_from_signal_list(block_node, current_idx, in_list[i], 0, port_size, verilog_netlist);
+
+			// Name any grounded ports in the block mapping
+			for (j = port_size; j < port_size; j++)
+				block_node->input_pins[current_idx+j]->mapping = strdup(ip_name);
+			current_idx += port_size;
+		}
+	}
+
+	int current_out_idx = 0;
+	signal_list_t *return_list = init_signal_list_structure();
+	for (i = 0; i < block_list->num_children; i++)
+	{
+		ast_node_t *block_connect = block_list->children[i]->children[0];
+		char *ip_name = block_connect->types.identifier;
+
+		if (!strcmp(ip_name, "out"))
+		{
+			allocate_more_node_output_pins(block_node, out_port_size);
+			add_output_port_information(block_node, out_port_size);
+
+			char *alias_name = make_full_ref_name(
+					instance_name_prefix,
+					identifier,
+					block->children[1]->children[0]->types.identifier,
+					block_connect->types.identifier, -1
+			);
+			t_memory_port_sizes *ps = (t_memory_port_sizes *)malloc(sizeof(t_memory_port_sizes));
+			ps->size = out_port_size;
+			ps->name = alias_name;
+			memory_port_size_list = insert_in_vptr_list(memory_port_size_list, ps);
+
+			// make the implicit output list and hook up the outputs
+			int j;
+			for (j = 0; j < out_port_size; j++)
+			{
+				char *pin_name;
+				if (out_port_size > 1)
+				{
+					pin_name = make_full_ref_name(instance_name_prefix,
+							identifier,
+							block->children[1]->children[0]->types.identifier,
+							block_connect->types.identifier, j
+					);
+				}
+				else
+				{
+					pin_name = make_full_ref_name(
+							instance_name_prefix,
+							identifier,
+							block->children[1]->children[0]->types.identifier,
+							block_connect->types.identifier, -1
+					);
+				}
+
+				npin_t *new_pin1 = allocate_npin();
+				new_pin1->mapping = ip_name;
+				new_pin1->name = pin_name;
+
+				npin_t *new_pin2 = allocate_npin();
+
+				nnet_t *new_net = allocate_nnet();
+				new_net->name = ip_name;
+
+				// hook the output pin into the node
+				add_a_output_pin_to_node_spot_idx(block_node, new_pin1, current_out_idx + j);
+				// hook up new pin 1 into the new net
+				add_a_driver_pin_to_net(new_net, new_pin1);
+				// hook up the new pin 2 to this new net
+				add_a_fanout_pin_to_net(new_net, new_pin2);
+
+				// add the new_pin 2 to the list of outputs
+				add_pin_to_signal_list(return_list, new_pin2);
+
+				// add the net to the list of inputs
+				long sc_spot = sc_add_string(input_nets_sc, pin_name);
+				input_nets_sc->data[sc_spot] = (void*)new_net;
+			}
+			current_out_idx += j;
+		}
+	}
+
+	for (i = 0; i < block_list->num_children; i++)
+		clean_signal_list_structure(in_list[i]);
+
+	free(in_list);
+
+	block_node->type = MEMORY;
+	block->net_node = block_node;
+
+	return return_list;
+}
+
+
+/*
+ * Creates an architecture independent memory block which will be mapped
+ * to soft logic during the partial map.
+ */
+signal_list_t *create_soft_dual_port_ram_block(ast_node_t* block, char *instance_name_prefix)
+{
+	char *identifier = block->children[0]->types.identifier;
+	char *instance_name = block->children[1]->children[0]->types.identifier;
+
+	if (strcmp(identifier, "dual_port_ram"))
+		error_message(NETLIST_ERROR, block->line_number, block->file_number, "Error in creating soft dual port ram\n");
+
+	block->type = RAM;
+
+	// create the node
+	nnode_t *block_node = allocate_nnode();
+	// store all of the relevant info
+	block_node->related_ast_node = block;
+	block_node->type = HARD_IP;
+	ast_node_t *block_instance = block->children[1];
+	ast_node_t *block_list = block_instance->children[1];
+	block_node->name = hard_node_name(block_node,
+			instance_name_prefix,
+			identifier,
+			block_instance->children[0]->types.identifier
+	);
+
+	int i;
+	signal_list_t **in_list = (signal_list_t **)malloc(sizeof(signal_list_t *)*block_list->num_children);
+	int out1_size = 0;
+	int out2_size = 0;
+	int current_idx = 0;
+	for (i = 0; i < block_list->num_children; i++)
+	{
+		in_list[i] = NULL;
+		ast_node_t *block_connect = block_list->children[i]->children[0];
+		ast_node_t *block_port_connect = block_list->children[i]->children[1];
+
+		char *ip_name = block_connect->types.identifier;
+
+		int is_output = !strcmp(ip_name, "out1") || !strcmp(ip_name, "out2");
+
+		if (!is_output)
+		{
+			// Create the pins for port if needed
+			in_list[i] = create_pins(block_port_connect, NULL, instance_name_prefix);
+			int port_size = in_list[i]->signal_list_size;
+
+			if (!strcmp(ip_name, "data1"))
+				out1_size = port_size;
+			else if (!strcmp(ip_name, "data2"))
+				out2_size = port_size;
+
+			int j;
+			for (j = 0; j < port_size; j++)
+				in_list[i]->signal_list[j]->mapping = ip_name;
+
+			// allocate the pins needed
+			allocate_more_node_input_pins(block_node, port_size);
+
+			// record this port size
+			add_input_port_information(block_node, port_size);
+
+			// hookup the input pins
+			hookup_hb_input_pins_from_signal_list(block_node, current_idx, in_list[i], 0, port_size, verilog_netlist);
+
+			// Name any grounded ports in the block mapping
+			for (j = port_size; j < port_size; j++)
+				block_node->input_pins[current_idx+j]->mapping = strdup(ip_name);
+
+			current_idx += port_size;
+		}
+	}
+
+	oassert(out1_size == out2_size);
+
+	int current_out_idx = 0;
+	signal_list_t *return_list = init_signal_list_structure();
+	for (i = 0; i < block_list->num_children; i++)
+	{
+		ast_node_t *block_connect = block_list->children[i]->children[0];
+		char *ip_name = block_connect->types.identifier;
+
+		int is_out1 = !strcmp(ip_name, "out1");
+		int is_out2 = !strcmp(ip_name, "out2");
+		int is_output = is_out1 || is_out2;
+
+		if (is_output)
+		{
+			char *alias_name = make_full_ref_name(
+				instance_name_prefix,
+				identifier,
+				instance_name,
+				ip_name, -1);
+
+			int port_size = is_out1 ? out1_size : out2_size;
+
+			allocate_more_node_output_pins(block_node, port_size);
+			add_output_port_information(block_node, port_size);
+
+			t_memory_port_sizes *ps = (t_memory_port_sizes *)malloc(sizeof(t_memory_port_sizes));
+			ps->size = port_size;
+			ps->name = strdup(alias_name);
+			memory_port_size_list = insert_in_vptr_list(memory_port_size_list, ps);
+
+			// make the implicit output list and hook up the outputs
+			int j;
+			for (j = 0; j < port_size; j++)
+			{
+				char *pin_name = make_full_ref_name(
+						instance_name_prefix,
+						identifier,
+						instance_name,
+						ip_name,
+						(port_size > 1) ? j : -1
+				);
+
+				npin_t *new_pin1 = allocate_npin();
+				new_pin1->mapping = ip_name;
+				new_pin1->name = pin_name;
+
+				npin_t *new_pin2 = allocate_npin();
+
+				nnet_t *new_net = allocate_nnet();
+				new_net->name = ip_name;
+
+				// hook the output pin into the node
+				add_a_output_pin_to_node_spot_idx(block_node, new_pin1, current_out_idx + j);
+				// hook up new pin 1 into the new net
+				add_a_driver_pin_to_net(new_net, new_pin1);
+				// hook up the new pin 2 to this new net
+				add_a_fanout_pin_to_net(new_net, new_pin2);
+
+				// add the new_pin 2 to the list of outputs
+				add_pin_to_signal_list(return_list, new_pin2);
+
+				// add the net to the list of inputs
+				long sc_spot = sc_add_string(input_nets_sc, pin_name);
+				input_nets_sc->data[sc_spot] = (void*)new_net;
+			}
+			current_out_idx += j;
+		}
+	}
+
+	for (i = 0; i < block_list->num_children; i++)
+		clean_signal_list_structure(in_list[i]);
+
+	free(in_list);
+
+	block_node->type = MEMORY;
+	block->net_node = block_node;
+
 
 	return return_list;
 }
@@ -3560,24 +3812,34 @@ signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 	int is_mult = 0;
 	int mult_size = 0;
 
+	char *identifier = block->children[0]->types.identifier;
+
 	/* See if the hard block declared is supported by FPGA architecture */
-	hb_model = find_hard_block(block->children[0]->types.identifier);
-	if (hb_model == NULL)
-	{
-		printf("Found Hard Block %s: Not supported by FPGA Architecture\n", block->children[0]->types.identifier);
-		oassert(FALSE);
-	}
+	hb_model = find_hard_block(identifier);
+
 
 	/* single_port_ram's are a special case due to splitting */
-	if (strcmp(hb_model->name, "single_port_ram") == 0)
+	if (!strcmp(identifier, "single_port_ram"))
 	{
-		return create_single_port_ram_block(block, instance_name_prefix, hb_model);
+		if (hb_model)
+			return create_single_port_ram_block(block, instance_name_prefix, hb_model);
+		else
+			return create_soft_single_port_ram_block(block, instance_name_prefix);
 	}
 
 	/* dual_port_ram's are a special case due to splitting */
-	if (strcmp(hb_model->name, "dual_port_ram") == 0)
+	if (strcmp(identifier, "dual_port_ram") == 0)
 	{
-		return create_dual_port_ram_block(block, instance_name_prefix, hb_model);
+		if (hb_model)
+			return create_dual_port_ram_block(block, instance_name_prefix, hb_model);
+		else
+			return create_soft_dual_port_ram_block(block, instance_name_prefix);
+	}
+
+	if (!hb_model)
+	{
+		error_message(NETLIST_ERROR, block->line_number, block->file_number,
+				"Found Hard Block \"%s\": Not supported by FPGA Architecture\n", identifier);
 	}
 
 	/* memory's are a special case due to splitting */
@@ -3705,10 +3967,7 @@ signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 						pin_name = make_full_ref_name(block_node->name, NULL, NULL, hb_ports->name, -1);
 	
 					new_pin1 = allocate_npin();
-//					if (hb_ports->size > 1)
-//						new_pin1->mapping = make_signal_name(hb_ports->name, j);
-//					else
-						new_pin1->mapping = make_signal_name(hb_ports->name, -1);
+					new_pin1->mapping = make_signal_name(hb_ports->name, -1);
 
 					new_pin1->name = pin_name;
 					new_pin2 = allocate_npin();

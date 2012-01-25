@@ -339,16 +339,16 @@ void output_node(nnode_t *node, short traverse_number, FILE *fp)
 		case MULTIPLY:
 			if (hard_multipliers == NULL)
 				oassert(FALSE); /* should be soft logic! */
-#ifdef VPR6
+			#ifdef VPR6
 			define_mult_function(node, node->type, fp);
-#endif
+			#endif
 			break;
 
 		case MEMORY:
 		case HARD_IP:
-#ifdef VPR6
+			#ifdef VPR6
 			define_hard_block(node, node->type, fp);
-#endif
+			#endif
 			break;
 		case INPUT_NODE:
 		case OUTPUT_NODE:
@@ -691,6 +691,7 @@ void define_decoded_mux(nnode_t *node, FILE *out)
 			/* now hookup the input wires with their respective ports.  [1+i] to skip output spot. */
 			/* Just print the driver_pin->name NOT driver_pin->node->name -- KEN */
 			nnet_t *net = node->input_pins[i]->net;
+
 			if (!net->driver_pin)
 			{
 				// Add a warning for an undriven net.

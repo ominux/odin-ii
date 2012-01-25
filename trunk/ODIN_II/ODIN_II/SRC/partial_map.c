@@ -35,6 +35,8 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "multipliers.h"
 #include "util.h"
 #include "hard_blocks.h"
+#include "math.h"
+#include "memories.h"
 
 void depth_first_traversal_to_partial_map(short marker_value, netlist_t *netlist);
 void depth_first_traverse_parital_map(nnode_t *node, int traverse_mark_number, netlist_t *netlist);
@@ -50,10 +52,10 @@ void instantiate_EQUAL(nnode_t *node, short type, short mark, netlist_t *netlist
 void instantiate_GE(nnode_t *node, short type, short mark, netlist_t *netlist);
 void instantiate_GT(nnode_t *node, short type, short mark, netlist_t *netlist);
 void instantiate_shift_left_or_right(nnode_t *node, short type, short mark, netlist_t *netlist);
-void instantiate_multi_port_mux(nnode_t *node, short mark, netlist_t *netlist);
 void instantiate_add_w_carry(nnode_t *node, short mark, netlist_t *netlist);
 void instantiate_unary_sub(nnode_t *node, short mark, netlist_t *netlist);
 void instantiate_sub_w_carry(nnode_t *node, short mark, netlist_t *netlist);
+
 
 /*-------------------------------------------------------------------------
  * (function: partial_map_top)
@@ -220,10 +222,8 @@ void partial_map_node(nnode_t *node, short traverse_number, netlist_t *netlist)
 			#ifdef VPR6
 			if (hard_multipliers != NULL)
 			{
-
 				if ((node->input_port_sizes[0] + node->input_port_sizes[1]) > min_mult)
 					instantiate_hard_multiplier(node, traverse_number, netlist);
-
 			}
 			else
 			#endif
@@ -231,12 +231,24 @@ void partial_map_node(nnode_t *node, short traverse_number, netlist_t *netlist)
 			break;
 		
 		case MEMORY:
-		case HARD_IP:
-#ifdef VPR6
-			instantiate_hard_block(node, traverse_number, netlist);
-#endif
+		{
+			#ifdef VPR6
+			ast_node_t *ast_node = node->related_ast_node;
+			char *identifier = ast_node->children[0]->types.identifier;
+			if (find_hard_block(identifier))
+				instantiate_hard_block(node, traverse_number, netlist);
+			else if (!strcmp(identifier, "single_port_ram"))
+				instantiate_soft_single_port_ram(node, traverse_number, netlist);
+			else if (!strcmp(identifier, "dual_port_ram"))
+				instantiate_soft_dual_port_ram(node, traverse_number, netlist);
+			#endif
 			break;
-
+		}
+		case HARD_IP:
+			#ifdef VPR6
+			instantiate_hard_block(node, traverse_number, netlist);
+			#endif
+			break;
 		case ADDER_FUNC:
 		case CARRY_FUNC:
 		case MUX_2:
@@ -249,13 +261,12 @@ void partial_map_node(nnode_t *node, short traverse_number, netlist_t *netlist)
 		case PAD_NODE:
 			/* some nodes already in the form that is mapable */
 			break;
-
 		case CASE_EQUAL:
 		case CASE_NOT_EQUAL:
 		case DIVIDE:
 		case MODULO:
 		default:
-			oassert(FALSE);
+			error_message(NETLIST_ERROR, 0, -1, "Partial map: node should have been converted to softer version.");
 			break;
 	}
 }
@@ -625,8 +636,6 @@ void instantiate_add_w_carry(nnode_t *node, short mark, netlist_t *netlist)
 	/* connect inputs */
 	for(i = 0; i < width; i++)
 	{
-		//printf("%s\n", node->input_pins[i]->name);
-
 		if (i < width_a)
 		{
 			/* join the A port up to adder */
