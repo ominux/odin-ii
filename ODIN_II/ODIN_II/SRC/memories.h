@@ -58,5 +58,11 @@ extern void split_dp_memory_width(nnode_t *node);
 extern void iterate_memories(netlist_t *netlist);
 extern void clean_memories();
 
+void instantiate_soft_single_port_ram(nnode_t *node, short mark, netlist_t *netlist);
+void instantiate_soft_dual_port_ram(nnode_t *node, short mark, netlist_t *netlist);
+
+signal_list_t *create_decoder(nnode_t *node, short mark, signal_list_t *input_list);
+
+
 #endif // MEMORIES_H
 

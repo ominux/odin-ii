@@ -62,7 +62,6 @@ void cache_hard_block_names()
 }
 
 
-
 void register_hard_blocks()
 {
 	cache_hard_block_names();

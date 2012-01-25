@@ -818,12 +818,12 @@ ast_node_t *newHardBlockInstance(char* module_ref_name, ast_node_t *module_named
 {
 	ast_node_t *symbol_node = newSymbolNode(module_ref_name, line_number);
 
-	/* create a node for this array reference */
+	// create a node for this array reference
 	ast_node_t* new_node = create_node_w_type(HARD_BLOCK, line_number, current_parse_file);
-	/* allocate child nodes to this node */
+	// allocate child nodes to this node
 	allocate_children_to_node(new_node, 2, symbol_node, module_named_instance);
 
-	/* store the hard block symbol name that this calls in a list that will at the end be asociated with the hard block node */
+	// store the hard block symbol name that this calls in a list that will at the end be asociated with the hard block node
 	block_instantiations_instance = (ast_node_t **)realloc(block_instantiations_instance, sizeof(ast_node_t*)*(size_block_instantiations+1));
 	block_instantiations_instance[size_block_instantiations] = new_node;
 	size_block_instantiations++;
@@ -836,12 +836,17 @@ ast_node_t *newHardBlockInstance(char* module_ref_name, ast_node_t *module_named
  *-----------------------------------------------------------------------*/
 ast_node_t *newModuleInstance(char* module_ref_name, ast_node_t *module_named_instance, int line_number)
 {
-#ifdef VPR6
-	if (sc_lookup_string(hard_block_names, module_ref_name) != -1)
+	#ifdef VPR6
+	if
+	(
+		   sc_lookup_string(hard_block_names, module_ref_name) != -1
+		|| !strcmp(module_ref_name, "single_port_ram")
+		|| !strcmp(module_ref_name, "dual_port_ram")
+	)
 	{
 		return newHardBlockInstance(module_ref_name, module_named_instance, line_number);
 	}
-#endif
+	#endif
 
 	// make a unique module name based on its parameter list
 	ast_node_t *module_param_list = module_named_instance->children[2];
@@ -945,7 +950,8 @@ ast_node_t *newVarDeclare(char* symbol, ast_node_t *expression1, ast_node_t *exp
 	return new_node;
 }
 
-/*---------------------------------------------------------------------------------------------
+/*-----------------------------------------
+ * ----------------------------------------------------
  * (function: newModule)
  *-------------------------------------------------------------------------------------------*/
 ast_node_t *newModule(char* module_name, ast_node_t *list_of_ports, ast_node_t *list_of_module_items, int line_number)

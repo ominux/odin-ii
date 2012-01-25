@@ -137,9 +137,7 @@ nnode_t *make_1port_gate(operation_list type, int width_input, int width_output,
  *-------------------------------------------------------------------------------------------*/
 nnode_t *make_1port_logic_gate(operation_list type, int width, nnode_t *node, short mark)
 {
-	nnode_t *logic_node;	
-
-	logic_node = make_1port_gate(type, width, 1, node, mark);
+	nnode_t *logic_node = make_1port_gate(type, width, 1, node, mark);
 
 	return logic_node;
 }
