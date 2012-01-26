@@ -12,16 +12,15 @@ Authors: Jason Luu and Kenneth Kent
 #include "physical_types.h"
 
 /* Constant describing architecture library version number */
-#define VPR_VERSION "6.0 BETA"
+#define VPR_VERSION "6.0 Full Release"
 
 /* Input file parsing. */
 #define TOKENS " \t\n"
 
-/* UNDEFINED user inputs */
+/* Value for UNDEFINED data */
 #define UNDEFINED -1
 
-/* Want to avoid overflows of shorts.  OPINs can have edges to 4 * width if  *
- * they are on all 4 sides, so set MAX_CHANNEL_WIDTH to 8000.                */
+/* Maximum value for mininum channel width to avoid overflows of short data type.               */
 #define MAX_CHANNEL_WIDTH 8000
 
 #endif

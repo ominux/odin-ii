@@ -16,6 +16,8 @@ Architecture based off Stratix IV
            created 4 18x18 mulitpliers, logiclocked them to a single DSP block, compile
            result - 2 18x18 multipliers got packed together, the other 2 got ejected out of the logiclock region without error
            conclusion - just take the 600 MHz as is, and Quartus II logiclock hasn't fixed the bug that I've seen it do to registers when I worked at Altera (ie. eject without warning)
+
+    NOTE: Area numbers for hard blocks unknown!
 -->
   
   <architecture>
@@ -144,7 +146,7 @@ Architecture based off Stratix IV
         <output name="O" num_pins="10" equivalent="false"/>
         <clock name="clk" num_pins="1"/>
 
-        <!-- Describe basic logic element, Virtex V-like fracturable LUTs to more closely match ifar delay numbers -->
+        <!-- Describe basic logic element, with ifar delay numbers -->
         <pb_type name="ble" num_pb="10">
           <input name="in" num_pins="6"/>
              <output name="out" num_pins="1"/>

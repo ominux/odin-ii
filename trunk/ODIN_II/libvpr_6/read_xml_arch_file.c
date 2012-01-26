@@ -1667,20 +1667,36 @@ static void ProcessMemoryClass(INOUTP t_pb_type *mem_pb_type) {
 				mem_pb_type->modes[0].interconnect[i_inter].name = my_calloc(i_inter/10 + j/10 + 10, sizeof(char));
 				sprintf(mem_pb_type->modes[0].interconnect[i_inter].name, "direct%d_%d", i_inter, j);
 
-				assert(mem_pb_type->ports[i].type == IN_PORT);
-				mem_pb_type->modes[0].interconnect[i_inter].type = DIRECT_INTERC;
-				mem_pb_type->modes[0].interconnect[i_inter].input_string = my_calloc(
-																	strlen(input_name) + 
-																	strlen(input_port_name) + 2,
-																	sizeof(char));
-				sprintf(mem_pb_type->modes[0].interconnect[i_inter].input_string, "%s.%s", 
-						input_name, input_port_name);
-				mem_pb_type->modes[0].interconnect[i_inter].output_string = my_calloc(
-																	strlen(output_name) + 
-																	strlen(output_port_name) + 2*(6 + num_pb/10),
-																	sizeof(char));
-				sprintf(mem_pb_type->modes[0].interconnect[i_inter].output_string, "%s[%d:%d].%s", 
-						output_name, j, j, output_port_name);
+				if(mem_pb_type->ports[i].type == IN_PORT) {
+					mem_pb_type->modes[0].interconnect[i_inter].type = DIRECT_INTERC;
+					mem_pb_type->modes[0].interconnect[i_inter].input_string = my_calloc(
+																		strlen(input_name) + 
+																		strlen(input_port_name) + 2,
+																		sizeof(char));
+					sprintf(mem_pb_type->modes[0].interconnect[i_inter].input_string, "%s.%s", 
+							input_name, input_port_name);
+					mem_pb_type->modes[0].interconnect[i_inter].output_string = my_calloc(
+																		strlen(output_name) + 
+																		strlen(output_port_name) + 2*(6 + num_pb/10),
+																		sizeof(char));
+					sprintf(mem_pb_type->modes[0].interconnect[i_inter].output_string, "%s[%d:%d].%s", 
+							output_name, j, j, output_port_name);
+				} else {
+					mem_pb_type->modes[0].interconnect[i_inter].type = DIRECT_INTERC;
+					mem_pb_type->modes[0].interconnect[i_inter].input_string = my_calloc(
+																		strlen(input_name) + 
+																		strlen(input_port_name) + 2*(6 + num_pb/10),
+																		sizeof(char));
+					sprintf(mem_pb_type->modes[0].interconnect[i_inter].input_string, "%s[%d:%d].%s", 
+							input_name, j, j, input_port_name);
+					mem_pb_type->modes[0].interconnect[i_inter].output_string = my_calloc(
+																		strlen(output_name) + 
+																		strlen(output_port_name) + 2,
+																		sizeof(char));
+					sprintf(mem_pb_type->modes[0].interconnect[i_inter].output_string, "%s.%s", 
+							output_name, output_port_name);					
+
+				}
 				i_inter++;
 			}
 		}
