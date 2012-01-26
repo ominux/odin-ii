@@ -156,7 +156,7 @@ nnode_t *make_1port_logic_gate_with_inputs(operation_list type, int width, signa
 	/* hookup all the pins */
 	for (i = 0; i < width; i++)
 	{
-		add_a_input_pin_to_node_spot_idx(logic_node, pin_list->signal_list[i], i);
+		add_a_input_pin_to_node_spot_idx(logic_node, pin_list->pins[i], i);
 	}
 
 	return logic_node;

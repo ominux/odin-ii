@@ -451,8 +451,8 @@ struct nnet_t_t
 
 struct signal_list_t_t 
 {
-	npin_t **signal_list;	
-	int signal_list_size;
+	npin_t **pins;	
+	int count;
 
 	char is_memory;
 	char is_adder;
