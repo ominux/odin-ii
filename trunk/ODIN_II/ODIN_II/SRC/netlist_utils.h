@@ -36,12 +36,12 @@ void join_nets(nnet_t *net, nnet_t* input_net);
 void remap_pin_to_new_net(npin_t *pin, nnet_t *new_net);
 void remap_pin_to_new_node(npin_t *pin, nnode_t *new_node, int pin_idx);
 
-signal_list_t *init_signal_list_structure();
+signal_list_t *init_signal_list();
 void add_pin_to_signal_list(signal_list_t *list, npin_t* pin);
 void sort_signal_list_alphabetically(signal_list_t *list);
 signal_list_t *combine_lists(signal_list_t **signal_lists, int num_signal_lists);
 signal_list_t *combine_lists_without_freeing_originals(signal_list_t **signal_lists, int num_signal_lists);
-void clean_signal_list_structure(signal_list_t *list);
+void free_signal_list(signal_list_t *list);
 
 void hookup_hb_input_pins_from_signal_list(nnode_t *node, int n_start_idx, signal_list_t* input_list, int il_start_idx, int width, netlist_t *netlist) ;
 void hookup_input_pins_from_signal_list(nnode_t *node, int n_start_idx, signal_list_t* input_list, int il_start_idx, int width, netlist_t *netlist) ;

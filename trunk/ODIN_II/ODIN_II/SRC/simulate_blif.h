@@ -136,33 +136,33 @@ void compute_flipflop_node(nnode_t *node, int cycle);
 void compute_mux_2_node(nnode_t *node, int cycle);
 
 int *multiply_arrays(int *a, int a_length, int *b, int b_length);
+
 void compute_single_port_memory(
 	nnode_t *node,
-	npin_t **data,
-	npin_t **out,
-	int data_width,
-	npin_t **addr,
-	int addr_width,
+	signal_list_t *data,
+	signal_list_t *out,
+	signal_list_t *addr,
 	int we,
-	int clock,
+	int posedge,
 	int cycle
 );
+
 void compute_dual_port_memory(
 	nnode_t *node,
-	npin_t **data1,
-	npin_t **data2,
-	npin_t **out1,
-	npin_t **out2,
-	int data_width,
-	npin_t **addr1,
-	npin_t **addr2,
-	int addr_width,
+	signal_list_t *data1,
+	signal_list_t *data2,
+	signal_list_t *out1,
+	signal_list_t *out2,
+	signal_list_t *addr1,
+	signal_list_t *addr2,
 	int we1,
 	int we2,
 	int posedge,
 	int cycle
 );
-long compute_memory_address(npin_t **out, int data_width, npin_t **addr, int addr_width, int cycle);
+
+long compute_memory_address(signal_list_t *out, signal_list_t *addr, int cycle);
+
 void instantiate_memory(nnode_t *node, int data_width, int addr_width);
 char *get_mif_filename(nnode_t *node);
 

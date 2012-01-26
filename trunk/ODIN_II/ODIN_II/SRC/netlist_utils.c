@@ -558,13 +558,13 @@ void connect_nodes(nnode_t *out_node, int out_idx, nnode_t *in_node, int in_idx)
  * 	Initializes the list structure which describes inputs and outputs of elements
  * 	as they coneect to other elements in the graph.
  *-------------------------------------------------------------------------------------------*/
-signal_list_t *init_signal_list_structure()
+signal_list_t *init_signal_list()
 {
 	signal_list_t *list;
 	list = (signal_list_t*)malloc(sizeof(signal_list_t));
 
-	list->signal_list_size = 0;
-	list->signal_list = NULL;
+	list->count = 0;
+	list->pins = NULL;
 	list->is_memory = FALSE;
 	list->is_adder = FALSE;
 
@@ -577,9 +577,9 @@ signal_list_t *init_signal_list_structure()
  *-------------------------------------------------------------------------------------------*/
 void add_pin_to_signal_list(signal_list_t *list, npin_t* pin)
 {
-	list->signal_list = (npin_t**)realloc(list->signal_list, sizeof(npin_t*)*(list->signal_list_size+1));
-	list->signal_list[list->signal_list_size] = pin;
-	list->signal_list_size++;
+	list->pins = (npin_t**)realloc(list->pins, sizeof(npin_t*)*(list->count+1));
+	list->pins[list->count] = pin;
+	list->count++;
 }
 
 /*---------------------------------------------------------------------------------------------
@@ -591,11 +591,11 @@ signal_list_t *combine_lists(signal_list_t **signal_lists, int num_signal_lists)
 	
 	for (i = 1; i < num_signal_lists; i++)
 	{
-		for (j = 0; j < signal_lists[i]->signal_list_size; j++)
+		for (j = 0; j < signal_lists[i]->count; j++)
 		{
-			add_pin_to_signal_list(signal_lists[0], signal_lists[i]->signal_list[j]);
+			add_pin_to_signal_list(signal_lists[0], signal_lists[i]->pins[j]);
 		}
-		clean_signal_list_structure(signal_lists[i]);
+		free_signal_list(signal_lists[i]);
 	}
 
 	return signal_lists[0];
@@ -607,13 +607,13 @@ signal_list_t *combine_lists(signal_list_t **signal_lists, int num_signal_lists)
 signal_list_t *combine_lists_without_freeing_originals(signal_list_t **signal_lists, int num_signal_lists)
 {
 	int i, j;
-	signal_list_t *return_list = init_signal_list_structure();
+	signal_list_t *return_list = init_signal_list();
 	
 	for (i = 0; i < num_signal_lists; i++)
 	{
-		for (j = 0; j < signal_lists[i]->signal_list_size; j++)
+		for (j = 0; j < signal_lists[i]->count; j++)
 		{
-			add_pin_to_signal_list(return_list, signal_lists[i]->signal_list[j]);
+			add_pin_to_signal_list(return_list, signal_lists[i]->pins[j]);
 		}
 	}
 
@@ -634,7 +634,7 @@ static int compare_npin_t_names(const void *p1, const void *p2)
 }
 void sort_signal_list_alphabetically(signal_list_t *list)
 {
-	qsort(list->signal_list, list->signal_list_size,  sizeof(npin_t *), compare_npin_t_names);
+	qsort(list->pins, list->count,  sizeof(npin_t *), compare_npin_t_names);
 }
 
 /*---------------------------------------------------------------------------------------------
@@ -644,7 +644,7 @@ void sort_signal_list_alphabetically(signal_list_t *list)
  *-------------------------------------------------------------------------------------------*/
 signal_list_t *make_output_pins_for_existing_node(nnode_t* node, int width)
 {
-	signal_list_t *return_list = init_signal_list_structure();
+	signal_list_t *return_list = init_signal_list();
 	int i; 
 
 	oassert(node->num_output_pins == width);
@@ -675,13 +675,15 @@ signal_list_t *make_output_pins_for_existing_node(nnode_t* node, int width)
 /*---------------------------------------------------------------------------------------------
  * (function: clean_signal_list_structure)
  *-------------------------------------------------------------------------------------------*/
-void clean_signal_list_structure(signal_list_t *list)
+void free_signal_list(signal_list_t *list)
 {
 	if (list == NULL)
 		return;
-	if (list->signal_list != NULL)
-		free(list->signal_list);
-	list->signal_list_size = 0;
+
+	if (list->pins != NULL)
+		free(list->pins);
+
+	list->count = 0;
 
 	free(list);
 }
@@ -696,10 +698,10 @@ void hookup_input_pins_from_signal_list(nnode_t *node, int n_start_idx, signal_l
 
 	for (i = 0; i < width; i++)
 	{
-		if (il_start_idx+i < input_list->signal_list_size)
+		if (il_start_idx+i < input_list->count)
 		{
-			oassert(input_list->signal_list_size > (il_start_idx+i));
-			npin_t *pin = input_list->signal_list[il_start_idx+i];
+			oassert(input_list->count > (il_start_idx+i));
+			npin_t *pin = input_list->pins[il_start_idx+i];
 			add_a_input_pin_to_node_spot_idx(node, pin, n_start_idx+i);
 
 		}
@@ -725,10 +727,10 @@ void hookup_hb_input_pins_from_signal_list(nnode_t *node, int n_start_idx, signa
 
 	for (i = 0; i < width; i++)
 	{
-		if (il_start_idx+i < input_list->signal_list_size)
+		if (il_start_idx+i < input_list->count)
 		{
-			oassert(input_list->signal_list_size > (il_start_idx+i));
-			add_a_input_pin_to_node_spot_idx(node, input_list->signal_list[il_start_idx+i], n_start_idx+i);
+			oassert(input_list->count > (il_start_idx+i));
+			add_a_input_pin_to_node_spot_idx(node, input_list->pins[il_start_idx+i], n_start_idx+i);
 		}
 		else
 		{
@@ -752,19 +754,19 @@ void hookup_output_pins_from_signal_list(nnode_t *node, int n_start_idx, signal_
 
 	for (i = 0; i < width; i++)
 	{
-		oassert(output_list->signal_list_size > (ol_start_idx+i));
+		oassert(output_list->count > (ol_start_idx+i));
 	
 		/* hook outpin to the node */
-		add_a_output_pin_to_node_spot_idx(node, output_list->signal_list[ol_start_idx+i], n_start_idx+i);
+		add_a_output_pin_to_node_spot_idx(node, output_list->pins[ol_start_idx+i], n_start_idx+i);
 
-		if ((sc_spot_output = sc_lookup_string(output_nets_sc, output_list->signal_list[ol_start_idx+i]->name)) == -1)
+		if ((sc_spot_output = sc_lookup_string(output_nets_sc, output_list->pins[ol_start_idx+i]->name)) == -1)
 		{
 			/* this output pin does not have a net OR we couldn't find it */
-			error_message(NETLIST_ERROR, -1, -1, "Net for driver (%s) doesn't exist for node %s\n", output_list->signal_list[ol_start_idx+i]->name, node->name);
+			error_message(NETLIST_ERROR, -1, -1, "Net for driver (%s) doesn't exist for node %s\n", output_list->pins[ol_start_idx+i]->name, node->name);
 		}
 	
 		/* hook the outpin into the net */
-		add_a_driver_pin_to_net(((nnet_t*)output_nets_sc->data[sc_spot_output]), output_list->signal_list[ol_start_idx+i]);
+		add_a_driver_pin_to_net(((nnet_t*)output_nets_sc->data[sc_spot_output]), output_list->pins[ol_start_idx+i]);
 
 
 	}	

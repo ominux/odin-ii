@@ -1493,147 +1493,108 @@ void compute_memory_node(nnode_t *node, int cycle)
 
 	if (!strcmp(identifier, SINGLE_PORT_MEMORY_NAME))
 	{
+		signal_list_t *addr = init_signal_list();
+		signal_list_t *data = init_signal_list();
+		signal_list_t *out  = init_signal_list();
 		int posedge = 0;
 		int we = 0;
-		int data_width = 0;
-		int addr_width = 0;
-		npin_t **addr = NULL;
-		npin_t **data = NULL;
-		npin_t **out = NULL;
 
 		int i;
 		for (i = 0; i < node->num_input_pins; i++)
 		{
 			npin_t *pin = node->input_pins[i];
-			npin_t **pin_p = &node->input_pins[i];
-
 			if (!strcmp(pin->mapping, "we"))
-			{
 				we = get_pin_value(pin, cycle-1);
-			}
 			else if (!strcmp(pin->mapping, "addr"))
-			{
-				if (!addr) addr = pin_p;
-				addr_width++;
-			}
+				add_pin_to_signal_list(addr, pin);
 			else if (!strcmp(pin->mapping, "data"))
-			{
-				if (!data) data = pin_p;
-				data_width++;
-			}
+				add_pin_to_signal_list(data, pin);
 			else if (!strcmp(pin->mapping, "clk"))
-			{
 				posedge = is_posedge(pin, cycle);
-			}
-		}
-
-		out = node->output_pins;
-
-		if (!node->memory_data)
-			instantiate_memory(node, data_width, addr_width);
-
-		compute_single_port_memory(
-			node,
-			data,
-			out,
-			data_width,
-			addr,
-			addr_width,
-			we,
-			posedge,
-			cycle
-		);
-	}
-	else if (!strcmp(identifier, DUAL_PORT_MEMORY_NAME))
-	{
-		int posedge = 0;
-		int we1 = 0;
-		int data_width1 = 0;
-		int addr_width1 = 0;
-		int we2 = 0;
-		int data_width2 = 0;
-		int addr_width2 = 0;
-
-		npin_t **addr1 = NULL;
-		npin_t **data1 = NULL;
-		npin_t **out1  = NULL;
-		npin_t **addr2 = NULL;
-		npin_t **data2 = NULL;
-		npin_t **out2  = NULL;
-
-		int i;
-		for (i = 0; i < node->num_input_pins; i++)
-		{
-			npin_t *pin = node->input_pins[i];
-			npin_t **pin_p = &node->input_pins[i];
-
-			if (!strcmp(pin->mapping, "we1"))
-			{
-				we1 = get_pin_value(pin, cycle-1);
-			}
-			else if (!strcmp(pin->mapping, "we2"))
-			{
-				we2 = get_pin_value(pin, cycle-1);
-			}
-			else if (!strcmp(pin->mapping, "addr1") )
-			{
-				if (!addr1) addr1 = pin_p;
-				addr_width1++;
-			}
-			else if (!strcmp(pin->mapping, "addr2"))
-			{
-				if (!addr2) addr2 = pin_p;
-				addr_width2++;
-			}
-			else if (!strcmp(pin->mapping, "data1"))
-			{
-				if (!data1) data1 = pin_p;
-				data_width1++;
-			}
-			else if (!strcmp(pin->mapping, "data2"))
-			{
-				if (!data2) data2 = pin_p;
-				data_width2++;
-			}
-			else if (!strcmp(pin->mapping, "clk"))
-			{
-				posedge = is_posedge(pin, cycle);
-			}
+			else
+				error_message(SIMULATION_ERROR, 0, -1, "Invalid pin mapping (%s) on memory node %s", pin->mapping, node->name);
 		}
 
 		for (i = 0; i < node->num_output_pins; i++)
 		{
 			npin_t *pin = node->output_pins[i];
-			npin_t **pin_p = &node->output_pins[i];
-
-			if      (!strcmp(pin->mapping, "out1") && !out1) out1 = pin_p;
-			else if (!strcmp(pin->mapping, "out2") && !out2) out2 = pin_p;
+			if (!strcmp(pin->mapping, "out"))
+				add_pin_to_signal_list(out, pin);
+			else
+				error_message(SIMULATION_ERROR, 0, -1, "Invalid pin mapping (%s) on memory node %s", pin->mapping, node->name);
 		}
 
-		if (addr_width1 != addr_width2)
+		if (!node->memory_data)
+			instantiate_memory(node, data->count, addr->count);
+
+		compute_single_port_memory(node, data, out, addr, we, posedge, cycle);
+
+		free_signal_list(addr);
+		free_signal_list(data);
+		free_signal_list(out);
+	}
+	else if (!strcmp(identifier, DUAL_PORT_MEMORY_NAME))
+	{
+		signal_list_t *addr1 = init_signal_list();
+		signal_list_t *addr2 = init_signal_list();
+		signal_list_t *data1 = init_signal_list();
+		signal_list_t *data2 = init_signal_list();
+		signal_list_t *out1  = init_signal_list();
+		signal_list_t *out2  = init_signal_list();
+		int posedge = 0;
+		int we1 = 0;
+		int we2 = 0;
+
+		int i;
+		for (i = 0; i < node->num_input_pins; i++)
+		{
+			npin_t *pin = node->input_pins[i];
+			if (!strcmp(pin->mapping, "we1"))
+				we1 = get_pin_value(pin, cycle-1);
+			else if (!strcmp(pin->mapping, "we2"))
+				we2 = get_pin_value(pin, cycle-1);
+			else if (!strcmp(pin->mapping, "addr1") )
+				add_pin_to_signal_list(addr1, pin);
+			else if (!strcmp(pin->mapping, "addr2"))
+				add_pin_to_signal_list(addr2, pin);
+			else if (!strcmp(pin->mapping, "data1"))
+				add_pin_to_signal_list(data1, pin);
+			else if (!strcmp(pin->mapping, "data2"))
+				add_pin_to_signal_list(data2, pin);
+			else if (!strcmp(pin->mapping, "clk"))
+				posedge = is_posedge(pin, cycle);
+			else
+				error_message(SIMULATION_ERROR, 0, -1, "Invalid pin mapping (%s) on memory node %s", pin->mapping, node->name);
+		}
+
+		for (i = 0; i < node->num_output_pins; i++)
+		{
+			npin_t *pin = node->output_pins[i];
+			if (!strcmp(pin->mapping, "out1"))
+				add_pin_to_signal_list(out1, pin);
+			else if (!strcmp(pin->mapping, "out2"))
+				add_pin_to_signal_list(out2, pin);
+			else
+				error_message(SIMULATION_ERROR, 0, -1, "Invalid pin mapping (%s) on memory node %s", pin->mapping, node->name);
+		}
+
+		if (addr1->count != addr2->count)
 			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory addresses are not the same width.");
 
-		if (data_width1 != data_width2)
+		if (data1->count != data2->count)
 			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory data ports are not the same width.");
 
 		if (!node->memory_data)
-			instantiate_memory(node, data_width2, addr_width2);
+			instantiate_memory(node, data2->count, addr2->count);
 
-		compute_dual_port_memory(
-			node,
-			data1,
-			data2,
-			out1,
-			out2,
-			data_width1,
-			addr1,
-			addr2,
-			addr_width1,
-			we1,
-			we2,
-			posedge,
-			cycle
-		);
+		compute_dual_port_memory(node, data1, data2, out1, out2, addr1, addr2, we1, we2, posedge, cycle);
+
+		free_signal_list(addr1);
+		free_signal_list(addr2);
+		free_signal_list(data1);
+		free_signal_list(data2);
+		free_signal_list(out1);
+		free_signal_list(out2);
 	}
 	else
 	{
@@ -1647,11 +1608,9 @@ void compute_memory_node(nnode_t *node, int cycle)
  */
 void compute_single_port_memory(
 	nnode_t *node,
-	npin_t **data,
-	npin_t **out,
-	int data_width,
-	npin_t **addr,
-	int addr_width,
+	signal_list_t *data,
+	signal_list_t *out,
+	signal_list_t *addr,
 	int we,
 	int posedge,
 	int cycle
@@ -1660,32 +1619,32 @@ void compute_single_port_memory(
 	// On the rising edge, compute the memory.
 	if (posedge)
 	{
-		long address = compute_memory_address(out, data_width, addr, addr_width, cycle-1);
+		long address = compute_memory_address(out, addr, cycle-1);
 		char address_ok = (address != -1)?1:0;
 
 		int i;
-		for (i = 0; i < data_width; i++)
+		for (i = 0; i < data->count; i++)
 		{
 			// Compute which bit we are addressing.
-			long bit_address = address_ok?(i + (address * data_width)):-1;
+			long bit_address = address_ok?(i + (address * data->count)):-1;
 
 			// Update the output.
 			if (address_ok)
-				update_pin_value(out[i], node->memory_data[bit_address], cycle);
+				update_pin_value(out->pins[i], node->memory_data[bit_address], cycle);
 			else
-				update_pin_value(out[i], -1, cycle);
+				update_pin_value(out->pins[i], -1, cycle);
 
 			// If write is enabled, copy the input to memory.
 			if (address_ok && we)
-				node->memory_data[bit_address] = get_pin_value(data[i],cycle-1);
+				node->memory_data[bit_address] = get_pin_value(data->pins[i],cycle-1);
 		}
 	}
 	else
 	{
 		// On falling edge, we hold the previous value.
 		int i;
-		for (i = 0; i < data_width; i++)
-			update_pin_value(out[i], get_pin_value(out[i],cycle-1), cycle);
+		for (i = 0; i < data->count; i++)
+			update_pin_value(out->pins[i], get_pin_value(out->pins[i],cycle-1), cycle);
 	}
 }
 
@@ -1694,14 +1653,12 @@ void compute_single_port_memory(
  */
 void compute_dual_port_memory(
 	nnode_t *node,
-	npin_t **data1,
-	npin_t **data2,
-	npin_t **out1,
-	npin_t **out2,
-	int data_width,
-	npin_t **addr1,
-	npin_t **addr2,
-	int addr_width,
+	signal_list_t *data1,
+	signal_list_t *data2,
+	signal_list_t *out1,
+	signal_list_t *out2,
+	signal_list_t *addr1,
+	signal_list_t *addr2,
 	int we1,
 	int we2,
 	int posedge,
@@ -1711,46 +1668,46 @@ void compute_dual_port_memory(
 	// On the rising edge, we compute the memory.
 	if (posedge)
 	{
-		long address1 = compute_memory_address(out1, data_width, addr1, addr_width, cycle-1);
-		long address2 = compute_memory_address(out2, data_width, addr2, addr_width, cycle-1);
+		long address1 = compute_memory_address(out1, addr1, cycle-1);
+		long address2 = compute_memory_address(out2, addr2, cycle-1);
 
 		char port1 = (address1 != -1)?1:0;
 		char port2 = (address2 != -1)?1:0;
 
 		// Read (and write if we) data to memory.
 		int i;
-		for (i = 0; i < data_width; i++)
+		for (i = 0; i < data1->count; i++)
 		{
 			// Compute which bit we are addressing.
-			long bit_address1 = port1?(i + (address1 * data_width)):-1;
-			long bit_address2 = port2?(i + (address2 * data_width)):-1;
+			long bit_address1 = port1?(i + (address1 * data1->count)):-1;
+			long bit_address2 = port2?(i + (address2 * data2->count)):-1;
 
 			// Read the memory bit
 			if (port1)
-				update_pin_value(out1[i], node->memory_data[bit_address1], cycle);
+				update_pin_value(out1->pins[i], node->memory_data[bit_address1], cycle);
 			else
-				update_pin_value(out1[i], -1, cycle);
+				update_pin_value(out1->pins[i], -1, cycle);
 
 			if (port2)
-				update_pin_value(out2[i], node->memory_data[bit_address2], cycle);
+				update_pin_value(out2->pins[i], node->memory_data[bit_address2], cycle);
 			else
-				update_pin_value(out2[i], -1, cycle);
+				update_pin_value(out2->pins[i], -1, cycle);
 
 			// Write to the memory
 			if (port1 && we1)
-				node->memory_data[bit_address1] = get_pin_value(data1[i],cycle-1);
+				node->memory_data[bit_address1] = get_pin_value(data1->pins[i], cycle-1);
 			if (port2 && we2)
-				node->memory_data[bit_address2] = get_pin_value(data2[i],cycle-1);
+				node->memory_data[bit_address2] = get_pin_value(data2->pins[i], cycle-1);
 		}
 	}
 	else
 	{
 		// On falling edge, we hold the previous value.
 		int i;
-		for (i = 0; i < data_width; i++)
+		for (i = 0; i < data1->count; i++)
 		{
-			update_pin_value(out1[i], get_pin_value(out1[i],cycle-1), cycle);
-			update_pin_value(out2[i], get_pin_value(out2[i],cycle-1), cycle);
+			update_pin_value(out1->pins[i], get_pin_value(out1->pins[i],cycle-1), cycle);
+			update_pin_value(out2->pins[i], get_pin_value(out2->pins[i],cycle-1), cycle);
 		}
 	}
 }
@@ -1759,17 +1716,17 @@ void compute_dual_port_memory(
  * Calculates the memory address. Updates the output to -1's and returns
  * -1 if the address is unknown.
  */
-long compute_memory_address(npin_t **out, int data_width, npin_t **addr, int addr_width, int cycle)
+long compute_memory_address(signal_list_t *out, signal_list_t *addr, int cycle)
 {
 	long address = 0;
 	int i;
-	for (i = 0; i < addr_width; i++)
+	for (i = 0; i < addr->count; i++)
 	{
 		// If any address pins are x's, write x's we return -1.
-		if (get_pin_value(addr[i],cycle) < 0)
+		if (get_pin_value(addr->pins[i],cycle) < 0)
 			return -1;
 
-		address += get_pin_value(addr[i],cycle) << (i);
+		address += get_pin_value(addr->pins[i],cycle) << (i);
 	}
 
 	return address;
