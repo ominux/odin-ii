@@ -1488,228 +1488,121 @@ int *multiply_arrays(int *a, int a_length, int *b, int b_length)
  */
 void compute_memory_node(nnode_t *node, int cycle)
 {
-	ast_node_t *ast_node = node->related_ast_node;
-	char *identifier = ast_node->children[0]->types.identifier;
-
-	if (!strcmp(identifier, SINGLE_PORT_MEMORY_NAME))
-	{
-		signal_list_t *addr = init_signal_list();
-		signal_list_t *data = init_signal_list();
-		signal_list_t *out  = init_signal_list();
-		int posedge = 0;
-		int we = 0;
-
-		int i;
-		for (i = 0; i < node->num_input_pins; i++)
-		{
-			npin_t *pin = node->input_pins[i];
-			if (!strcmp(pin->mapping, "we"))
-				we = get_pin_value(pin, cycle-1);
-			else if (!strcmp(pin->mapping, "addr"))
-				add_pin_to_signal_list(addr, pin);
-			else if (!strcmp(pin->mapping, "data"))
-				add_pin_to_signal_list(data, pin);
-			else if (!strcmp(pin->mapping, "clk"))
-				posedge = is_posedge(pin, cycle);
-			else
-				error_message(SIMULATION_ERROR, 0, -1, "Invalid pin mapping (%s) on memory node %s", pin->mapping, node->name);
-		}
-
-		for (i = 0; i < node->num_output_pins; i++)
-		{
-			npin_t *pin = node->output_pins[i];
-			if (!strcmp(pin->mapping, "out"))
-				add_pin_to_signal_list(out, pin);
-			else
-				error_message(SIMULATION_ERROR, 0, -1, "Invalid pin mapping (%s) on memory node %s", pin->mapping, node->name);
-		}
-
-		if (!node->memory_data)
-			instantiate_memory(node, data->count, addr->count);
-
-		compute_single_port_memory(node, data, out, addr, we, posedge, cycle);
-
-		free_signal_list(addr);
-		free_signal_list(data);
-		free_signal_list(out);
-	}
-	else if (!strcmp(identifier, DUAL_PORT_MEMORY_NAME))
-	{
-		signal_list_t *addr1 = init_signal_list();
-		signal_list_t *addr2 = init_signal_list();
-		signal_list_t *data1 = init_signal_list();
-		signal_list_t *data2 = init_signal_list();
-		signal_list_t *out1  = init_signal_list();
-		signal_list_t *out2  = init_signal_list();
-		int posedge = 0;
-		int we1 = 0;
-		int we2 = 0;
-
-		int i;
-		for (i = 0; i < node->num_input_pins; i++)
-		{
-			npin_t *pin = node->input_pins[i];
-			if (!strcmp(pin->mapping, "we1"))
-				we1 = get_pin_value(pin, cycle-1);
-			else if (!strcmp(pin->mapping, "we2"))
-				we2 = get_pin_value(pin, cycle-1);
-			else if (!strcmp(pin->mapping, "addr1") )
-				add_pin_to_signal_list(addr1, pin);
-			else if (!strcmp(pin->mapping, "addr2"))
-				add_pin_to_signal_list(addr2, pin);
-			else if (!strcmp(pin->mapping, "data1"))
-				add_pin_to_signal_list(data1, pin);
-			else if (!strcmp(pin->mapping, "data2"))
-				add_pin_to_signal_list(data2, pin);
-			else if (!strcmp(pin->mapping, "clk"))
-				posedge = is_posedge(pin, cycle);
-			else
-				error_message(SIMULATION_ERROR, 0, -1, "Invalid pin mapping (%s) on memory node %s", pin->mapping, node->name);
-		}
-
-		for (i = 0; i < node->num_output_pins; i++)
-		{
-			npin_t *pin = node->output_pins[i];
-			if (!strcmp(pin->mapping, "out1"))
-				add_pin_to_signal_list(out1, pin);
-			else if (!strcmp(pin->mapping, "out2"))
-				add_pin_to_signal_list(out2, pin);
-			else
-				error_message(SIMULATION_ERROR, 0, -1, "Invalid pin mapping (%s) on memory node %s", pin->mapping, node->name);
-		}
-
-		if (addr1->count != addr2->count)
-			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory addresses are not the same width.");
-
-		if (data1->count != data2->count)
-			error_message(SIMULATION_ERROR, 0, -1, "Dual port memory data ports are not the same width.");
-
-		if (!node->memory_data)
-			instantiate_memory(node, data2->count, addr2->count);
-
-		compute_dual_port_memory(node, data1, data2, out1, out2, addr1, addr2, we1, we2, posedge, cycle);
-
-		free_signal_list(addr1);
-		free_signal_list(addr2);
-		free_signal_list(data1);
-		free_signal_list(data2);
-		free_signal_list(out1);
-		free_signal_list(out2);
-	}
+	if (is_sp_ram(node))
+		compute_single_port_memory(node, cycle);
+	else if (is_dp_ram(node))
+		compute_dual_port_memory(node, cycle);
 	else
-	{
 		error_message(SIMULATION_ERROR, 0, -1,
 				"Could not resolve memory hard block %s to a valid type.", node->name);
-	}
 }
 
 /*
  * Computes single port memory.
  */
-void compute_single_port_memory(
-	nnode_t *node,
-	signal_list_t *data,
-	signal_list_t *out,
-	signal_list_t *addr,
-	int we,
-	int posedge,
-	int cycle
-)
+void compute_single_port_memory(nnode_t *node, int cycle)
 {
+	sp_ram_signals *signals = get_sp_ram_signals(node);
+	int we      = get_pin_value(signals->we, cycle-1);
+	int posedge = is_posedge(signals->clk, cycle);
+
+	if (!node->memory_data)
+		instantiate_memory(node, signals->data->count, signals->addr->count);
+
 	// On the rising edge, compute the memory.
 	if (posedge)
 	{
-		long address = compute_memory_address(out, addr, cycle-1);
+		long address = compute_memory_address(signals->out, signals->addr, cycle-1);
 		char address_ok = (address != -1)?1:0;
 
 		int i;
-		for (i = 0; i < data->count; i++)
+		for (i = 0; i < signals->data->count; i++)
 		{
 			// Compute which bit we are addressing.
-			long bit_address = address_ok?(i + (address * data->count)):-1;
+			long bit_address = address_ok?(i + (address * signals->data->count)):-1;
 
 			// Update the output.
 			if (address_ok)
-				update_pin_value(out->pins[i], node->memory_data[bit_address], cycle);
+				update_pin_value(signals->out->pins[i], node->memory_data[bit_address], cycle);
 			else
-				update_pin_value(out->pins[i], -1, cycle);
+				update_pin_value(signals->out->pins[i], -1, cycle);
 
 			// If write is enabled, copy the input to memory.
 			if (address_ok && we)
-				node->memory_data[bit_address] = get_pin_value(data->pins[i],cycle-1);
+				node->memory_data[bit_address] = get_pin_value(signals->data->pins[i],cycle-1);
 		}
 	}
 	else
 	{
 		// On falling edge, we hold the previous value.
 		int i;
-		for (i = 0; i < data->count; i++)
-			update_pin_value(out->pins[i], get_pin_value(out->pins[i],cycle-1), cycle);
+		for (i = 0; i < signals->data->count; i++)
+			update_pin_value(signals->out->pins[i], get_pin_value(signals->out->pins[i],cycle-1), cycle);
 	}
+
+	free_sp_ram_signals(signals);
 }
 
 /*
  * Computes dual port memory.
  */
-void compute_dual_port_memory(
-	nnode_t *node,
-	signal_list_t *data1,
-	signal_list_t *data2,
-	signal_list_t *out1,
-	signal_list_t *out2,
-	signal_list_t *addr1,
-	signal_list_t *addr2,
-	int we1,
-	int we2,
-	int posedge,
-	int cycle
-)
+void compute_dual_port_memory(nnode_t *node, int cycle)
 {
+	dp_ram_signals *signals = get_dp_ram_signals(node);
+	int we1     = get_pin_value(signals->we1, cycle-1);
+	int we2     = get_pin_value(signals->we2, cycle-1);
+	int posedge = is_posedge(signals->clk, cycle);
+
+	if (!node->memory_data)
+		instantiate_memory(node, signals->data2->count, signals->addr2->count);
+
 	// On the rising edge, we compute the memory.
 	if (posedge)
 	{
-		long address1 = compute_memory_address(out1, addr1, cycle-1);
-		long address2 = compute_memory_address(out2, addr2, cycle-1);
+		long address1 = compute_memory_address(signals->out1, signals->addr1, cycle-1);
+		long address2 = compute_memory_address(signals->out2, signals->addr2, cycle-1);
 
 		char port1 = (address1 != -1)?1:0;
 		char port2 = (address2 != -1)?1:0;
 
 		// Read (and write if we) data to memory.
 		int i;
-		for (i = 0; i < data1->count; i++)
+		for (i = 0; i < signals->data1->count; i++)
 		{
 			// Compute which bit we are addressing.
-			long bit_address1 = port1?(i + (address1 * data1->count)):-1;
-			long bit_address2 = port2?(i + (address2 * data2->count)):-1;
+			long bit_address1 = port1?(i + (address1 * signals->data1->count)):-1;
+			long bit_address2 = port2?(i + (address2 * signals->data2->count)):-1;
 
 			// Read the memory bit
 			if (port1)
-				update_pin_value(out1->pins[i], node->memory_data[bit_address1], cycle);
+				update_pin_value(signals->out1->pins[i], node->memory_data[bit_address1], cycle);
 			else
-				update_pin_value(out1->pins[i], -1, cycle);
+				update_pin_value(signals->out1->pins[i], -1, cycle);
 
 			if (port2)
-				update_pin_value(out2->pins[i], node->memory_data[bit_address2], cycle);
+				update_pin_value(signals->out2->pins[i], node->memory_data[bit_address2], cycle);
 			else
-				update_pin_value(out2->pins[i], -1, cycle);
+				update_pin_value(signals->out2->pins[i], -1, cycle);
 
 			// Write to the memory
 			if (port1 && we1)
-				node->memory_data[bit_address1] = get_pin_value(data1->pins[i], cycle-1);
+				node->memory_data[bit_address1] = get_pin_value(signals->data1->pins[i], cycle-1);
 			if (port2 && we2)
-				node->memory_data[bit_address2] = get_pin_value(data2->pins[i], cycle-1);
+				node->memory_data[bit_address2] = get_pin_value(signals->data2->pins[i], cycle-1);
 		}
 	}
 	else
 	{
 		// On falling edge, we hold the previous value.
 		int i;
-		for (i = 0; i < data1->count; i++)
+		for (i = 0; i < signals->data1->count; i++)
 		{
-			update_pin_value(out1->pins[i], get_pin_value(out1->pins[i],cycle-1), cycle);
-			update_pin_value(out2->pins[i], get_pin_value(out2->pins[i],cycle-1), cycle);
+			update_pin_value(signals->out1->pins[i], get_pin_value(signals->out1->pins[i],cycle-1), cycle);
+			update_pin_value(signals->out2->pins[i], get_pin_value(signals->out2->pins[i],cycle-1), cycle);
 		}
 	}
+
+	free_dp_ram_signals(signals);
 }
 
 /*
@@ -1736,7 +1629,6 @@ long compute_memory_address(signal_list_t *out, signal_list_t *addr, int cycle)
  * Initialises memory using a memory information file (mif). If not
  * file is found, it is initialised to x's.
  */
-// TODO: This obviously won't work with mif files, as it doesn't even write the values to the memory.
 void instantiate_memory(nnode_t *node, int data_width, int addr_width)
 {
 	long max_address = 1 << addr_width;
@@ -1748,48 +1640,230 @@ void instantiate_memory(nnode_t *node, int data_width, int addr_width)
 		node->memory_data[i] = -1;
 
 	char *filename = get_mif_filename(node);
+
 	FILE *mif = fopen(filename, "r");
-	if (mif)
+	if (!mif)
 	{
-		error_message(SIMULATION_ERROR, 0, -1, "MIF file support is current broken and needs developer attention.");
-
-		char input[BUFFER_MAX_SIZE];
-		while (fgets(input, BUFFER_MAX_SIZE, mif))
-			if (strcmp(input, "Content\n") == 0)
-				break;
-
-		while (fgets(input, BUFFER_MAX_SIZE, mif))
-		{
-			char *addr = malloc(sizeof(char)*BUFFER_MAX_SIZE);
-			char *data = malloc(sizeof(char)*BUFFER_MAX_SIZE);
-
-			if (!(strcmp(input, "Begin\n") == 0 || strcmp(input, "End;") == 0 || strcmp(input, "End;\n") == 0))
-			{
-				char *colon = strchr(input, ':');
-
-				strncpy(addr, input, (colon-input));
-				colon += 2;
-
-				char *semicolon = strchr(input, ';');
-				strncpy(data, colon, (semicolon-colon));
-
-				long addr_val = strtol(addr, 0, 10);
-				long data_val = strtol(data, 0, 16);
-
-				int i;
-				for (i = 0; i < data_width; i++)
-				{
-					int mask = (1 << ((data_width - 1) - i));
-					signed char val = (mask & data_val) > 0 ? 1 : 0;
-					int write_address = i + (addr_val * data_width);
-					// TODO: This is obviously incorrect, as it's writing the value to a small char buffer which isn't connected to the memory.
-					data[write_address] = val;
-				}
-			}
-		}
+		printf("MIF %s (%dx%d) not found. \n", filename, data_width, addr_width);
+	}
+	else
+	{
+		assign_memory_from_mif_file(mif, filename, data_width, addr_width, node->memory_data);
 		fclose(mif);
 	}
 	free(filename);
+}
+
+/*
+ * Removes white space (except new lines) and comments from
+ * the given mif file and returns the resulting temporary file.
+ */
+FILE *preprocess_mif_file(FILE *source)
+{
+	FILE *destination = tmpfile();
+	destination = freopen(NULL, "r+", destination);
+	rewind(source);
+
+	char line[BUFFER_MAX_SIZE];
+	int in_multiline_comment = FALSE;
+	while (fgets(line, BUFFER_MAX_SIZE, source))
+	{
+		int i;
+		for (i = 0; i < strlen(line); i++)
+		{
+			if (!in_multiline_comment)
+			{
+				// For a single line comment, skip the rest of the line.
+				if (line[i] == '-' && line[i+1] == '-')
+					break;
+				// Start of a multiline comment
+				else if (line[i] == '%')
+					in_multiline_comment = TRUE;
+				// Don't copy any white space over.
+				else if (line[i] != '\n' && line[i] != ' ' && line[i] != '\r' && line[i] != '\t' )
+					fputc(line[i], destination);
+			}
+			else
+			{
+				// If we're in a multi-line comment, search for the %
+				if (line[i] == '%')
+					in_multiline_comment = FALSE;
+			}
+		}
+		fputc('\n', destination);
+	}
+	rewind(destination);
+	return destination;
+}
+
+int parse_mif_radix(char *radix)
+{
+	if (radix)
+	{
+		if (!strcmp(radix, "HEX"))
+			return 16;
+		else if (!strcmp(radix, "DEC"))
+			return 10;
+		else if (!strcmp(radix, "OCT"))
+			return 8;
+		else if (!strcmp(radix, "BIN"))
+			return 2;
+		else
+			return 0;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+void assign_memory_from_mif_file(FILE *mif, char *filename, int width, long depth, signed char *memory)
+{
+	FILE *file = preprocess_mif_file(mif);
+	rewind(file);
+
+	hashtable_t *symbols = create_hashtable(100000);
+
+	char buffer[BUFFER_MAX_SIZE];
+	int in_content = FALSE;
+	char *last_line  = NULL;
+	int line_number = 0;
+
+	int addr_radix = 0;
+	int data_radix = 0;
+	while (fgets(buffer, BUFFER_MAX_SIZE, file))
+	{
+		line_number++;
+		// Remove the newline.
+		trim_string(buffer, "\n");
+		// Only process lines which are not empty.
+		if (strlen(buffer))
+		{
+			char *line = strdup(buffer);
+			// MIF files are case insensitive
+			string_to_upper(line);
+
+			// The content section of the file contains address:value; assignments.
+			if (in_content)
+			{
+				// Parse at the :
+				char *token = strtok(line, ":");
+				if (strlen(token))
+				{
+					// END; signifies the end of the file.
+					if(!strcmp(buffer, "END;"))
+						break;
+
+					// The part before the : is the address.
+					char *address_string = token;
+					token = strtok(NULL, ";");
+					// The reset (before the ;) is the data_value.
+					char *data_string = token;
+
+					if (token)
+					{
+						// Make sure the address and value are valid strings of the specified radix.
+						if (!is_string_of_radix(address_string, addr_radix))
+							error_message(SIMULATION_ERROR, line_number, -1, "%s: address %s is not a base %d string.", filename, address_string, addr_radix);
+
+						if (!is_string_of_radix(data_string, data_radix))
+							error_message(SIMULATION_ERROR, line_number, -1, "%s: data string %s is not a base %d string.", filename, data_string, data_radix);
+
+						char *binary_data = convert_string_of_radix_to_bit_string(data_string, data_radix, width);
+						long long address = convert_string_of_radix_to_long_long(address_string, addr_radix);
+
+						if (address >= depth)
+							error_message(SIMULATION_ERROR, line_number, -1, "%s: address %s is out of range.", filename, address_string);
+
+						// Calculate the offset of this memory location in bits.
+						long long offset = address * width;
+
+						// Write the parsed value string to the memory location.
+						long long i;
+						for (i = offset; i < offset + width; i++)
+							memory[i] = binary_data[i - offset] - '0';
+					}
+					else
+					{
+						error_message(SIMULATION_ERROR, line_number, -1,
+								"%s: MIF syntax error.", filename);
+					}
+				}
+
+			}
+			// The header section of the file contains parameters given as PARAMETER=value;
+			else
+			{
+				// Grab the bit before the = sign.
+				char *token = strtok(line, "=");
+				if (strlen(token))
+				{
+					char *symbol = token;
+					token = strtok(NULL, ";");
+
+					// If is something after the equals sign and before the semicolon, add the symbol=value association to the symbol table.
+					if (token)
+						symbols->add(symbols, symbol, sizeof(char) * strlen(symbol), strdup(token));
+					else if(!strcmp(buffer, "CONTENT")) {}
+					// We found "CONTENT" followed on the next line by "BEGIN". That means we're at the end of the parameters.
+					else if(!strcmp(buffer, "BEGIN") && !strcmp(last_line, "CONTENT"))
+					{
+						// Sanity check parameters to make sure we have what we need.
+
+						// Verify the width parameter.
+						char *width_string = symbols->get(symbols, "WIDTH", sizeof(char) * 5);
+						int mif_width = atoi(width_string);
+						if (!width_string) error_message(SIMULATION_ERROR, -1, -1, "%s: MIF WIDTH parameter unspecified.", filename);
+						if (mif_width != width)
+								error_message(SIMULATION_ERROR, -1, -1,
+									"%s: MIF width mismatch: must be %d but %d was given", filename, width, mif_width);
+
+						// Verify the depth parameter.
+						char *depth_string = symbols->get(symbols, "DEPTH", sizeof(char) * 5);
+						int mif_depth = atoi(depth_string);
+						if (!depth_string) error_message(SIMULATION_ERROR, -1, -1, "%s: MIF DEPTH parameter unspecified.", filename);
+						if (mif_depth != depth)
+							error_message(SIMULATION_ERROR, -1, -1,
+									"%s: MIF depth mismatch: must be %d but %d was given", filename, depth, mif_depth);
+
+						// Parse the radix specifications and make sure they're OK.
+						addr_radix = parse_mif_radix(symbols->get(symbols, "ADDRESS_RADIX", sizeof(char) * 13));
+						data_radix = parse_mif_radix(symbols->get(symbols, "DATA_RADIX", sizeof(char) * 10));
+
+						if (!addr_radix)
+							error_message(SIMULATION_ERROR, -1, -1,
+									"%s: invalid or missing ADDRESS_RADIX: must specify DEC, HEX, OCT, or BIN", filename);
+
+						if (!data_radix)
+							error_message(SIMULATION_ERROR, -1, -1,
+									"%s: invalid or missing DATA_RADIX: must specify DEC, HEX, OCT, or BIN", filename);
+
+						// If everything checks out, start reading the values.
+						in_content = TRUE;
+					}
+					else
+					{
+						error_message(SIMULATION_ERROR, line_number, -1, "%s: MIF syntax error: %s", filename, line);
+					}
+				}
+				else
+				{
+					error_message(SIMULATION_ERROR, line_number, -1, "%s: MIF syntax error: %s", filename, line);
+				}
+				free(line);
+			}
+
+			if (last_line)
+				free(last_line);
+			last_line = strdup(buffer);
+		}
+	}
+	if (last_line)
+		free(last_line);
+
+	symbols->destroy_free_items(symbols);
+
+	fclose(file);
 }
 
 /*
@@ -2683,22 +2757,25 @@ char *get_mif_filename(nnode_t *node)
  */
 void trim_string(char* string, char *chars)
 {
-	int length;
-	while((length = strlen(string)))
-	{	int trimmed = FALSE;
-		int i;
-		for (i = 0; i < strlen(chars); i++)
-		{
-			if (string[length-1] == chars[i])
+	if (string)
+	{
+		int length;
+		while((length = strlen(string)))
+		{	int trimmed = FALSE;
+			int i;
+			for (i = 0; i < strlen(chars); i++)
 			{
-				trimmed = TRUE;
-				string[length-1] = '\0';
-				break;
+				if (string[length-1] == chars[i])
+				{
+					trimmed = TRUE;
+					string[length-1] = '\0';
+					break;
+				}
 			}
-		}
 
-		if (!trimmed)
-			break;
+			if (!trimmed)
+				break;
+		}
 	}
 }
 

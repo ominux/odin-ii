@@ -1496,51 +1496,200 @@ void pad_memory_input_port(nnode_t *node, netlist_t *netlist, t_model *model, ch
 }
 
 #ifdef VPR6
+
+char is_sp_ram(nnode_t *node)
+{
+	return is_ast_sp_ram(node->related_ast_node);
+}
+
+char is_dp_ram(nnode_t *node)
+{
+	return is_ast_dp_ram(node->related_ast_node);
+}
+
+char is_ast_sp_ram(ast_node_t *node)
+{
+	char *identifier = node->children[0]->types.identifier;
+	if (!strcmp(identifier, "single_port_ram"))
+		return TRUE;
+	else
+		return FALSE;
+}
+
+char is_ast_dp_ram(ast_node_t *node)
+{
+	char *identifier = node->children[0]->types.identifier;
+	if (!strcmp(identifier, "dual_port_ram"))
+		return TRUE;
+	else
+		return FALSE;
+}
+
+sp_ram_signals *get_sp_ram_signals(nnode_t *node)
+{
+	oassert(is_sp_ram(node));
+
+	ast_node_t *ast_node = node->related_ast_node;
+	sp_ram_signals *signals = malloc(sizeof(sp_ram_signals));
+
+	// Separate the input signals according to their mapping.
+	signals->addr = init_signal_list();
+	signals->data = init_signal_list();
+	signals->out = init_signal_list();
+	signals->we = NULL;
+	signals->clk = NULL;
+
+	int i;
+	for (i = 0; i < node->num_input_pins; i++)
+	{
+		npin_t *pin = node->input_pins[i];
+		if (!strcmp(pin->mapping, "addr"))
+			add_pin_to_signal_list(signals->addr, pin);
+		else if (!strcmp(pin->mapping, "data"))
+			add_pin_to_signal_list(signals->data, pin);
+		else if (!strcmp(pin->mapping, "we"))
+			signals->we = pin;
+		else if (!strcmp(pin->mapping, "clk"))
+			signals->clk = pin;
+		else
+			error_message(NETLIST_ERROR, ast_node->line_number, ast_node->file_number,
+					"Unexpected input pin mapping \"%s\" on memory node: %s\n",
+					pin->mapping, node->name);
+	}
+
+	oassert(signals->clk != NULL);
+	oassert(signals->we != NULL);
+	oassert(signals->addr->count >= 1);
+	oassert(signals->data->count >= 1);
+	oassert(signals->data->count == node->num_output_pins);
+
+	for (i = 0; i < node->num_output_pins; i++)
+	{
+		npin_t *pin = node->output_pins[i];
+		if (!strcmp(pin->mapping, "out"))
+			add_pin_to_signal_list(signals->out, pin);
+		else
+			error_message(NETLIST_ERROR, ast_node->line_number, ast_node->file_number,
+					"Unexpected output pin mapping \"%s\" on memory node: %s\n",
+					pin->mapping, node->name);
+	}
+
+	oassert(signals->out->count == signals->data->count);
+
+	return signals;
+}
+
+void free_sp_ram_signals(sp_ram_signals *signals)
+{
+	free_signal_list(signals->data);
+	free_signal_list(signals->addr);
+	free_signal_list(signals->out);
+
+	free(signals);
+}
+
+dp_ram_signals *get_dp_ram_signals(nnode_t *node)
+{
+	oassert(is_dp_ram(node));
+
+	ast_node_t *ast_node = node->related_ast_node;
+	dp_ram_signals *signals = malloc(sizeof(dp_ram_signals));
+
+	// Separate the input signals according to their mapping.
+	signals->addr1 = init_signal_list();
+	signals->addr2 = init_signal_list();
+	signals->data1 = init_signal_list();
+	signals->data2 = init_signal_list();
+	signals->out1  = init_signal_list();
+	signals->out2  = init_signal_list();
+	signals->we1 = NULL;
+	signals->we2 = NULL;
+	signals->clk = NULL;
+
+	int i;
+	for (i = 0; i < node->num_input_pins; i++)
+	{
+		npin_t *pin = node->input_pins[i];
+		if (!strcmp(pin->mapping, "addr1"))
+			add_pin_to_signal_list(signals->addr1, pin);
+		else if (!strcmp(pin->mapping, "addr2"))
+			add_pin_to_signal_list(signals->addr2, pin);
+		else if (!strcmp(pin->mapping, "data1"))
+			add_pin_to_signal_list(signals->data1, pin);
+		else if (!strcmp(pin->mapping, "data2"))
+			add_pin_to_signal_list(signals->data2, pin);
+		else if (!strcmp(pin->mapping, "we1"))
+			signals->we1 = pin;
+		else if (!strcmp(pin->mapping, "we2"))
+			signals->we2 = pin;
+		else if (!strcmp(pin->mapping, "clk"))
+			signals->clk = pin;
+		else
+			error_message(NETLIST_ERROR, ast_node->line_number, ast_node->file_number,
+							"Unexpected input pin mapping \"%s\" on memory node: %s\n",
+							pin->mapping, node->name);
+	}
+
+	// Sanity checks.
+	oassert(signals->clk != NULL);
+	oassert(signals->we1 != NULL && signals->we2 != NULL);
+	oassert(signals->addr1->count >= 1 && signals->data1->count >= 1);
+	oassert(signals->addr2->count >= 1 && signals->data2->count >= 1);
+	oassert(signals->addr1->count == signals->addr2->count);
+	oassert(signals->data1->count == signals->data2->count);
+	oassert(signals->data1->count + signals->data2->count == node->num_output_pins);
+
+	// Separate output signals according to mapping.
+	for (i = 0; i < node->num_output_pins; i++)
+	{
+		npin_t *pin = node->output_pins[i];
+		if (!strcmp(pin->mapping, "out1"))
+			add_pin_to_signal_list(signals->out1, pin);
+		else if (!strcmp(pin->mapping, "out2"))
+			add_pin_to_signal_list(signals->out2, pin);
+		else
+			error_message(NETLIST_ERROR, ast_node->line_number, ast_node->file_number,
+							"Unexpected output pin mapping \"%s\" on memory node: %s\n",
+							pin->mapping, node->name);
+	}
+
+	oassert(signals->out1->count == signals->out2->count);
+	oassert(signals->out1->count == signals->data1->count);
+
+	return signals;
+}
+
+void free_dp_ram_signals(dp_ram_signals *signals)
+{
+	free_signal_list(signals->data1);
+	free_signal_list(signals->data2);
+	free_signal_list(signals->addr1);
+	free_signal_list(signals->addr2);
+	free_signal_list(signals->out1);
+	free_signal_list(signals->out2);
+
+	free(signals);
+}
+
 /*
  * Expands the given single port ram block into soft logic.
  */
 void instantiate_soft_single_port_ram(nnode_t *node, short mark, netlist_t *netlist)
 {
-	signal_list_t *addr = init_signal_list();
-	signal_list_t *data = init_signal_list();
-	npin_t *we = NULL;
-	npin_t *clk = NULL;
+	oassert(is_sp_ram(node));
 
-	// Separate the input signals according to their mapping.
-	int j;
-	for (j = 0; j < node->num_input_pins; j++)
-	{
-		npin_t *pin = node->input_pins[j];
-		if (!strcmp(pin->mapping, "addr"))
-			add_pin_to_signal_list(addr, pin);
-		else if (!strcmp(pin->mapping, "data"))
-			add_pin_to_signal_list(data, pin);
-		else if (!strcmp(pin->mapping, "we"))
-			we = pin;
-		else if (!strcmp(pin->mapping, "clk"))
-			clk = pin;
-		else
-			error_message(NETLIST_ERROR, -1, -1, "Unexpected input pin mapping on memory node: %s\n", pin->mapping);
-	}
-
-	oassert(clk != NULL);
-	oassert(we != NULL);
-	oassert(addr->count >= 1);
-	oassert(data->count >= 1);
-	oassert(data->count == node->num_output_pins);
+	sp_ram_signals *signals = get_sp_ram_signals(node);
 
 	// Construct an address decoder.
-	signal_list_t *decoder = create_decoder(node, mark, addr);
-
-	free_signal_list(addr);
+	signal_list_t *decoder = create_decoder(node, mark, signals->addr);
 
 	// The total number of memory addresses. (2^address_bits)
 	int num_addr = decoder->count;
 
 	int i;
-	for (i = 0; i < data->count; i++)
+	for (i = 0; i < signals->data->count; i++)
 	{
-		npin_t *data_pin = data->pins[i];
+		npin_t *data_pin = signals->data->pins[i];
 
 		// The output multiplexer determines which memory cell is connected to the output register.
 		nnode_t *output_mux = make_2port_gate(MULTI_PORT_MUX, num_addr, num_addr, 1, node, mark);
@@ -1555,8 +1704,8 @@ void instantiate_soft_single_port_ram(nnode_t *node, short mark, netlist_t *netl
 			if (!i) add_a_input_pin_to_node_spot_idx(and, decoder->pins[j], 0);
 			else    add_a_input_pin_to_node_spot_idx(and, copy_input_npin(decoder->pins[j]), 0);
 
-			if (!i && !j) remap_pin_to_new_node(we, and, 1);
-			else          add_a_input_pin_to_node_spot_idx(and, copy_input_npin(we), 1);
+			if (!i && !j) remap_pin_to_new_node(signals->we, and, 1);
+			else          add_a_input_pin_to_node_spot_idx(and, copy_input_npin(signals->we), 1);
 
 			nnode_t *not = make_not_gate(node, mark);
 			connect_nodes(and, 0, not, 0);
@@ -1571,8 +1720,8 @@ void instantiate_soft_single_port_ram(nnode_t *node, short mark, netlist_t *netl
 			// A flipflop holds the value of each memory cell.
 			nnode_t *ff = make_2port_gate(FF_NODE, 1, 1, 1, node, mark);
 			connect_nodes(mux, 0, ff, 0);
-			if (!i && !j) remap_pin_to_new_node(clk, ff, 1);
-			else          add_a_input_pin_to_node_spot_idx(ff, copy_input_npin(clk), 1);
+			if (!i && !j) remap_pin_to_new_node(signals->clk, ff, 1);
+			else          add_a_input_pin_to_node_spot_idx(ff, copy_input_npin(signals->clk), 1);
 
 			// The output of the flipflop connects back to the multiplexer (to hold the value.)
 			connect_nodes(ff, 0, mux, 3);
@@ -1586,7 +1735,7 @@ void instantiate_soft_single_port_ram(nnode_t *node, short mark, netlist_t *netl
 		// Add the output register.
 		nnode_t *output_ff = make_2port_gate(FF_NODE, 1, 1, 1, node, mark);
 		connect_nodes(output_mux, 0, output_ff, 0);
-		add_a_input_pin_to_node_spot_idx(output_ff, copy_input_npin(clk), 1);
+		add_a_input_pin_to_node_spot_idx(output_ff, copy_input_npin(signals->clk), 1);
 
 		// Move the original output pin over to the register.
 		npin_t *output_pin = node->output_pins[i];
@@ -1597,7 +1746,7 @@ void instantiate_soft_single_port_ram(nnode_t *node, short mark, netlist_t *netl
 	}
 
 	// Free signal lists.
-	free_signal_list(data);
+	free_sp_ram_signals(signals);
 	free_signal_list(decoder);
 
 	// Free the original hard block memory.
@@ -1609,80 +1758,25 @@ void instantiate_soft_single_port_ram(nnode_t *node, short mark, netlist_t *netl
  */
 void instantiate_soft_dual_port_ram(nnode_t *node, short mark, netlist_t *netlist)
 {
-	// Separate the input signals according to their mapping.
-	signal_list_t *addr1 = init_signal_list();
-	signal_list_t *addr2 = init_signal_list();
-	signal_list_t *data1 = init_signal_list();
-	signal_list_t *data2 = init_signal_list();
-	npin_t *we1 = NULL;
-	npin_t *we2 = NULL;
-	npin_t *clk = NULL;
-	int i;
-	for (i = 0; i < node->num_input_pins; i++)
-	{
-		npin_t *pin = node->input_pins[i];
-		if (!strcmp(pin->mapping, "addr1"))
-			add_pin_to_signal_list(addr1, pin);
-		else if (!strcmp(pin->mapping, "addr2"))
-			add_pin_to_signal_list(addr2, pin);
-		else if (!strcmp(pin->mapping, "data1"))
-			add_pin_to_signal_list(data1, pin);
-		else if (!strcmp(pin->mapping, "data2"))
-			add_pin_to_signal_list(data2, pin);
-		else if (!strcmp(pin->mapping, "we1"))
-			we1 = pin;
-		else if (!strcmp(pin->mapping, "we2"))
-			we2 = pin;
-		else if (!strcmp(pin->mapping, "clk"))
-			clk = pin;
-		else
-			error_message(NETLIST_ERROR, -1, -1, "Unexpected input pin mapping on memory node: %s\n", pin->mapping);
-	}
+	oassert(is_dp_ram(node));
 
-	// Sanity checks.
-	oassert(clk != NULL);
-	oassert(we1 != NULL && we2 != NULL);
-	oassert(addr1->count >= 1 && data1->count >= 1);
-	oassert(addr2->count >= 1 && data2->count >= 1);
-	oassert(addr1->count == addr2->count);
-	oassert(data1->count == data2->count);
-	oassert(data1->count + data2->count == node->num_output_pins);
-
-	// Separate output signals according to mapping.
-	signal_list_t *out1 = init_signal_list();
-	signal_list_t *out2 = init_signal_list();
-	for (i = 0; i < node->num_output_pins; i++)
-	{
-		npin_t *pin = node->output_pins[i];
-		if (!strcmp(pin->mapping, "out1"))
-			add_pin_to_signal_list(out1, pin);
-		else if (!strcmp(pin->mapping, "out2"))
-			add_pin_to_signal_list(out2, pin);
-		else
-			error_message(NETLIST_ERROR, -1, -1, "Unexpected output pin mapping on memory node: %s\n", pin->mapping);
-	}
-
-	oassert(out1->count == out2->count);
-	oassert(out1->count == data1->count);
+	dp_ram_signals *signals = get_dp_ram_signals(node);
 
 	// Construct the address decoders.
-	signal_list_t *decoder1 = create_decoder(node, mark, addr1);
-	signal_list_t *decoder2 = create_decoder(node, mark, addr2);
-
-	// Access to the original addresses pins are is longer required.
-	free_signal_list(addr1);
-	free_signal_list(addr2);
+	signal_list_t *decoder1 = create_decoder(node, mark, signals->addr1);
+	signal_list_t *decoder2 = create_decoder(node, mark, signals->addr2);
 
 	oassert(decoder1->count == decoder2->count);
 
 	// The total number of memory addresses. (2^address_bits)
 	int num_addr = decoder1->count;
-	int data_width = data1->count;
+	int data_width = signals->data1->count;
 
+	int i;
 	for (i = 0; i < data_width; i++)
 	{
-		npin_t *data1_pin = data1->pins[i];
-		npin_t *data2_pin = data2->pins[i];
+		npin_t *data1_pin = signals->data1->pins[i];
+		npin_t *data2_pin = signals->data2->pins[i];
 
 		// The output multiplexer determines which memory cell is connected to the output register.
 		nnode_t *output_mux1 = make_2port_gate(MULTI_PORT_MUX, num_addr, num_addr, 1, node, mark);
@@ -1698,15 +1792,15 @@ void instantiate_soft_dual_port_ram(nnode_t *node, short mark, netlist_t *netlis
 			if (!i) add_a_input_pin_to_node_spot_idx(and1, addr1_pin, 0);
 			else    add_a_input_pin_to_node_spot_idx(and1, copy_input_npin(addr1_pin), 0);
 
-			if (!i && !j) remap_pin_to_new_node(we1, and1, 1);
-			else          add_a_input_pin_to_node_spot_idx(and1, copy_input_npin(we1), 1);
+			if (!i && !j) remap_pin_to_new_node(signals->we1, and1, 1);
+			else          add_a_input_pin_to_node_spot_idx(and1, copy_input_npin(signals->we1), 1);
 
 			nnode_t *and2 = make_1port_logic_gate(LOGICAL_AND, 2, node, mark);
 			if (!i) add_a_input_pin_to_node_spot_idx(and2, addr2_pin, 0);
 			else    add_a_input_pin_to_node_spot_idx(and2, copy_input_npin(addr2_pin), 0);
 
-			if (!i && !j) remap_pin_to_new_node(we2, and2, 1);
-			else          add_a_input_pin_to_node_spot_idx(and2, copy_input_npin(we2), 1);
+			if (!i && !j) remap_pin_to_new_node(signals->we2, and2, 1);
+			else          add_a_input_pin_to_node_spot_idx(and2, copy_input_npin(signals->we2), 1);
 
 			// The data mux selects between the two data lines for this address.
 			nnode_t *data_mux = make_2port_gate(MUX_2, 2, 2, 1, node, mark);
@@ -1735,8 +1829,8 @@ void instantiate_soft_dual_port_ram(nnode_t *node, short mark, netlist_t *netlis
 			// A flipflop holds the value of each memory cell.
 			nnode_t *ff = make_2port_gate(FF_NODE, 1, 1, 1, node, mark);
 			connect_nodes(mux, 0, ff, 0);
-			if (!i && !j) remap_pin_to_new_node(clk, ff, 1);
-			else          add_a_input_pin_to_node_spot_idx(ff, copy_input_npin(clk), 1);
+			if (!i && !j) remap_pin_to_new_node(signals->clk, ff, 1);
+			else          add_a_input_pin_to_node_spot_idx(ff, copy_input_npin(signals->clk), 1);
 
 			// The output of the flipflop connects back to the multiplexer (to hold the value.)
 			connect_nodes(ff, 0, mux, 3);
@@ -1753,15 +1847,15 @@ void instantiate_soft_dual_port_ram(nnode_t *node, short mark, netlist_t *netlis
 		// Add the output registers: for each data bit on each port.
 		nnode_t *output_ff1 = make_2port_gate(FF_NODE, 1, 1, 1, node, mark);
 		connect_nodes(output_mux1, 0, output_ff1, 0);
-		add_a_input_pin_to_node_spot_idx(output_ff1, copy_input_npin(clk), 1);
+		add_a_input_pin_to_node_spot_idx(output_ff1, copy_input_npin(signals->clk), 1);
 
 		nnode_t *output_ff2 = make_2port_gate(FF_NODE, 1, 1, 1, node, mark);
 		connect_nodes(output_mux2, 0, output_ff2, 0);
-		add_a_input_pin_to_node_spot_idx(output_ff2, copy_input_npin(clk), 1);
+		add_a_input_pin_to_node_spot_idx(output_ff2, copy_input_npin(signals->clk), 1);
 
 		// Move the original outputs pin over to the register and rename them.
-		npin_t *out1_pin = out1->pins[i];
-		npin_t *out2_pin = out2->pins[i];
+		npin_t *out1_pin = signals->out1->pins[i];
+		npin_t *out2_pin = signals->out2->pins[i];
 
 		out1_pin->name = strdup(output_ff1->name);
 		out2_pin->name = strdup(output_ff2->name);
@@ -1775,14 +1869,10 @@ void instantiate_soft_dual_port_ram(nnode_t *node, short mark, netlist_t *netlis
 	}
 
 	// Free signal lists.
-	free_signal_list(data1);
-	free_signal_list(data2);
+	free_dp_ram_signals(signals);
 
 	free_signal_list(decoder1);
 	free_signal_list(decoder2);
-
-	free_signal_list(out1);
-	free_signal_list(out2);
 
 	// Free the original hard block memory.
 	free_nnode(node);

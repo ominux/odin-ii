@@ -3129,7 +3129,7 @@ void pad_with_zeros(ast_node_t* node, signal_list_t *list, int pad_size, char *i
  *------------------------------------------------------------------------*/
 signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name_prefix, t_model* hb_model)
 {
-	if (!hb_model || strcmp(hb_model->name, "dual_port_ram"))
+	if (!hb_model || !is_ast_dp_ram(block))
 		error_message(NETLIST_ERROR, block->line_number, block->file_number, "Error in creating dual port ram\n");
 
 	block->type = RAM;
@@ -3313,7 +3313,7 @@ signal_list_t *create_dual_port_ram_block(ast_node_t* block, char *instance_name
  *------------------------------------------------------------------------*/
 signal_list_t *create_single_port_ram_block(ast_node_t* block, char *instance_name_prefix, t_model* hb_model)
 {
-	if (!hb_model || strcmp(hb_model->name, "single_port_ram"))
+	if (!hb_model || !is_ast_sp_ram(block))
 		error_message(NETLIST_ERROR, block->line_number, block->file_number, "Error in creating single port ram\n");
 
 	// EDDIE: Uses new enum in ids: RAM (opposed to MEMORY from operation_t previously)
@@ -3509,7 +3509,7 @@ signal_list_t *create_soft_single_port_ram_block(ast_node_t* block, char *instan
 {
 	char *identifier = block->children[0]->types.identifier;
 
-	if (strcmp(identifier, "single_port_ram"))
+	if (!is_ast_sp_ram(block))
 		error_message(NETLIST_ERROR, block->line_number, block->file_number, "Error in creating soft single port ram\n");
 
 	block->type = RAM;
@@ -3661,7 +3661,7 @@ signal_list_t *create_soft_dual_port_ram_block(ast_node_t* block, char *instance
 	char *identifier = block->children[0]->types.identifier;
 	char *instance_name = block->children[1]->children[0]->types.identifier;
 
-	if (strcmp(identifier, "dual_port_ram"))
+	if (!is_ast_dp_ram(block))
 		error_message(NETLIST_ERROR, block->line_number, block->file_number, "Error in creating soft dual port ram\n");
 
 	block->type = RAM;
@@ -3835,7 +3835,7 @@ signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 
 
 	/* single_port_ram's are a special case due to splitting */
-	if (!strcmp(identifier, "single_port_ram"))
+	if (is_ast_sp_ram(block))
 	{
 		if (hb_model)
 			return create_single_port_ram_block(block, instance_name_prefix, hb_model);
@@ -3844,7 +3844,7 @@ signal_list_t *create_hard_block(ast_node_t* block, char *instance_name_prefix)
 	}
 
 	/* dual_port_ram's are a special case due to splitting */
-	if (strcmp(identifier, "dual_port_ram") == 0)
+	if (is_ast_dp_ram(block))
 	{
 		if (hb_model)
 			return create_dual_port_ram_block(block, instance_name_prefix, hb_model);
