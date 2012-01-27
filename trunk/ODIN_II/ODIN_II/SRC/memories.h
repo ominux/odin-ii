@@ -41,6 +41,38 @@ typedef struct s_memory_port_sizes
 	char *name;
 } t_memory_port_sizes;
 
+typedef struct {
+	signal_list_t *addr;
+	signal_list_t *data;
+	signal_list_t *out;
+	npin_t *we;
+	npin_t *clk;
+} sp_ram_signals;
+
+typedef struct {
+	signal_list_t *addr1;
+	signal_list_t *addr2;
+	signal_list_t *data1;
+	signal_list_t *data2;
+	signal_list_t *out1;
+	signal_list_t *out2;
+	npin_t *we1;
+	npin_t *we2;
+	npin_t *clk;
+} dp_ram_signals;
+
+sp_ram_signals *get_sp_ram_signals(nnode_t *node);
+void free_sp_ram_signals(sp_ram_signals *signals);
+
+dp_ram_signals *get_dp_ram_signals(nnode_t *node);
+void free_dp_ram_signals(dp_ram_signals *signals);
+
+char is_sp_ram(nnode_t *node);
+char is_dp_ram(nnode_t *node);
+
+char is_ast_sp_ram(ast_node_t *node);
+char is_ast_dp_ram(ast_node_t *node);
+
 extern struct s_linked_vptr *sp_memory_list;
 extern struct s_linked_vptr *dp_memory_list;
 extern struct s_linked_vptr *memory_instances;

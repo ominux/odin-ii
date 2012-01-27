@@ -46,6 +46,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "multipliers.h"
 #include "hard_blocks.h"
 #include "types.h"
+#include "memories.h"
 
 /*
  * Number of values to store for each pin at one time.
@@ -137,34 +138,16 @@ void compute_mux_2_node(nnode_t *node, int cycle);
 
 int *multiply_arrays(int *a, int a_length, int *b, int b_length);
 
-void compute_single_port_memory(
-	nnode_t *node,
-	signal_list_t *data,
-	signal_list_t *out,
-	signal_list_t *addr,
-	int we,
-	int posedge,
-	int cycle
-);
-
-void compute_dual_port_memory(
-	nnode_t *node,
-	signal_list_t *data1,
-	signal_list_t *data2,
-	signal_list_t *out1,
-	signal_list_t *out2,
-	signal_list_t *addr1,
-	signal_list_t *addr2,
-	int we1,
-	int we2,
-	int posedge,
-	int cycle
-);
+void compute_single_port_memory(nnode_t *node, int cycle);
+void compute_dual_port_memory(nnode_t *node, int cycle);
 
 long compute_memory_address(signal_list_t *out, signal_list_t *addr, int cycle);
 
 void instantiate_memory(nnode_t *node, int data_width, int addr_width);
 char *get_mif_filename(nnode_t *node);
+FILE *preprocess_mif_file(FILE *source);
+void assign_memory_from_mif_file(FILE *file, char *filename, int width, long depth, signed char *memory);
+int parse_mif_radix(char *radix);
 
 int count_test_vectors(FILE *in);
 int is_vector(char *buffer);
