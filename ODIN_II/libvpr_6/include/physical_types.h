@@ -1,6 +1,12 @@
 /*
 Data types describing the physical components on the FPGA architecture.
 
+Key data types:
+t_type_descriptor: describes a placeable complex logic block, 
+pb_type: describes the types of physical blocks within the t_type_descriptor in a hierarchy where the top block is the complex block and the leaf blocks implement one logical block
+pb_graph_node: is a flattened version of pb_type so a pb_type with 10 instances will have 10 pb_graph_nodes representing each instance
+pb: A specific physical block.  Shares a many-to-one relationship with a pb_graph_node.  For example, a circuit with 10 CLBs will have 10 CLB pbs and 1 CLB pb_graph_node, each CLB pb points to that single one pb_graph_node CLB.
+
 Date: February 19, 2009
 Authors: Jason Luu and Kenneth Kent
 */
@@ -21,6 +27,7 @@ Authors: Jason Luu and Kenneth Kent
 enum e_pin_type
 { OPEN = -1, DRIVER = 0, RECEIVER = 1 };
 
+/* Type of interconnect within complex block: Complete for everything connected (full crossbar), direct for one-to-one connections, and mux for many-to-one connections */
 enum e_interconnect
 { COMPLETE_INTERC = 1, DIRECT_INTERC = 2, MUX_INTERC = 3 };
 
@@ -119,6 +126,8 @@ typedef struct s_timing_inf
 t_timing_inf;
 
 struct s_pb_type; /* declare before definition because pb_type contains modes and modes contain pb_types*/
+
+
 /** Describes I/O and clock ports
  * name: name of the port
  * model_port: associated model port
@@ -147,8 +156,9 @@ typedef struct s_port t_port;
  * prop: value/property pair
  * type: type of annotation
  * format: formatting of data
- * input_port: input string verbatim to parse later
- * output_port: input string output to parse later
+ * input_pins: input pins as string affected by annotation
+ * output_pins: output pins as string affected by annotation
+ * clock_pin: clock as string affected by annotation
  */
 struct s_pin_to_pin_annotation
 {
@@ -171,8 +181,12 @@ struct s_pb_graph_edge;
 
 /** Describes interconnect edge inside a cluster
  * type: type of the interconnect
+ * name: indentifier for interconnect
  * input_string: input string verbatim to parse later
- * output_string; input string output to parse later
+ * output_string: input string output to parse later
+ * annotations: Annotations for delay, power, etc
+ * num_annotations: Total number of annotations
+ * parent_mode_index: Mode of parent as int
  */
 struct s_interconnect
 {
@@ -191,8 +205,11 @@ typedef struct s_interconnect t_interconnect;
 
 /** Describes mode
  * name: name of the mode
- * pb_types: pb_types it contains
+ * pb_type_children: pb_types it contains
  * interconnect: interconnect of parent pb_type to children pb_types or children to children pb_types
+ * num_interconnect: Total number of interconnect tags specified by user
+ * parent_pb_type: Which parent contains this mode
+ * index: Index of mode in array with other modes
  */
 struct s_mode
 {
@@ -206,16 +223,17 @@ struct s_mode
 };
 typedef struct s_mode t_mode;
 
-
-
+/* Identify pb pin type for timing purposes */
 enum e_pb_graph_pin_type
 { PB_PIN_NORMAL = 0, PB_PIN_SEQUENTIAL, PB_PIN_INPAD, PB_PIN_OUTPAD, PB_PIN_TERMINAL, PB_PIN_CLOCK };
 
 /** Describes a pb graph pin
  * port: pointer to the port that this pin is associated with 
  * pin_number: pin number of the port that this pin is associated with
- * edges: ptrs to edges attached to this pin
- * num_edges: number of edges attached to this pin
+ * input edges: [0..num_input_edges - 1]edges incoming
+ * num_input_edges: number edges incoming
+ * output edges: [0..num_output_edges - 1]edges out_going
+ * num_output_edges: number edges out_going
  * parent_node: parent pb_graph_node
  * pin_count_in_cluster: Unique number for pin inside cluster
  */
@@ -255,10 +273,12 @@ struct s_pb_graph_edge
 	t_pb_graph_pin **output_pins;
 	int num_output_pins;
 	
+	/* timing information */
 	float delay_max;
 	float delay_min;
 	float capacitance;
 
+	/* who drives this edge */
 	t_interconnect * interconnect;
 	int driver_set;
 	int driver_pin;
