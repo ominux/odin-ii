@@ -8,15 +8,15 @@ PARSER2 = bison
 WARN_FLAGS = -Wall 
 
 SRC_DIR = SRC
+OBJ_DIR = OBJ
 
 EXEO = odin_II.exe
-#EXEV= verify_blif.exe
 
-DEBUG_FLAGS = -g 
+DEBUG_FLAGS = -g
 
 OPT_FLAGS = -O2 
 # Use this value of OPT_FLAGS to simulate in parallel (requires GCC >= 4.2)
-#OPT_FLAGS = -O2 -fopenmp
+#OPT_FLAGS = -O2 -fopenmp 
 
 ifeq "$(BUILD)" "VPR5"
 	INC_FLAGS =  -I../libvpr_5/include
@@ -31,144 +31,87 @@ endif
 FLAGS = $(DEBUG_FLAGS) $(WARN_FLAGS) $(OPT_FLAGS) $(INC_FLAGS)
 C_FLAGS = $(C_DIRECTIVE)
 
-OBJS = \
-OBJ/netlist_visualizer.o \
-OBJ/multipliers.o \
-OBJ/partial_map.o \
-OBJ/errors.o \
-OBJ/node_creation_library.o \
-OBJ/netlist_utils.o \
-OBJ/netlist_stats.o \
-OBJ/odin_util.o \
-OBJ/string_cache.o \
-OBJ/hard_blocks.o \
-OBJ/memories.o \
-OBJ/queue.o \
-OBJ/hashtable.o \
-OBJ/simulate_blif.o\
-OBJ/print_netlist.o 
+YFILES = $(SRC_DIR)/verilog_bison.y
+LFILES = $(SRC_DIR)/verilog_flex.l
 
-OBJO = \
-OBJ/read_xml_config_file.o \
-OBJ/outputs.o \
-OBJ/parse_making_ast.o \
-OBJ/ast_util.o \
-OBJ/high_level_data.o \
-OBJ/ast_optimizations.o \
-OBJ/netlist_create_from_ast.o \
-OBJ/netlist_optimizations.o \
-OBJ/output_blif.o \
-OBJ/netlist_check.o \
-OBJ/activity_estimation.o \
-OBJ/read_netlist.o \
-OBJ/read_blif.o \
-OBJ/output_graphcrunch_format.o \
-OBJ/verilog_preprocessor.o \
-OBJ/verilog_bison.o \
-OBJ/verilog_flex.o \
-OBJ/odin_ii.o
+SRC_PARSERS=$(YFILES:.y=.c) $(LFILES:.l=.c)
 
-SRC = \
-SRC/netlist_visualizer.c \
-SRC/multipliers.c \
-SRC/partial_map.c \
-SRC/errors.c \
-SRC/node_creation_library.c \
-SRC/netlist_utils.c \
-SRC/netlist_stats.c \
-SRC/odin_util.c \
-SRC/string_cache.c \
-SRC/hard_blocks.c \
-SRC/memories.c \
-SRC/queue.c \
-SRC/hashtable.c \
-SRC/simulate_blif.c \
-SRC/print_netlist.c
+SRC = $(addprefix $(SRC_DIR)/,$(strip \
+      netlist_visualizer.c \
+      multipliers.c \
+      partial_map.c \
+      errors.c \
+      node_creation_library.c \
+      netlist_utils.c \
+      netlist_stats.c \
+      odin_util.c \
+      string_cache.c \
+      hard_blocks.c \
+      memories.c \
+      queue.c \
+      hashtable.c \
+      simulate_blif.c \
+      print_netlist.c \
+))
 
-SRCO = \
-SRC/read_xml_config_file.c \
-SRC/outputs.c \
-SRC/parse_making_ast.c \
-SRC/ast_util.c \
-SRC/high_level_data.c \
-SRC/ast_optimizations.c \
-SRC/netlist_create_from_ast.c \
-SRC/netlist_optimizations.c \
-SRC/output_blif.c \
-SRC/netlist_check.c \
-SRC/activity_estimation.c \
-SRC/read_netlist.c \
-SRC/read_blif.c \
-SRC/output_graphcrunch_format.c \
-SRC/verilog_preprocessor.c \
-SRC/odin_ii.c
+SRCO = $(addprefix $(SRC_DIR)/,$(strip \
+	read_xml_config_file.c \
+	outputs.c \
+	parse_making_ast.c \
+	ast_util.c \
+	high_level_data.c \
+	ast_optimizations.c \
+	netlist_create_from_ast.c \
+	netlist_optimizations.c \
+	output_blif.c \
+	netlist_check.c \
+	activity_estimation.c \
+	read_netlist.c \
+	read_blif.c \
+	output_graphcrunch_format.c \
+	verilog_preprocessor.c \
+	odin_ii.c \
+))
 
 SRCV = SRC/read_blif.c \
 SRC/verify_blif.c 
 
-H = \
-SRC/netlist_stats.h \
-SRC/output_graphcrunch_format.h \
-SRC/read_netlist.h \
-SRC/activity_estimation.h \
-SRC/read_blif.h \
-SRC/netlist_check.h \
-SRC/multipliers.h \
-SRC/output_blif.h \
-SRC/partial_map.h \
-SRC/outputs.h \
-SRC/netlist_optimizations.h \
-SRC/errors.h \
-SRC/node_creation_library.h \
-SRC/netlist_visualizer.h \
-SRC/netlist_create_from_ast.h \
-SRC/netlist_utils.h \
-SRC/odin_util.h \
-SRC/ast_optimizations.h \
-SRC/high_level_data.h \
-SRC/ast_util.h \
-SRC/read_xml_config_file.h \
-SRC/parse_making_ast.h \
-SRC/string_cache.h \
-SRC/types.h \
-SRC/hard_blocks.h \
-SRC/memories.h \
-SRC/verilog_preprocessor.h \
-SRC/queue.h \
-SRC/hashtable.h \
-SRC/simulate_blif.h \
-SRC/globals.h \
-SRC/print_netlist.h
+OBJ = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o, \
+       $(SRC_PARSERS) $(SRC) $(SRCO))
 
-all: $(EXEO) 
 
-$(EXEO): CTAGS OBJ/verilog_bison.o OBJ/verilog_flex.o $(OBJS) $(OBJO)
-	$(CC) $(C_FLAGS) $(FLAGS) $(OBJS) $(OBJO) -o $(EXEO) $(LIB)
+DEP = $(OBJ:.o=.d)
+
+all: CTAGS $(EXEO)
+
+$(EXEO): $(OBJ)
+	$(CC) $(C_FLAGS) $(FLAGS) $(OBJ) -o $(EXEO) $(LIB)
 
 CTAGS :
-	cd SRC && ctags *.[ch] && cd -
+	@ cd SRC && ctags *.[ch]
 
-OBJ/%.o:$(SRC_DIR)/%.c $(H)
-	$(CC) $(C_FLAGS) $(FLAGS) -c $< -o $@ 
+# Make sure the parsers are generated before compiling
+# any c files
+$(OBJ_DIR)/%.o:$(SRC_DIR)/%.c | $(SRC_PARSERS)
+	$(CC) $(C_FLAGS) $(FLAGS) -MD -MP -c $< -o $@ 
 
+SRC/verilog_flex.c: %.c: %.l
+	$(PARSER1) -o $@ $<
 
-SRC/verilog_flex.c: SRC/verilog_flex.l
-	$(PARSER1) -oSRC/verilog_flex.c SRC/verilog_flex.l
-
-SRC/verilog_bison.c: SRC/verilog_bison.y
-	$(PARSER2) --verbose -d -t -o SRC/verilog_bison.c SRC/verilog_bison.y
+SRC/verilog_bison.c: %.c: %.y
+	$(PARSER2) --verbose -d -t -o $@ $<
 
 clean :
-	rm -f SRC/verilog_bison.c
+	rm -f $(SRC_PARSERS)
+	rm -f $(OBJ)
 	rm -f SRC/verilog_bison.h
 	rm -f SRC/verilog_bison.output
-	rm -f SRC/verilog_flex.c
 	rm -f SRC/tags
 	rm -f *.exe
-	rm -f OBJ/*.o
 	rm -f SRC/*~
 	
 
 regression_clean :
 	rm -f REGRESSION_TESTS/BASIC_TESTS/*.*
 
+-include $(DEP)
