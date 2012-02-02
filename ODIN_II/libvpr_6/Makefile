@@ -14,23 +14,27 @@ FLAGS = $(OPT_FLAGS) $(WARN_FLAGS) $(INC_FLAGS)
 #FLAGS = $(DEBUG_FLAGS) $(WARN_FLAGS) $(INC_FLAGS)
 FLAGS += -MD -MP
 
-OBJS = read_xml_arch_file.o read_xml_util.o ezxml.o ReadLine.o util.o 
-SRC = read_xml_arch_file.c read_xml_util.c ezxml.c ReadLine.c util.c 
-H = read_xml_arch_file.h read_xml_util.h ezxml.h ReadLine.h util.h arch_types.h physical_types.h logic_types.h
+SRC = read_xml_arch_file.c read_xml_util.c ezxml.c ReadLine.c util.c
+OBJS = $(SRC:.c=.o)
+
+DEPS = $(OBJS:.o=.d) main.d
 
 libvpr_6.a: $(OBJS)
 	$(AR) $(LIB_FLAGS) $@ $(OBJS)
 	cp libvpr_6.a libvpr.a
 
 # Standalone executable to test architecture reader
-$(EXE): main.c main.o libvpr_6.a
-	$(CC) main.c -MD -MP $(INC_FLAGS) -c
-	$(CC) main.o -o $(EXE) $(INC_FLAGS) -L../libvpr_6 -lm -lvpr_6
+$(EXE): main.o libvpr_6.a
+	$(CC) main.o -o $(EXE) $(INC_FLAGS) -L. -lm -lvpr_6
 	cp libvpr_6.a libvpr.a
-
-
-.c.o:%.c $(H)
+ 
+ 
+%.o: %.c
 	$(CC) $(FLAGS) -c $< -o $@ 
+ 
+-include $(DEPS)
+
+
 
 clean :
 	rm -f libvpr_6.a

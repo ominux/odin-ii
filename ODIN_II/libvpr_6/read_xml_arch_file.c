@@ -1443,6 +1443,7 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 	lut_pb_type->modes[0].num_pb_type_children = 0;
 	
 	/* Process interconnect */
+	/* TODO: add timing annotations to route-through */
 	assert(lut_pb_type->num_ports == 2);
 	if(strcmp(lut_pb_type->ports[0].port_class, "lut_in") == 0) {
 		assert(strcmp(lut_pb_type->ports[1].port_class, "lut_out") == 0);
