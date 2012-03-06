@@ -500,7 +500,7 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 	if(FindProperty(Parent, "value", FALSE)) {
 		i++;
 	}
-	if(0 == strcmp(Parent->name, "C_constant") || 0 == strcmp(Parent->name, "C_matrix")) {
+	if(0 == strcmp(Parent->name, "C_constant") || 0 == strcmp(Parent->name, "C_matrix") || 0 == strcmp(Parent->name, "cad_pattern")) {
 		i = 1;
 	}
 
@@ -508,6 +508,7 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 	annotation->prop = my_calloc(i, sizeof(int));
 	annotation->value = my_calloc(i, sizeof(char *));
 
+	/* Todo: This is slow, I should use a case lookup */
 	i = 0;
 	if(0 == strcmp(Parent->name, "delay_constant")) {
 		annotation->type = (int) E_ANNOT_PIN_TO_PIN_DELAY;
@@ -635,6 +636,21 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 		Prop = FindProperty(Parent, "clock", TRUE);
 		annotation->clock = my_strdup(Prop);
 		ezxml_set_attr(Parent, "clock", NULL);
+	}  else if (0 == strcmp(Parent->name, "cad_pattern")) {
+		annotation->type = (int) E_ANNOT_PIN_TO_PIN_CAD_PATTERN;
+		annotation->format = E_ANNOT_PIN_TO_PIN_CONSTANT;
+		Prop = FindProperty(Parent, "name", TRUE);
+		annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_CAD_PATTERN_NAME;
+		annotation->value[i] = my_strdup(Prop);
+		ezxml_set_attr(Parent, "name", NULL);
+		i++;
+				
+		Prop = FindProperty(Parent, "in_port", TRUE);
+		annotation->input_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "in_port", NULL);
+		Prop = FindProperty(Parent, "out_port", TRUE);
+		annotation->output_pins = my_strdup(Prop);
+		ezxml_set_attr(Parent, "out_port", NULL);
 	} else {
 		printf(ERRTAG "[LINE %d] Unknown port type %s in %s in %s", Parent->line,
 			Parent->name, Parent->parent->name, Parent->parent->parent->name);
@@ -851,6 +867,10 @@ static void ProcessPb_TypePort(INOUTP ezxml_t Parent,
 	port->port_class = my_strdup(Prop);
 	ezxml_set_attr(Parent, "port_class", NULL);
 
+	Prop = FindProperty(Parent, "chain", FALSE);
+	port->chain_name = my_strdup(Prop);
+	ezxml_set_attr(Parent, "chain", NULL);
+
 	port->equivalent = GetBooleanProperty(Parent, "equivalent", FALSE, FALSE);
 	port->num_pins = GetIntProperty(Parent, "num_pins", TRUE, 0);
 	
@@ -923,13 +943,14 @@ static void ProcessInterconnect(INOUTP ezxml_t Parent,
 			num_annotations += CountChildren(Cur, "delay_matrix", 0);
 			num_annotations += CountChildren(Cur, "C_constant", 0);
 			num_annotations += CountChildren(Cur, "C_matrix", 0);
+			num_annotations += CountChildren(Cur, "cad_pattern", 0);
 
 			mode->interconnect[i].annotations = my_calloc(num_annotations, sizeof(t_pin_to_pin_annotation));
 			mode->interconnect[i].num_annotations = num_annotations;
 
 			k = 0;
 			Cur2 = NULL;
-			for(j = 0; j < 4; j++) {
+			for(j = 0; j < 5; j++) {
 				if(j == 0) {
 					Cur2 = FindFirstElement(Cur, "delay_constant", FALSE);
 				} else if (j == 1) {
@@ -938,6 +959,8 @@ static void ProcessInterconnect(INOUTP ezxml_t Parent,
 					Cur2 = FindFirstElement(Cur, "C_constant", FALSE);
 				} else if (j == 3) {
 					Cur2 = FindFirstElement(Cur, "C_matrix", FALSE);
+				} else if (j == 4) {
+					Cur2 = FindFirstElement(Cur, "cad_pattern", FALSE);
 				}
 				while (Cur2 != NULL)
 				{
