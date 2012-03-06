@@ -46,7 +46,7 @@ enum e_pb_type_class
 
 /* Annotations for pin-to-pin connections */
 enum e_pin_to_pin_annotation_type
-{E_ANNOT_PIN_TO_PIN_DELAY = 0, E_ANNOT_PIN_TO_PIN_CAPACITANCE};
+{E_ANNOT_PIN_TO_PIN_DELAY = 0, E_ANNOT_PIN_TO_PIN_CAPACITANCE, E_ANNOT_PIN_TO_PIN_CAD_PATTERN, E_ANNOT_PIN_TO_PIN_CAD_CHAIN};
 enum e_pin_to_pin_annotation_format
 {E_ANNOT_PIN_TO_PIN_MATRIX = 0, E_ANNOT_PIN_TO_PIN_CONSTANT};
 enum e_pin_to_pin_delay_annotations
@@ -55,6 +55,8 @@ E_ANNOT_PIN_TO_PIN_DELAY_CLOCK_TO_Q_MIN, E_ANNOT_PIN_TO_PIN_DELAY_CLOCK_TO_Q_MAX
 E_ANNOT_PIN_TO_PIN_DELAY_THOLD};
 enum e_pin_to_pin_capacitance_annotations
 {E_ANNOT_PIN_TO_PIN_CAPACITANCE_C = 0};
+enum e_pin_to_pin_cad_pattern_annotations
+{E_ANNOT_PIN_TO_PIN_CAD_PATTERN_NAME = 0};
 
 
 /*************************************************************************************************/
@@ -147,6 +149,8 @@ struct s_port
 	boolean equivalent;
 	struct s_pb_type *parent_pb_type;
 	char * port_class;
+
+	char *chain_name;
 };
 typedef struct s_port t_port;
 
