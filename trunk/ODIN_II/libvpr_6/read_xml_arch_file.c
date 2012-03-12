@@ -500,7 +500,7 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 	if(FindProperty(Parent, "value", FALSE)) {
 		i++;
 	}
-	if(0 == strcmp(Parent->name, "C_constant") || 0 == strcmp(Parent->name, "C_matrix") || 0 == strcmp(Parent->name, "cad_pattern")) {
+	if(0 == strcmp(Parent->name, "C_constant") || 0 == strcmp(Parent->name, "C_matrix") || 0 == strcmp(Parent->name, "pack_pattern")) {
 		i = 1;
 	}
 
@@ -636,11 +636,11 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 		Prop = FindProperty(Parent, "clock", TRUE);
 		annotation->clock = my_strdup(Prop);
 		ezxml_set_attr(Parent, "clock", NULL);
-	}  else if (0 == strcmp(Parent->name, "cad_pattern")) {
-		annotation->type = (int) E_ANNOT_PIN_TO_PIN_CAD_PATTERN;
+	}  else if (0 == strcmp(Parent->name, "pack_pattern")) {
+		annotation->type = (int) E_ANNOT_PIN_TO_PIN_PACK_PATTERN;
 		annotation->format = E_ANNOT_PIN_TO_PIN_CONSTANT;
 		Prop = FindProperty(Parent, "name", TRUE);
-		annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_CAD_PATTERN_NAME;
+		annotation->prop[i] = (int) E_ANNOT_PIN_TO_PIN_PACK_PATTERN_NAME;
 		annotation->value[i] = my_strdup(Prop);
 		ezxml_set_attr(Parent, "name", NULL);
 		i++;
@@ -943,7 +943,7 @@ static void ProcessInterconnect(INOUTP ezxml_t Parent,
 			num_annotations += CountChildren(Cur, "delay_matrix", 0);
 			num_annotations += CountChildren(Cur, "C_constant", 0);
 			num_annotations += CountChildren(Cur, "C_matrix", 0);
-			num_annotations += CountChildren(Cur, "cad_pattern", 0);
+			num_annotations += CountChildren(Cur, "pack_pattern", 0);
 
 			mode->interconnect[i].annotations = my_calloc(num_annotations, sizeof(t_pin_to_pin_annotation));
 			mode->interconnect[i].num_annotations = num_annotations;
@@ -960,7 +960,7 @@ static void ProcessInterconnect(INOUTP ezxml_t Parent,
 				} else if (j == 3) {
 					Cur2 = FindFirstElement(Cur, "C_matrix", FALSE);
 				} else if (j == 4) {
-					Cur2 = FindFirstElement(Cur, "cad_pattern", FALSE);
+					Cur2 = FindFirstElement(Cur, "pack_pattern", FALSE);
 				}
 				while (Cur2 != NULL)
 				{
@@ -1552,17 +1552,14 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 	lut_pb_type->modes[1].interconnect[1].name = my_calloc(
 														strlen(lut_pb_type->name) + 11,
 														sizeof(char));
-	sprintf(lut_pb_type->modes[1].interconnect[1].name, "complete2:%s", lut_pb_type->name);
+	sprintf(lut_pb_type->modes[1].interconnect[1].name, "direct:%s", lut_pb_type->name);
 	
-	lut_pb_type->modes[1].interconnect[1].type = COMPLETE_INTERC;
+	lut_pb_type->modes[1].interconnect[1].type = DIRECT_INTERC;
 	lut_pb_type->modes[1].interconnect[1].input_string = my_calloc(
 														strlen(default_name) + 
-														strlen(lut_pb_type->name) +
-														strlen(in_port->name) +
 														strlen(out_port->name) + 4,
 														sizeof(char));
-	sprintf(lut_pb_type->modes[1].interconnect[1].input_string, "%s.%s %s.%s", default_name, out_port->name,
-		lut_pb_type->name, in_port->name);
+	sprintf(lut_pb_type->modes[1].interconnect[1].input_string, "%s.%s", default_name, out_port->name);
 	lut_pb_type->modes[1].interconnect[1].output_string = my_calloc(
 														strlen(lut_pb_type->name) + 
 														strlen(out_port->name) + 
@@ -1570,6 +1567,7 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 														sizeof(char));
 	sprintf(lut_pb_type->modes[1].interconnect[1].output_string, "%s.%s", 
 			lut_pb_type->name, out_port->name);
+	lut_pb_type->modes[1].interconnect[1].infer_annotations = TRUE;
 
 	free(default_name);
 
