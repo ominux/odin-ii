@@ -186,7 +186,9 @@ Architecture based off Stratix IV
                   <interconnect>
                     <direct name="direct1" input="soft_logic.in[5:0]" output="lut6[0:0].in[5:0]"/>
                     <direct name="direct2" input="lut6[0:0].out" output="soft_logic.out[0:0]">
-                      <cad_pattern name="ble" in_port="lut6[0:0].out" out_port="soft_logic.out[0:0]"/>
+                      <!-- CAD related parameters -->
+                      <pack_pattern name="ble" in_port="lut6[0:0].out" out_port="soft_logic.out[0:0]"/>
+                      <!-- CAD related parameters -->
                     </direct>
                   </interconnect>
                 </mode>
@@ -202,7 +204,7 @@ Architecture based off Stratix IV
             <!-- Two ff, make ff available to only corresponding luts -->
             <direct name="direct1" input="ble.in" output="soft_logic.in"/>
             <direct name="direct2" input="soft_logic.out" output="ff.D">
-               <cad_pattern name="ble" in_port="soft_logic.out" out_port="ff.D"/>
+               <pack_pattern name="ble" in_port="soft_logic.out" out_port="ff.D"/>
             </direct>
             <direct name="direct4" input="ble.clk" output="ff.clk"/>
             <mux name="mux1" input="ff.Q soft_logic.out" output="ble.out"/>
