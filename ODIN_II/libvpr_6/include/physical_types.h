@@ -46,7 +46,7 @@ enum e_pb_type_class
 
 /* Annotations for pin-to-pin connections */
 enum e_pin_to_pin_annotation_type
-{E_ANNOT_PIN_TO_PIN_DELAY = 0, E_ANNOT_PIN_TO_PIN_CAPACITANCE, E_ANNOT_PIN_TO_PIN_PACK_PATTERN, E_ANNOT_PIN_TO_PIN_PACK_CHAIN};
+{E_ANNOT_PIN_TO_PIN_DELAY = 0, E_ANNOT_PIN_TO_PIN_CAPACITANCE, E_ANNOT_PIN_TO_PIN_PACK_PATTERN};
 enum e_pin_to_pin_annotation_format
 {E_ANNOT_PIN_TO_PIN_MATRIX = 0, E_ANNOT_PIN_TO_PIN_CONSTANT};
 enum e_pin_to_pin_delay_annotations
@@ -290,6 +290,13 @@ struct s_pb_graph_edge
 	t_interconnect * interconnect;
 	int driver_set;
 	int driver_pin;
+
+	/* pack pattern info */
+	char **pack_pattern_names; /*[0..num_pack_patterns(of_edge)-1]*/
+	int *pack_pattern_indices; /*[0..num_pack_patterns(of_edge)-1]*/
+	int num_pack_patterns;
+	boolean infer_pattern; /*If TRUE, infer pattern based on patterns connected to it*/
+
 };
 typedef struct s_pb_graph_edge t_pb_graph_edge;
 
