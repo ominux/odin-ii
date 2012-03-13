@@ -329,6 +329,7 @@ struct s_pb_graph_node
 	struct s_pb_graph_node *parent_pb_graph_node; 
 
 	int total_pb_pins; /* only valid for top-level */
+	void *temp_scratch_pad; /* temporary data, useful for keeping track of things when traversing data structure */
 };
 typedef struct s_pb_graph_node t_pb_graph_node;
 

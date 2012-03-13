@@ -10,6 +10,7 @@ Authors: Jason Luu and Kenneth Kent
 
 #include "logic_types.h"
 #include "physical_types.h"
+#include "cad_types.h"
 
 /* Constant describing architecture library version number */
 #define VPR_VERSION "6.0 Full Release"
