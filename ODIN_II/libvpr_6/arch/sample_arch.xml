@@ -187,7 +187,10 @@ Architecture based off Stratix IV
                     <direct name="direct1" input="soft_logic.in[5:0]" output="lut6[0:0].in[5:0]"/>
                     <direct name="direct2" input="lut6[0:0].out" output="soft_logic.out[0:0]">
                       <!-- CAD related parameters -->
-                      <pack_pattern name="ble" in_port="lut6[0:0].out" out_port="soft_logic.out[0:0]"/>
+                        <!-- Advanced "power-user" options: Describe connections that belong to forced pack blocks to give hints to the packer on what blocks to keep together
+                                                            Assumes pattern nets must be single-fanout
+                        -->
+                        <pack_pattern name="ble" in_port="lut6[0:0].out" out_port="soft_logic.out[0:0]"/>
                       <!-- CAD related parameters -->
                     </direct>
                   </interconnect>
