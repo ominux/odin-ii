@@ -50,4 +50,18 @@ typedef struct s_model_chain_pattern
 } t_model_chain_pattern;
 
 
+
+/**
+ * Keeps track of locations that a primitive can go to during packing
+ * Linked list for easy insertion/deletion
+ */
+typedef struct s_cluster_placement_primitive
+{
+	t_pb_graph_node *pb_graph_node;
+	struct s_cluster_placement_primitive *next_primitive;
+	float base_cost;		/* cost independant of current status of packing */
+	float incremental_cost; /* cost dependant on current status of packing */
+} t_cluster_placement_primitive;
+
+
 #endif

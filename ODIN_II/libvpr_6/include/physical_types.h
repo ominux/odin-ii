@@ -300,6 +300,8 @@ struct s_pb_graph_edge
 };
 typedef struct s_pb_graph_edge t_pb_graph_edge;
 
+struct s_cluster_placement_primitive;
+
 /* This structure stores the physical block graph nodes for a pb_type and mode of a cluster
  * pb_type: Pointer to the type of pb graph node this belongs to 
  * mode: parent mode of operation
@@ -329,7 +331,9 @@ struct s_pb_graph_node
 	struct s_pb_graph_node *parent_pb_graph_node; 
 
 	int total_pb_pins; /* only valid for top-level */
+	
 	void *temp_scratch_pad; /* temporary data, useful for keeping track of things when traversing data structure */
+	struct s_cluster_placement_primitive *cluster_placement_primitive; /* pointer to indexing structure useful during packing stage */
 };
 typedef struct s_pb_graph_node t_pb_graph_node;
 
