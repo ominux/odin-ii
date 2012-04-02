@@ -35,7 +35,7 @@ typedef struct s_pack_patterns
 	char *name;									/* name of this logic model pattern */
 	int index;                                  /* array index  for pattern*/
 	t_pack_pattern_block *root_block;			/* root block used by this pattern */
-	int block_count;							/* number of blocks in pattern */
+	int num_blocks;							/* number of blocks in pattern */
 } t_pack_patterns;
 
 typedef struct s_model_chain_pattern
