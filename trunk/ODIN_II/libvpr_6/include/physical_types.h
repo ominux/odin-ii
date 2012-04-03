@@ -137,6 +137,8 @@ struct s_pb_type; /* declare before definition because pb_type contains modes an
  * num_pins: the number of pins this port has
  * parent_pb_type: pointer to the parent pb_type
  * port_class: port belongs to recognized set of ports in class library
+ * index: port index by index in array of parent pb_type
+ * port_index_by_type index of port by type (index by input, output, or clock)
  * equivalence: 
  */
 struct s_port
@@ -150,6 +152,8 @@ struct s_port
 	struct s_pb_type *parent_pb_type;
 	char * port_class;
 
+	int index; 
+	int port_index_by_type; 
 	char *chain_name;
 };
 typedef struct s_port t_port;
