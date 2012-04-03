@@ -663,7 +663,7 @@ ProcessPinToPinAnnotations(ezxml_t Parent, t_pin_to_pin_annotation *annotation)
 static void ProcessPb_Type(INOUTP ezxml_t Parent, 
 						   t_pb_type * pb_type, 
 						   t_mode * mode) {
-	int num_ports, i, j, num_annotations;
+	int num_ports, i, j, k, num_annotations;
 	const char *Prop;
 	ezxml_t Cur, Prev;
 	char* class_name;
@@ -720,16 +720,21 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 	j = 0;
 	for(i = 0; i < 3; i++) {
 		if(i == 0) {
+			k = 0;
 			Cur = FindFirstElement(Parent, "input", FALSE);
 		} else if (i ==1) {
+			k = 0;
 			Cur = FindFirstElement(Parent, "output", FALSE);
 		} else {
+			k = 0;
 			Cur = FindFirstElement(Parent, "clock", FALSE);
 		}
 		while (Cur != NULL)
 		{
 			ProcessPb_TypePort(Cur, &pb_type->ports[j]);
 			pb_type->ports[j].parent_pb_type = pb_type;
+			pb_type->ports[j].index = j;
+			pb_type->ports[j].port_index_by_type = k;
 				
 			/* get next iteration */
 			Prev = Cur;
