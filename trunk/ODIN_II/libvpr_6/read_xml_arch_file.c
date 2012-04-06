@@ -847,6 +847,7 @@ static void ProcessPb_Type(INOUTP ezxml_t Parent,
 			{
 				if(0 == strcmp(Cur->name, "mode")) {
 					pb_type->modes[i].parent_pb_type = pb_type;
+					pb_type->modes[i].index = i;
 					ProcessMode(Cur, &pb_type->modes[i]);
 							
 					/* get next iteration */
