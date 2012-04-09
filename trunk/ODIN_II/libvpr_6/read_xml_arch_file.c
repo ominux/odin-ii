@@ -1469,6 +1469,7 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 	/* First mode, route_through */
 	lut_pb_type->modes[0].name = my_strdup(lut_pb_type->name);
 	lut_pb_type->modes[0].parent_pb_type = lut_pb_type;
+	lut_pb_type->modes[0].index = 0;
 	lut_pb_type->modes[0].num_pb_type_children = 0;
 	
 	/* Process interconnect */
@@ -1508,6 +1509,7 @@ void ProcessLutClass(INOUTP t_pb_type *lut_pb_type) {
 	
 	lut_pb_type->modes[1].name = my_strdup(lut_pb_type->name);
 	lut_pb_type->modes[1].parent_pb_type = lut_pb_type;
+	lut_pb_type->modes[1].index = 1;
 	lut_pb_type->modes[1].num_pb_type_children = 1;
 	lut_pb_type->modes[1].pb_type_children = my_calloc(1, sizeof(t_pb_type));
 	alloc_and_load_default_child_for_pb_type(lut_pb_type, default_name, lut_pb_type->modes[1].pb_type_children);
@@ -1598,6 +1600,7 @@ static void ProcessMemoryClass(INOUTP t_pb_type *mem_pb_type) {
 	mem_pb_type->modes = my_calloc(1, sizeof(t_mode));
 	mem_pb_type->modes[0].name = my_strdup(default_name);
 	mem_pb_type->modes[0].parent_pb_type = mem_pb_type;
+	mem_pb_type->modes[0].index = 0;
 
 	num_pb = OPEN;
 	for(i = 0; i < mem_pb_type->num_ports; i++) {
