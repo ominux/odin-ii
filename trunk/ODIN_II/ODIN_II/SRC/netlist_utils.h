@@ -8,9 +8,9 @@
 nnode_t* allocate_nnode();
 npin_t* allocate_npin();
 void free_npin(npin_t *to_free);
-npin_t *get_a_zero_pin(netlist_t *netlist);
-npin_t *get_a_pad_pin(netlist_t *netlist);
-npin_t *get_a_one_pin(netlist_t *netlist);
+npin_t *get_zero_pin(netlist_t *netlist);
+npin_t *get_pad_pin(netlist_t *netlist);
+npin_t *get_one_pin(netlist_t *netlist);
 npin_t* copy_input_npin(npin_t* copy_pin);
 npin_t* copy_output_npin(npin_t* copy_pin);
 nnet_t* allocate_nnet();
@@ -18,15 +18,15 @@ void free_nnode(nnode_t *to_free);
 void free_npin(npin_t *to_free);
 void free_nnet(nnet_t *to_free);
 
-void allocate_more_node_input_pins(nnode_t *node, int width);
-void allocate_more_node_output_pins(nnode_t *node, int width);
+void allocate_more_input_pins(nnode_t *node, int width);
+void allocate_more_output_pins(nnode_t *node, int width);
 
-void move_a_input_pin(nnode_t *node, int old_idx, int new_idx);
-void move_a_output_pin(nnode_t *node, int old_idx, int new_idx);
-void add_a_input_pin_to_node_spot_idx(nnode_t *node, npin_t *pin, int pin_idx);
-void add_a_fanout_pin_to_net(nnet_t *net, npin_t *pin);
-void add_a_output_pin_to_node_spot_idx(nnode_t *node, npin_t *pin, int pin_idx);
-void add_a_driver_pin_to_net(nnet_t *net, npin_t *pin);
+void move_input_pin(nnode_t *node, int old_idx, int new_idx);
+void move_output_pin(nnode_t *node, int old_idx, int new_idx);
+void add_input_pin_to_node(nnode_t *node, npin_t *pin, int pin_idx);
+void add_fanout_pin_to_net(nnet_t *net, npin_t *pin);
+void add_output_pin_to_node(nnode_t *node, npin_t *pin, int pin_idx);
+void add_driver_pin_to_net(nnet_t *net, npin_t *pin);
 void add_output_port_information(nnode_t *node, int port_width);
 void add_input_port_information(nnode_t *node, int port_width);
 
@@ -41,6 +41,8 @@ void add_pin_to_signal_list(signal_list_t *list, npin_t* pin);
 void sort_signal_list_alphabetically(signal_list_t *list);
 signal_list_t *combine_lists(signal_list_t **signal_lists, int num_signal_lists);
 signal_list_t *combine_lists_without_freeing_originals(signal_list_t **signal_lists, int num_signal_lists);
+signal_list_t *copy_input_signals(signal_list_t *signals);
+signal_list_t *copy_output_signals(signal_list_t *signals);
 void free_signal_list(signal_list_t *list);
 
 void hookup_hb_input_pins_from_signal_list(nnode_t *node, int n_start_idx, signal_list_t* input_list, int il_start_idx, int width, netlist_t *netlist) ;

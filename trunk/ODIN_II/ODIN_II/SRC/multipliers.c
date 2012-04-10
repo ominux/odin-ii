@@ -126,7 +126,7 @@ void instantiate_simple_soft_multiplier(nnode_t *node, short mark, netlist_t *ne
 			else
 			{
 				/* ELSE - this needs to be a new ouput of the multiplicand port */
-				add_a_input_pin_to_node_spot_idx(partial_products[i][j], copy_input_npin(partial_products[i][0]->input_pins[0]), 0);
+				add_input_pin_to_node(partial_products[i][j], copy_input_npin(partial_products[i][0]->input_pins[0]), 0);
 			}
 
 			/* hookup the input of the multiplier to each AND gate */
@@ -138,7 +138,7 @@ void instantiate_simple_soft_multiplier(nnode_t *node, short mark, netlist_t *ne
 			else
 			{
 				/* ELSE - this needs to be a new ouput of the multiplier port */
-				add_a_input_pin_to_node_spot_idx(partial_products[i][j], copy_input_npin(partial_products[0][j]->input_pins[1]), 1);
+				add_input_pin_to_node(partial_products[i][j], copy_input_npin(partial_products[0][j]->input_pins[1]), 1);
 			}
 		}
 	}
@@ -160,7 +160,7 @@ void instantiate_simple_soft_multiplier(nnode_t *node, short mark, netlist_t *ne
 				else
 				{
 					/* ELSE - this is the last input to the first adder, then we pass in 0 since no carry yet */
-					add_a_input_pin_to_node_spot_idx(adders_for_partial_products[i], get_a_zero_pin(netlist), j);
+					add_input_pin_to_node(adders_for_partial_products[i], get_zero_pin(netlist), j);
 				}
 			}
 			else if (j < multiplier_width)
@@ -170,7 +170,7 @@ void instantiate_simple_soft_multiplier(nnode_t *node, short mark, netlist_t *ne
 			}
 			else
 			{
-				add_a_input_pin_to_node_spot_idx(adders_for_partial_products[i], get_a_zero_pin(netlist), j);
+				add_input_pin_to_node(adders_for_partial_products[i], get_zero_pin(netlist), j);
 			}
 			
 			if (j < multiplier_width)
@@ -180,7 +180,7 @@ void instantiate_simple_soft_multiplier(nnode_t *node, short mark, netlist_t *ne
 			}
 			else
 			{
-				add_a_input_pin_to_node_spot_idx(adders_for_partial_products[i], get_a_zero_pin(netlist), j+multiplier_width+1);
+				add_input_pin_to_node(adders_for_partial_products[i], get_zero_pin(netlist), j+multiplier_width+1);
 			}
 		}
 	}
@@ -951,8 +951,9 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 	int diffa, diffb, diffout, i;
 	int sizea, sizeb, sizeout;
 
-
 	int testa, testb;
+
+	static int pad_pin_number = 0;
 
 	oassert(node->type == MULTIPLY);
 	oassert(hard_multipliers != NULL);
@@ -989,23 +990,23 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 	/* Expand the inputs */
 	if ((diffa != 0) || (diffb != 0))
 	{
-		allocate_more_node_input_pins(node, diffa + diffb);
+		allocate_more_input_pins(node, diffa + diffb);
 
 		/* Shift pins for expansion of first input pins */
 		if (diffa != 0)
 		{
 			for (i = 1; i <= sizeb; i++)
 			{
-				move_a_input_pin(node, sizea + sizeb - i, node->num_input_pins - diffb - i);
+				move_input_pin(node, sizea + sizeb - i, node->num_input_pins - diffb - i);
 			}
 
 			/* Connect unused first input pins to zero/pad pin */
 			for (i = 0; i < diffa; i++)
 			{
 				if (configuration.mult_padding == 0)
-					add_a_input_pin_to_node_spot_idx(node, get_a_zero_pin(netlist), i + sizea);
+					add_input_pin_to_node(node, get_zero_pin(netlist), i + sizea);
 				else
-					add_a_input_pin_to_node_spot_idx(node, get_a_pad_pin(netlist), i + sizea);
+					add_input_pin_to_node(node, get_pad_pin(netlist), i + sizea);
 			}
 
 			node->input_port_sizes[0] = sizea + diffa;
@@ -1017,9 +1018,9 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 			for (i = 1; i <= diffb; i++)
 			{
 				if (configuration.mult_padding == 0)
-					add_a_input_pin_to_node_spot_idx(node, get_a_zero_pin(netlist), node->num_input_pins - i);
+					add_input_pin_to_node(node, get_zero_pin(netlist), node->num_input_pins - i);
 				else
-					add_a_input_pin_to_node_spot_idx(node, get_a_pad_pin(netlist), node->num_input_pins - i);
+					add_input_pin_to_node(node, get_pad_pin(netlist), node->num_input_pins - i);
 			}
 
 			node->input_port_sizes[1] = sizeb + diffb;
@@ -1029,12 +1030,14 @@ void pad_multiplier(nnode_t *node, netlist_t *netlist)
 	/* Expand the outputs */
 	if (diffout != 0)
 	{
-		allocate_more_node_output_pins(node, diffout);
+		allocate_more_output_pins(node, diffout);
 		for (i = 0; i < diffout; i++)
 		{
 			// Add new pins to the higher order spots.
 			npin_t *new_pin = allocate_npin();
-			add_a_output_pin_to_node_spot_idx(node, new_pin, i + sizeout);
+			// Pad outputs with a unique and descriptive name to avoid collisions.
+			new_pin->name = append_string("", "unconnected_multiplier_output~%d", pad_pin_number++);
+			add_output_pin_to_node(node, new_pin, i + sizeout);
 		}
 		node->output_port_sizes[0] = sizeout + diffout;
 	}

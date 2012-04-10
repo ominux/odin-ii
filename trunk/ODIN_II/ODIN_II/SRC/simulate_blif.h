@@ -141,7 +141,7 @@ int *multiply_arrays(int *a, int a_length, int *b, int b_length);
 void compute_single_port_memory(nnode_t *node, int cycle);
 void compute_dual_port_memory(nnode_t *node, int cycle);
 
-long compute_memory_address(signal_list_t *out, signal_list_t *addr, int cycle);
+long compute_memory_address(signal_list_t *addr, int cycle);
 
 void instantiate_memory(nnode_t *node, int data_width, int addr_width);
 char *get_mif_filename(nnode_t *node);

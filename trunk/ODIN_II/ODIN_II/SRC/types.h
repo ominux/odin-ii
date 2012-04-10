@@ -104,10 +104,15 @@ struct config_t_t
 	int fixed_hard_multiplier;
 	// Flag for splitting hard multipliers If fixed_hard_multiplier is set, this must be 1.
 	int split_hard_multiplier;
-	// 1 to split memory width down to a size of 1. 0 to leave memory width alone.
-	short split_memory_width;
-	// Set to a positive integer to split memory depth to that address width.
-	short split_memory_depth;
+	// 1 to split memory width down to a size of 1. 0 to split to arch width.
+	char split_memory_width;
+	// Set to a positive integer to split memory depth to that address width. 0 to split to arch width.
+	int split_memory_depth;
+
+	// If the memory is smaller than both of these, it will be converted to soft logic.
+	int soft_logic_memory_depth_threshold;
+	int soft_logic_memory_width_threshold;
+
 	char *arch_file; // Name of the FPGA architecture file
 };
 

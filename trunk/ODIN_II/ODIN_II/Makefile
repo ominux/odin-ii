@@ -5,7 +5,7 @@ BUILD = VPR6
 PARSER1 = flex 
 PARSER2 = bison
 
-WARN_FLAGS = -Wall 
+WARN_FLAGS = -Wall
 
 SRC_DIR = SRC
 OBJ_DIR = OBJ
@@ -14,9 +14,9 @@ EXEO = odin_II.exe
 
 DEBUG_FLAGS = -g
 
-OPT_FLAGS = -O2 
+#OPT_FLAGS = -O2 
 # Use this value of OPT_FLAGS to simulate in parallel (requires GCC >= 4.2)
-#OPT_FLAGS = -O2 -fopenmp 
+OPT_FLAGS = -O2 -fopenmp 
 
 ifeq "$(BUILD)" "VPR5"
 	INC_FLAGS =  -I../libvpr_5/include
@@ -52,6 +52,7 @@ SRC = $(addprefix $(SRC_DIR)/,$(strip \
       hashtable.c \
       simulate_blif.c \
       print_netlist.c \
+      implicit_memory.c \
 ))
 
 SRCO = $(addprefix $(SRC_DIR)/,$(strip \

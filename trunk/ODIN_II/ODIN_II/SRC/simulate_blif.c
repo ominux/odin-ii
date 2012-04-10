@@ -978,15 +978,18 @@ int is_node_ready(nnode_t* node, int cycle)
 		for (i = 0; i < node->num_input_pins; i++)
 		{
 			npin_t *pin = node->input_pins[i];
-			// The clock relies on the current cycle. All other memory pins use the previous cycle.
-			if (!strcmp(pin->mapping, "clk"))
+			// The data and write enable inputs rely on the values from the previous cycle.
+			if (
+					   !strcmp(pin->mapping, "data") || !strcmp(pin->mapping, "data1") || !strcmp(pin->mapping, "data2")
+					|| !strcmp(pin->mapping, "we")   || !strcmp(pin->mapping, "we1")   || !strcmp(pin->mapping, "we2")
+			)
 			{
-				if (get_pin_cycle(pin) < cycle)
+				if (get_pin_cycle(pin) < cycle-1)
 					return FALSE;
 			}
 			else
 			{
-				if (get_pin_cycle(pin) < cycle-1)
+				if (get_pin_cycle(pin) < cycle)
 					return FALSE;
 			}
 		}
@@ -1503,16 +1506,35 @@ void compute_memory_node(nnode_t *node, int cycle)
 void compute_single_port_memory(nnode_t *node, int cycle)
 {
 	sp_ram_signals *signals = get_sp_ram_signals(node);
-	int we      = get_pin_value(signals->we, cycle-1);
+
 	int posedge = is_posedge(signals->clk, cycle);
 
 	if (!node->memory_data)
 		instantiate_memory(node, signals->data->count, signals->addr->count);
 
-	// On the rising edge, compute the memory.
+	// On the rising edge, write the memory.
 	if (posedge)
 	{
-		long address = compute_memory_address(signals->out, signals->addr, cycle-1);
+		int we = get_pin_value(signals->we, cycle - 1);
+		long address = compute_memory_address(signals->addr, cycle - 1);
+		char address_ok = (address != -1)?1:0;
+
+		int i;
+		for (i = 0; i < signals->data->count; i++)
+		{
+			// Compute which bit we are addressing.
+			long bit_address = address_ok?(i + (address * signals->data->count)):-1;
+
+			// If write is enabled, copy the input to memory.
+			if (address_ok && we)
+				node->memory_data[bit_address] = get_pin_value(signals->data->pins[i],cycle-1);
+		}
+	}
+
+	// Read data from the memory.
+	{
+
+		long address = compute_memory_address(signals->addr, cycle);
 		char address_ok = (address != -1)?1:0;
 
 		int i;
@@ -1526,18 +1548,7 @@ void compute_single_port_memory(nnode_t *node, int cycle)
 				update_pin_value(signals->out->pins[i], node->memory_data[bit_address], cycle);
 			else
 				update_pin_value(signals->out->pins[i], -1, cycle);
-
-			// If write is enabled, copy the input to memory.
-			if (address_ok && we)
-				node->memory_data[bit_address] = get_pin_value(signals->data->pins[i],cycle-1);
 		}
-	}
-	else
-	{
-		// On falling edge, we hold the previous value.
-		int i;
-		for (i = 0; i < signals->data->count; i++)
-			update_pin_value(signals->out->pins[i], get_pin_value(signals->out->pins[i],cycle-1), cycle);
 	}
 
 	free_sp_ram_signals(signals);
@@ -1549,56 +1560,64 @@ void compute_single_port_memory(nnode_t *node, int cycle)
 void compute_dual_port_memory(nnode_t *node, int cycle)
 {
 	dp_ram_signals *signals = get_dp_ram_signals(node);
-	int we1     = get_pin_value(signals->we1, cycle-1);
-	int we2     = get_pin_value(signals->we2, cycle-1);
 	int posedge = is_posedge(signals->clk, cycle);
 
 	if (!node->memory_data)
 		instantiate_memory(node, signals->data2->count, signals->addr2->count);
 
-	// On the rising edge, we compute the memory.
+	// On the rising edge, we write the memory.
 	if (posedge)
 	{
-		long address1 = compute_memory_address(signals->out1, signals->addr1, cycle-1);
-		long address2 = compute_memory_address(signals->out2, signals->addr2, cycle-1);
+		int we1     = get_pin_value(signals->we1, cycle - 1);
+		int we2     = get_pin_value(signals->we2, cycle - 1);
 
-		char port1 = (address1 != -1)?1:0;
-		char port2 = (address2 != -1)?1:0;
+		long address1 = compute_memory_address(signals->addr1, cycle - 1);
+		long address2 = compute_memory_address(signals->addr2, cycle - 1);
 
-		// Read (and write if we) data to memory.
+		char address1_ok = (address1 != -1)?1:0;
+		char address2_ok = (address2 != -1)?1:0;
+
 		int i;
 		for (i = 0; i < signals->data1->count; i++)
 		{
 			// Compute which bit we are addressing.
-			long bit_address1 = port1?(i + (address1 * signals->data1->count)):-1;
-			long bit_address2 = port2?(i + (address2 * signals->data2->count)):-1;
+			long bit_address1 = address1_ok?(i + (address1 * signals->data1->count)):-1;
+			long bit_address2 = address2_ok?(i + (address2 * signals->data2->count)):-1;
+
+			// Write to the memory
+			if (address1_ok && we1)
+				node->memory_data[bit_address1] = get_pin_value(signals->data1->pins[i], cycle-1);
+
+			if (address2_ok && we2)
+				node->memory_data[bit_address2] = get_pin_value(signals->data2->pins[i], cycle-1);
+		}
+	}
+
+	// Read data from memory.
+	{
+		long address1 = compute_memory_address(signals->addr1, cycle);
+		long address2 = compute_memory_address(signals->addr2, cycle);
+
+		char address1_ok = (address1 != -1)?1:0;
+		char address2_ok = (address2 != -1)?1:0;
+
+		int i;
+		for (i = 0; i < signals->data1->count; i++)
+		{
+			// Compute which bit we are addressing.
+			long bit_address1 = address1_ok?(i + (address1 * signals->data1->count)):-1;
+			long bit_address2 = address2_ok?(i + (address2 * signals->data2->count)):-1;
 
 			// Read the memory bit
-			if (port1)
+			if (address1_ok)
 				update_pin_value(signals->out1->pins[i], node->memory_data[bit_address1], cycle);
 			else
 				update_pin_value(signals->out1->pins[i], -1, cycle);
 
-			if (port2)
+			if (address2_ok)
 				update_pin_value(signals->out2->pins[i], node->memory_data[bit_address2], cycle);
 			else
 				update_pin_value(signals->out2->pins[i], -1, cycle);
-
-			// Write to the memory
-			if (port1 && we1)
-				node->memory_data[bit_address1] = get_pin_value(signals->data1->pins[i], cycle-1);
-			if (port2 && we2)
-				node->memory_data[bit_address2] = get_pin_value(signals->data2->pins[i], cycle-1);
-		}
-	}
-	else
-	{
-		// On falling edge, we hold the previous value.
-		int i;
-		for (i = 0; i < signals->data1->count; i++)
-		{
-			update_pin_value(signals->out1->pins[i], get_pin_value(signals->out1->pins[i],cycle-1), cycle);
-			update_pin_value(signals->out2->pins[i], get_pin_value(signals->out2->pins[i],cycle-1), cycle);
 		}
 	}
 
@@ -1606,10 +1625,9 @@ void compute_dual_port_memory(nnode_t *node, int cycle)
 }
 
 /*
- * Calculates the memory address. Updates the output to -1's and returns
- * -1 if the address is unknown.
+ * Calculates the memory address. Returns -1 if the address is unknown.
  */
-long compute_memory_address(signal_list_t *out, signal_list_t *addr, int cycle)
+long compute_memory_address(signal_list_t *addr, int cycle)
 {
 	long address = 0;
 	int i;
@@ -1876,8 +1894,8 @@ void assign_node_to_line(nnode_t *node, lines_t *l, int type, int single_pin)
 	if (!node->num_output_pins)
 	{
 		npin_t *pin = allocate_npin();
-		allocate_more_node_output_pins(node, 1);
-		add_a_output_pin_to_node_spot_idx(node, pin, 0);
+		allocate_more_output_pins(node, 1);
+		add_output_pin_to_node(node, pin, 0);
 	}
 
 	// Parse the node name into a pin number and a port name.
