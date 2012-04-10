@@ -49,15 +49,19 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "errors.h"
 #include "netlist_visualizer.h"
 
-global_args_t global_args;
 int current_parse_file;
 t_arch Arch;
+
+global_args_t global_args;
+
 t_type_descriptor* type_descriptors;
 int block_tag;
 void get_options(int argc, char **argv);
 void do_high_level_synthesis();
 void do_simulation_of_netlist();
+#ifdef VPR5
 void do_activation_estimation(int num_types, t_type_descriptor * type_descriptors);
+#endif
 
 void print_usage();
 
@@ -83,14 +87,14 @@ int main(int argc, char **argv)
 	if (global_args.arch_file != NULL)
 	{
 		printf("Reading FPGA Architecture file\n");
-#ifdef VPR5
+		#ifdef VPR5
 		t_clocks ClockDetails = { 0 };
 		t_power PowerDetails = { 0 };
 		XmlReadArch(global_args.arch_file, (boolean)FALSE, &Arch, &type_descriptors, &num_types, &ClockDetails, &PowerDetails);
-#endif
-#ifdef VPR6
+		#endif
+		#ifdef VPR6
 		XmlReadArch(global_args.arch_file, (boolean)FALSE, &Arch, &type_descriptors, &num_types);
-#endif
+		#endif
 	}
 
 	if (global_args.activation_blif_file != NULL && global_args.activation_netlist_file != NULL)
@@ -117,23 +121,20 @@ int main(int argc, char **argv)
 
 	/* activation estimation tool */
 
-#ifdef VPR6
+	#ifdef VPR6
 	report_mult_distribution();
 	deregister_hard_blocks();
-#endif
+	#endif
 
 	return 0;
 } 
 
-static const char *optString = "hc:V:WREh:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA3";
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
  *-------------------------------------------------------------------------*/
 void get_options(int argc, char **argv)
 {
-	int opt = 0;
-
-	/* set up the global arguments to there defualts */
+	/* Set up the global arguments to their default. */
 	global_args.config_file = NULL;
 	global_args.verilog_file = NULL;
 	global_args.blif_file = NULL;
@@ -153,7 +154,7 @@ void get_options(int argc, char **argv)
 	global_args.sim_output_rising_edge = 0;
 	global_args.all_warnings = 0;
 
-	/* set up the global configuration ahead of time */
+	/* Set up the global configuration. */
 	configuration.list_of_file_names = NULL;
 	configuration.num_list_of_file_names = 0;
 	configuration.output_type = "blif";
@@ -163,15 +164,23 @@ void get_options(int argc, char **argv)
 	configuration.output_preproc_source = 0;
 	configuration.debug_output_path = ".";
 	configuration.arch_file = NULL;
-	configuration.split_memory_width = TRUE;
-	configuration.split_memory_depth = 15;
 
-	configuration.fixed_hard_multiplier = 1;
-	configuration.split_hard_multiplier = 1;
+	configuration.fixed_hard_multiplier = 0;
+	configuration.split_hard_multiplier = 0;
 
+	configuration.split_memory_width = 0;
+	configuration.split_memory_depth = 0;
 
-	/* read in the option line */
-	opt = getopt(argc, argv, optString);
+	/*
+	 * Soft logic cutoffs. If a memory or a memory resulting from a split
+	 * has a width AND depth below these, it will be converted to soft logic.
+	 */
+	configuration.soft_logic_memory_width_threshold = 0;
+	configuration.soft_logic_memory_depth_threshold = 0;
+
+	/* Parse the command line options.  */
+	const char *optString = "hc:V:WREh:o:a:B:b:N:f:s:S:p:g:t:T:L:H:GA3";
+	int opt = getopt(argc, argv, optString);
 	while(opt != -1) 
 	{
 		switch(opt)
@@ -188,7 +197,7 @@ void get_options(int argc, char **argv)
 			case 'V':
 				global_args.verilog_file = optarg;
 			break;
-				case 'o':
+			case 'o':
 				global_args.output_file = optarg;
 			break;
 			case 'B':
@@ -250,10 +259,9 @@ void get_options(int argc, char **argv)
 			break;
 			default :
 				print_usage();
-				error_message(0, 0, -1, "Invalid arguments.\n");
+				error_message(-1, 0, -1, "Invalid arguments.\n");
 			break;
 		}
-
 		opt = getopt(argc, argv, optString);
 	}
 
@@ -264,13 +272,12 @@ void get_options(int argc, char **argv)
 			&& ((!global_args.activation_blif_file) || (!global_args.activation_netlist_file)))
 	{
 		print_usage();
-		error_message(0,0,-1,"Must include either a activation blif and netlist file, "
+		error_message(-1,0,-1,"Must include either a activation blif and netlist file, "
 				"a config file, a blif netlist, or a verilog file\n");
-		exit(-1);
 	}
-	else if ((global_args.config_file != NULL) && ((global_args.verilog_file != NULL) || (global_args.activation_blif_file != NULL)))
+	else if ((global_args.config_file && global_args.verilog_file) || global_args.activation_blif_file)
 	{
-		printf("Warning: Using command line options for verilog input file!!!\n");
+		warning_message(-1,0,-1, "Using command line options for verilog input file!!!\n");
 	}
 }
 
@@ -352,9 +359,6 @@ void do_high_level_synthesis()
 	// Can't levelize yet since the large muxes can look like combinational loops when they're not
 	check_netlist(verilog_netlist);
 
-	/* Report on Logical Memory usage */
-	report_memory_distribution();
-
 	/* point for all netlist optimizations. */
 	printf("Performing Optimizations of the Netlist\n");
 	netlist_optimizations_top(verilog_netlist);
@@ -400,9 +404,6 @@ void do_simulation_of_netlist()
 
 	printf("--------------------------------------------------------------------\n");
 }
-
-
-
 
 /*---------------------------------------------------------------------------------------------
  * (function: do_activation_estimation)

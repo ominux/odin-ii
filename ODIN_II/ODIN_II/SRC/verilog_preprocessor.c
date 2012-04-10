@@ -398,7 +398,6 @@ void veri_preproc_bootstraped(FILE *original_source, FILE *preproc_producer, ver
 	veri_flag_stack *skip = (veri_flag_stack *)calloc(1, sizeof(veri_flag_stack));;
 	char line[MaxLine];
 	char *token;
-	FILE *included_file = NULL;
 	veri_include *new_include = NULL;
 
 	while (NULL != fgets(line, MaxLine, source))
@@ -461,12 +460,16 @@ void veri_preproc_bootstraped(FILE *original_source, FILE *preproc_producer, ver
 			 */
 			if (top(skip) < 1 && strcmp(token, "`include") == 0)
 			{
+				printf("%s\n", token);
+
 				token = trim((char *)strtok(NULL, "\""));
 				
-				included_file = open_source_file(token);
+				printf("%s\n", token);
+
+				FILE *included_file = open_source_file(token);
 
 				/* If we failed to open the included file handle the error */
-				if (included_file == NULL)
+				if (!included_file)
 				{			
 					fprintf(stderr, "Warning: Unable to open file %s included on line %d of %s\n", 
 						token, line_number, current_include->path);

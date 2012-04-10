@@ -81,27 +81,9 @@ void register_hard_blocks()
 			hb_ports->size = 1;
 		}
 
-		if (configuration.split_memory_depth)
-		{
-			hb_ports = get_model_port(single_port_rams->inputs, "addr");
-
-			// Need to determine the split size based on min, max, or fixed
-			if (configuration.split_memory_depth == -1) /* MIN */
-				split_size = hb_ports->min_size;
-			if (configuration.split_memory_depth == -2) /* MAX */
-				split_size = hb_ports->size;
-			else
-			{
-				split_size     = configuration.split_memory_depth;
-				hb_ports->size = configuration.split_memory_depth;
-			}
-		}
-		else
-		{
-			hb_ports = get_model_port(single_port_rams->inputs, "addr");
-			split_size = hb_ports->size;
-		}
-		configuration.split_memory_depth = split_size;
+		int split_depth = get_sp_ram_split_depth();
+		hb_ports = get_model_port(single_port_rams->inputs, "addr");
+		hb_ports->size = split_depth;
 	}
 
 	if (dual_port_rams)
@@ -121,36 +103,11 @@ void register_hard_blocks()
 			hb_ports->size = 1;
 		}
 
-		if (configuration.split_memory_depth)
-		{
-			hb_ports = get_model_port(dual_port_rams->inputs, "addr1");
-			if (configuration.split_memory_depth == -1) /* MIN */
-				split_size = hb_ports->min_size;
-			if (configuration.split_memory_depth == -2) /* MAX */
-				split_size = hb_ports->size;
-			else
-			{
-				split_size     = configuration.split_memory_depth;
-				hb_ports->size = configuration.split_memory_depth;
-			}
-
-			hb_ports = get_model_port(dual_port_rams->inputs, "addr2");
-			if (configuration.split_memory_depth == -1) /* MIN */
-				split_size = hb_ports->min_size;
-			if (configuration.split_memory_depth == -2) /* MAX */
-				split_size = hb_ports->size;
-			else
-			{
-				split_size     = configuration.split_memory_depth;
-				hb_ports->size = configuration.split_memory_depth;
-			}
-		}
-		else if (!single_port_rams)
-		{
-			hb_ports = get_model_port(dual_port_rams->inputs, "addr1");
-			split_size = hb_ports->size;
-		}
-		configuration.split_memory_depth = split_size;
+		int split_depth = get_dp_ram_split_depth();
+		hb_ports = get_model_port(dual_port_rams->inputs, "addr1");
+		hb_ports->size = split_depth;
+		hb_ports = get_model_port(dual_port_rams->inputs, "addr2");
+		hb_ports->size = split_depth;
 	}
 }
 

@@ -251,7 +251,6 @@ ast_node_t *create_tree_node_number(char* number, int line_number, int file_numb
 				new_node->types.number.base = BIN;
 				break;
 			default:
-				printf("Not a number\n");
 				oassert(FALSE);
 		}
 
@@ -662,12 +661,12 @@ char **get_name_of_pins_number(ast_node_t *var_node, int start, int width)
  *-------------------------------------------------------------------------------------------*/
 char_list_t *get_name_of_pins(ast_node_t *var_node, char *instance_name_prefix)
 {
-	char **return_string; 
+	char **return_string = NULL;
 	char_list_t *return_list = (char_list_t*)malloc(sizeof(char_list_t));
 	ast_node_t *rnode[3];
 
 	int i;
-	int width;
+	int width = 0;
 
 	if (var_node->type == ARRAY_REF)
 	{
@@ -689,9 +688,7 @@ char_list_t *get_name_of_pins(ast_node_t *var_node, char *instance_name_prefix)
 		{
 			return_string = (char**)malloc(sizeof(char*)*width);
 			for (i = 0; i < width; i++)
-			{
 				return_string[i] = make_full_ref_name(NULL, NULL, NULL, rnode[0]->types.identifier, rnode[2]->types.number.value+i);
-			}
 		}
 		else
 		{
@@ -743,9 +740,12 @@ char_list_t *get_name_of_pins(ast_node_t *var_node, char *instance_name_prefix)
 			}
 			else if (sym_node->children[3] != NULL)
 			{
-				width = 0;
-				return_string = NULL;
 				oassert(FALSE);	
+			}
+			else
+			{
+
+
 			}
 		}
 		else
@@ -764,8 +764,6 @@ char_list_t *get_name_of_pins(ast_node_t *var_node, char *instance_name_prefix)
 	{
 		if (var_node->types.concat.num_bit_strings == 0)
 		{
-			width = 0;
-			return_string = NULL;
 			oassert(FALSE);
 		}
 		else
@@ -787,8 +785,6 @@ char_list_t *get_name_of_pins(ast_node_t *var_node, char *instance_name_prefix)
 	}
 	else
 	{
-		width = 0;
-		return_string = NULL;
 		oassert(FALSE);
 	}
 	

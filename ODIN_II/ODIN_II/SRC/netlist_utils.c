@@ -138,7 +138,7 @@ void free_nnode(nnode_t *to_free)
  * (function: allocate_more_node_input_pins)
  * 	Makes more space in the node for pin connections ... 
  *-----------------------------------------------------------------------*/
-void allocate_more_node_input_pins(nnode_t *node, int width)
+void allocate_more_input_pins(nnode_t *node, int width)
 {
 	int i;
 
@@ -160,7 +160,7 @@ void allocate_more_node_input_pins(nnode_t *node, int width)
  * (function: allocate_more_node_output_pins)
  * 	Makes more space in the node for pin connections ... 
  *-----------------------------------------------------------------------*/
-void allocate_more_node_output_pins(nnode_t *node, int width)
+void allocate_more_output_pins(nnode_t *node, int width)
 {
 	int i;
 
@@ -250,13 +250,13 @@ npin_t* copy_input_npin(npin_t* copy_pin)
 	npin_t *new_pin = allocate_npin();
 	oassert(copy_pin->type == INPUT);
 
-	new_pin->name = copy_pin->name;
+	new_pin->name = copy_pin->name?strdup(copy_pin->name):0;
 	new_pin->type = copy_pin->type;
-	new_pin->mapping = copy_pin->mapping;
+	new_pin->mapping = copy_pin->mapping?strdup(copy_pin->mapping):0;
 	new_pin->is_default = copy_pin->is_default;
 	if (copy_pin->net != NULL)
 	{
-		add_a_fanout_pin_to_net(copy_pin->net, new_pin);
+		add_fanout_pin_to_net(copy_pin->net, new_pin);
 	}
 
 	return new_pin;
@@ -309,7 +309,7 @@ void free_nnet(nnet_t *to_free)
 /*---------------------------------------------------------------------------
  * (function: move_a_output_pin)
  *-------------------------------------------------------------------------*/
-void move_a_output_pin(nnode_t *node, int old_idx, int new_idx)
+void move_output_pin(nnode_t *node, int old_idx, int new_idx)
 {
 	npin_t *pin;
 
@@ -329,7 +329,7 @@ void move_a_output_pin(nnode_t *node, int old_idx, int new_idx)
 /*---------------------------------------------------------------------------
  * (function: move_a_input_pin)
  *-------------------------------------------------------------------------*/
-void move_a_input_pin(nnode_t *node, int old_idx, int new_idx)
+void move_input_pin(nnode_t *node, int old_idx, int new_idx)
 {
 	npin_t *pin;
 
@@ -349,7 +349,7 @@ void move_a_input_pin(nnode_t *node, int old_idx, int new_idx)
 /*---------------------------------------------------------------------------------------------
  * (function: add_a_input_pin_to_node_spot_idx)
  *-------------------------------------------------------------------------------------------*/
-void add_a_input_pin_to_node_spot_idx(nnode_t *node, npin_t *pin, int pin_idx)
+void add_input_pin_to_node(nnode_t *node, npin_t *pin, int pin_idx)
 {
 	oassert(node != NULL);
 	oassert(pin != NULL);
@@ -365,7 +365,7 @@ void add_a_input_pin_to_node_spot_idx(nnode_t *node, npin_t *pin, int pin_idx)
 /*---------------------------------------------------------------------------------------------
  * (function: add_a_input_pin_to_spot_idx)
  *-------------------------------------------------------------------------------------------*/
-void add_a_fanout_pin_to_net(nnet_t *net, npin_t *pin)
+void add_fanout_pin_to_net(nnet_t *net, npin_t *pin)
 {
 	oassert(net != NULL);
 	oassert(pin != NULL);
@@ -383,7 +383,7 @@ void add_a_fanout_pin_to_net(nnet_t *net, npin_t *pin)
 /*---------------------------------------------------------------------------------------------
  * (function: add_a_output_pin_to_node_spot_idx)
  *-------------------------------------------------------------------------------------------*/
-void add_a_output_pin_to_node_spot_idx(nnode_t *node, npin_t *pin, int pin_idx)
+void add_output_pin_to_node(nnode_t *node, npin_t *pin, int pin_idx)
 {
 	oassert(node != NULL);
 	oassert(pin != NULL);
@@ -399,7 +399,7 @@ void add_a_output_pin_to_node_spot_idx(nnode_t *node, npin_t *pin, int pin_idx)
 /*---------------------------------------------------------------------------------------------
  * (function: add_a_output_pin_to_spot_idx)
  *-------------------------------------------------------------------------------------------*/
-void add_a_driver_pin_to_net(nnet_t *net, npin_t *pin)
+void add_driver_pin_to_net(nnet_t *net, npin_t *pin)
 {
 	oassert(net != NULL);
 	oassert(pin != NULL);
@@ -424,7 +424,7 @@ void combine_nets(nnet_t *output_net, nnet_t* input_net, netlist_t *netlist)
 	if (output_net->driver_pin)
 	{
 		/* IF - there is a pin assigned to this net, then copy it */
-		add_a_driver_pin_to_net(input_net, output_net->driver_pin);
+		add_driver_pin_to_net(input_net, output_net->driver_pin);
 	}
 	/* in case there are any fanouts in output net (should only be zero and one nodes */
 	join_nets(input_net, output_net);
@@ -469,7 +469,7 @@ void join_nets(nnet_t *join_to_net, nnet_t* other_net)
 	{
 		if (other_net->fanout_pins[i] )
 		{
-			add_a_fanout_pin_to_net(join_to_net, other_net->fanout_pins[i]);
+			add_fanout_pin_to_net(join_to_net, other_net->fanout_pins[i]);
 		}
 	}	
 }
@@ -484,14 +484,14 @@ void remap_pin_to_new_net(npin_t *pin, nnet_t *new_net)
 		/* clean out the entry in the old net */
 		pin->net->fanout_pins[pin->pin_net_idx] = NULL;
 		/* do the new addition */
-		add_a_fanout_pin_to_net(new_net, pin);
+		add_fanout_pin_to_net(new_net, pin);
 	}
 	else if (pin->type == OUTPUT)
 	{
 		/* clean out the entry in the old net */
 		pin->net->driver_pin = NULL;	
 		/* do the new addition */
-		add_a_driver_pin_to_net(new_net, pin);
+		add_driver_pin_to_net(new_net, pin);
 	}
 }
 
@@ -504,13 +504,13 @@ void remap_pin_to_new_node(npin_t *pin, nnode_t *new_node, int pin_idx)
 		/* clean out the entry in the old net */
 		pin->node->input_pins[pin->pin_node_idx] = NULL;
 		/* do the new addition */
-		add_a_input_pin_to_node_spot_idx(new_node, pin, pin_idx);
+		add_input_pin_to_node(new_node, pin, pin_idx);
 	}
 	else if (pin->type == OUTPUT) {
 		/* clean out the entry in the old net */
 		pin->node->output_pins[pin->pin_node_idx] = NULL;	
 		/* do the new addition */
-		add_a_output_pin_to_node_spot_idx(new_node, pin, pin_idx);
+		add_output_pin_to_node(new_node, pin, pin_idx);
 	}
 }
 
@@ -528,7 +528,7 @@ void connect_nodes(nnode_t *out_node, int out_idx, nnode_t *in_node, int in_idx)
 	new_in_pin = allocate_npin();
 	
 	/* create the pin that hooks up to the input */
-	add_a_input_pin_to_node_spot_idx(in_node, new_in_pin, in_idx);
+	add_input_pin_to_node(in_node, new_in_pin, in_idx);
 	
 	if (out_node->output_pins[out_idx] == NULL)
 	{
@@ -539,17 +539,17 @@ void connect_nodes(nnode_t *out_node, int out_idx, nnode_t *in_node, int in_idx)
 		new_out_pin = allocate_npin();
 	
 		/* create the pin that hooks up to the input */
-		add_a_output_pin_to_node_spot_idx(out_node, new_out_pin, out_idx);
+		add_output_pin_to_node(out_node, new_out_pin, out_idx);
 		/* hook up in pin out of the new net */
-		add_a_fanout_pin_to_net(new_net, new_in_pin);
+		add_fanout_pin_to_net(new_net, new_in_pin);
 		/* hook up the new pin 2 to this new net */
-		add_a_driver_pin_to_net(new_net, new_out_pin);
+		add_driver_pin_to_net(new_net, new_out_pin);
 	}
 	else
 	{
 		/* ELSE - there is a net so we just add a fanout */
 		/* hook up in pin out of the new net */
-		add_a_fanout_pin_to_net(out_node->output_pins[out_idx]->net, new_in_pin);
+		add_fanout_pin_to_net(out_node->output_pins[out_idx]->net, new_in_pin);
 	}
 }
 
@@ -587,14 +587,13 @@ void add_pin_to_signal_list(signal_list_t *list, npin_t* pin)
  *-------------------------------------------------------------------------------------------*/
 signal_list_t *combine_lists(signal_list_t **signal_lists, int num_signal_lists)
 {
-	int i, j;
-	
+	int i;
 	for (i = 1; i < num_signal_lists; i++)
 	{
+		int j;
 		for (j = 0; j < signal_lists[i]->count; j++)
-		{
 			add_pin_to_signal_list(signal_lists[0], signal_lists[i]->pins[j]);
-		}
+
 		free_signal_list(signal_lists[i]);
 	}
 
@@ -606,18 +605,45 @@ signal_list_t *combine_lists(signal_list_t **signal_lists, int num_signal_lists)
  *-------------------------------------------------------------------------------------------*/
 signal_list_t *combine_lists_without_freeing_originals(signal_list_t **signal_lists, int num_signal_lists)
 {
-	int i, j;
 	signal_list_t *return_list = init_signal_list();
-	
+
+	int i;
 	for (i = 0; i < num_signal_lists; i++)
 	{
+		int j;
 		for (j = 0; j < signal_lists[i]->count; j++)
-		{
 			add_pin_to_signal_list(return_list, signal_lists[i]->pins[j]);
-		}
 	}
 
 	return return_list;
+}
+
+
+
+signal_list_t *copy_input_signals(signal_list_t *signals)
+{
+	signal_list_t *duplicate_signals = init_signal_list();
+	int i;
+	for (i = 0; i < signals->count; i++)
+	{
+		npin_t *pin = signals->pins[i];
+		pin = copy_input_npin(pin);
+		add_pin_to_signal_list(duplicate_signals, pin);
+	}
+	return duplicate_signals;
+}
+
+
+signal_list_t *copy_output_signals(signal_list_t *signals)
+{
+	signal_list_t *duplicate_signals = init_signal_list();
+	int i;
+	for (i = 0; i < signals->count; i++)
+	{
+		npin_t *pin = signals->pins[i];
+		add_pin_to_signal_list(duplicate_signals, copy_output_npin(pin));
+	}
+	return duplicate_signals;
 }
 
 /*---------------------------------------------------------------------------------------------
@@ -632,6 +658,7 @@ static int compare_npin_t_names(const void *p1, const void *p2)
 	npin_t *pin2 = *(npin_t * const *)p2;
 	return strcmp(pin1->name, pin2->name);
 }
+
 void sort_signal_list_alphabetically(signal_list_t *list)
 {
 	qsort(list->pins, list->count,  sizeof(npin_t *), compare_npin_t_names);
@@ -659,11 +686,11 @@ signal_list_t *make_output_pins_for_existing_node(nnode_t* node, int width)
 		new_net = allocate_nnet();
 		new_net->name = node->name;
 		/* hook the output pin into the node */
-		add_a_output_pin_to_node_spot_idx(node, new_pin1, i);
+		add_output_pin_to_node(node, new_pin1, i);
 		/* hook up new pin 1 into the new net */
-		add_a_driver_pin_to_net(new_net, new_pin1);
+		add_driver_pin_to_net(new_net, new_pin1);
 		/* hook up the new pin 2 to this new net */
-		add_a_fanout_pin_to_net(new_net, new_pin2);
+		add_fanout_pin_to_net(new_net, new_pin2);
 		
 		/* add the new_pin2 to the list of pins */
 		add_pin_to_signal_list(return_list, new_pin2);
@@ -702,13 +729,13 @@ void hookup_input_pins_from_signal_list(nnode_t *node, int n_start_idx, signal_l
 		{
 			oassert(input_list->count > (il_start_idx+i));
 			npin_t *pin = input_list->pins[il_start_idx+i];
-			add_a_input_pin_to_node_spot_idx(node, pin, n_start_idx+i);
+			add_input_pin_to_node(node, pin, n_start_idx+i);
 
 		}
 		else
 		{
 			/* pad with 0's */
-			add_a_input_pin_to_node_spot_idx(node, get_a_zero_pin(netlist), n_start_idx+i);
+			add_input_pin_to_node(node, get_zero_pin(netlist), n_start_idx+i);
 
 			if (global_args.all_warnings)
 				warning_message(NETLIST_ERROR, -1, -1, "padding an input port with 0 for node %s\n", node->name);
@@ -730,12 +757,12 @@ void hookup_hb_input_pins_from_signal_list(nnode_t *node, int n_start_idx, signa
 		if (il_start_idx+i < input_list->count)
 		{
 			oassert(input_list->count > (il_start_idx+i));
-			add_a_input_pin_to_node_spot_idx(node, input_list->pins[il_start_idx+i], n_start_idx+i);
+			add_input_pin_to_node(node, input_list->pins[il_start_idx+i], n_start_idx+i);
 		}
 		else
 		{
 			/* connect with "pad" signal for later resolution */
-			add_a_input_pin_to_node_spot_idx(node, get_a_pad_pin(netlist), n_start_idx+i);
+			add_input_pin_to_node(node, get_pad_pin(netlist), n_start_idx+i);
 
 			if (global_args.all_warnings)
 				warning_message(NETLIST_ERROR, -1, -1, "padding an input port with HB_PAD for node %s\n", node->name);
@@ -757,7 +784,7 @@ void hookup_output_pins_from_signal_list(nnode_t *node, int n_start_idx, signal_
 		oassert(output_list->count > (ol_start_idx+i));
 	
 		/* hook outpin to the node */
-		add_a_output_pin_to_node_spot_idx(node, output_list->pins[ol_start_idx+i], n_start_idx+i);
+		add_output_pin_to_node(node, output_list->pins[ol_start_idx+i], n_start_idx+i);
 
 		if ((sc_spot_output = sc_lookup_string(output_nets_sc, output_list->pins[ol_start_idx+i]->name)) == -1)
 		{
@@ -766,7 +793,7 @@ void hookup_output_pins_from_signal_list(nnode_t *node, int n_start_idx, signal_
 		}
 	
 		/* hook the outpin into the net */
-		add_a_driver_pin_to_net(((nnet_t*)output_nets_sc->data[sc_spot_output]), output_list->pins[ol_start_idx+i]);
+		add_driver_pin_to_net(((nnet_t*)output_nets_sc->data[sc_spot_output]), output_list->pins[ol_start_idx+i]);
 
 
 	}	
@@ -909,7 +936,7 @@ void add_node_to_netlist(netlist_t *netlist, nnode_t *node, short special_node)
 		/* add the node to the list */
 		sc_spot = sc_add_string(netlist->nodes_sc, node->name);
 		if (netlist->nodes_sc->data[sc_spot] != NULL) {
-			error_message(NETLIST_ERROR, linenum, -1, "Two nodes with the same name (%s)\n", node->name);
+			error_message(NETLIST_ERROR, blif_line_number, -1, "Two nodes with the same name (%s)\n", node->name);
 		}
 		netlist->nodes_sc->data[sc_spot] = (void*)node;
 	}
@@ -965,7 +992,7 @@ mark_clock_node (
 	/* lookup the node */
 	if ((sc_spot = sc_lookup_string(netlist->nets_sc, clock_name)) == -1)
 	{
-		error_message(NETLIST_ERROR, linenum, -1, "clock input does not exist (%s)\n", clock_name);
+		error_message(NETLIST_ERROR, blif_line_number, -1, "clock input does not exist (%s)\n", clock_name);
 	}
 	clock_net = (nnet_t*)netlist->nets_sc->data[sc_spot];
 	clock_node = clock_net->driver_pin->node;
