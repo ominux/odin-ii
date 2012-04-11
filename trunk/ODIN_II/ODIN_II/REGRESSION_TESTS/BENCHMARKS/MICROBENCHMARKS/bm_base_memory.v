@@ -1,5 +1,6 @@
 // DEFINES
 `define BITS 4
+`define MEMORY_WORDS 16
 
 module 	bm_base_memory(clock, 
 		we, 
@@ -19,14 +20,14 @@ input 	[`BITS-1:0]address_in;
 input 	[`BITS-1:0]address_out;
 
 output [`BITS-1:0] value_out;
-wire [`BITS-1:0]    value_out;
+wire [`BITS-1:0]   value_out;
 output [`BITS-1:0] out1;
 output [`BITS-1:0] out2;
 reg [`BITS-1:0]    out1;
 reg [`BITS-1:0]    out2;
 
 reg [`BITS-1:0] address;
-reg [`BITS-1:0] memory [3:0]; // 4 memory slots of Bits wide
+reg [`BITS-1:0] memory [`MEMORY_WORDS-1:0]; // 4 memory slots of Bits wide
 wire [`BITS-1:0] temp;
 
 always @(posedge clock)

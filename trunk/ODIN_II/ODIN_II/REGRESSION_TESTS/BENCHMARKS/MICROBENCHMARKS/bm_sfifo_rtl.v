@@ -66,7 +66,7 @@ wire					empty;
 wire					half;
 
 							// The FIFO memory.
-reg [`FIFO_WIDTH-1:0]	fifo_mem[0:`FIFO_DEPTH-1];
+reg [`FIFO_WIDTH-1:0]	fifo_mem[`FIFO_DEPTH-1:0];
 							// How many locations in the FIFO
 							// are occupied?
 reg [`FIFO_BITS-1:0]	counter;
@@ -90,7 +90,7 @@ assign half = (counter >= `FIFO_HALF) ? 1'b1 : 1'b0;
 
 // This block contains all devices affected by the clock 
 // and reset inputs
-always @(posedge clock or negedge reset_n ) begin
+always @(posedge clock) begin
 	if (~reset_n) begin
 		// Reset the FIFO pointer
 		rd_pointer <=  0;
@@ -98,14 +98,18 @@ always @(posedge clock or negedge reset_n ) begin
 		counter <=  0;
 	end
 	else begin
-		if (~read_n) begin
-			// If we are doing a simultaneous read and write,
-			// there is no change to the counter
-			if (write_n) begin
-				// Decrement the FIFO counter
-				counter <=  counter - 1;
-			end
+		// If we are doing a simultaneous read and write,
+		// there is no change to the counter
+		if (~read_n && write_n) begin
+			// Decrement the FIFO counter
+			counter <=  counter - 1;		
+		end
+		else if (~write_n && read_n) begin
+			// Increment the FIFO counter
+			counter <=  counter + 1;		
+		end
 
+		if (~read_n) begin
 			// Increment the read pointer
 			// Check if the read pointer has gone beyond the
 			// depth of the FIFO. If so, set it back to the
@@ -116,13 +120,6 @@ always @(posedge clock or negedge reset_n ) begin
 				rd_pointer <=  rd_pointer + 1;
 		end
 		if (~write_n) begin
-			// If we are doing a simultaneous read and write,
-			// there is no change to the counter
-			if (read_n) begin
-				// Increment the FIFO counter
-				counter <=  counter + 1;
-			end
-
 			// Increment the write pointer
 			// Check if the write pointer has gone beyond the
 			// depth of the FIFO. If so, set it back to the
