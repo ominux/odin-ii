@@ -10,7 +10,7 @@
  * arguments as the standard library ones, but exit    *
  * the program if they find an error condition.        */
 
-int linenum;			/* Line in file being parsed. */
+int file_line_number; /* file in line number being parsed */
 char *OutFilePrefix = NULL;
 static int cont;		/* line continued? */
 
@@ -449,7 +449,7 @@ my_fgets(char *buf, int max_size, FILE * fp)
 
     cont = 0;
     val = fgets(buf, max_size, fp);
-    linenum++;
+    file_line_number++;
     if(val == NULL)
 	return (val);
 
@@ -464,7 +464,7 @@ my_fgets(char *buf, int max_size, FILE * fp)
 		{
 		    printf
 			("Error on line %d -- line is too long for input buffer.\n",
-			 linenum);
+			 file_line_number);
 		    printf("All lines must be at most %d characters long.\n",
 			   BUFSIZE - 2);
 		    printf

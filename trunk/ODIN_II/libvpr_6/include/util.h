@@ -21,7 +21,7 @@ typedef int boolean;
 #define ERRTAG "ERROR:\t"
 #define WARNTAG "WARN:\t"
 
-extern int blif_line_number;	/* line in file being parsed */
+extern int file_line_number;	/* line in file being parsed */
 
 
 #define BUFSIZE 4096 /* Maximum line length for various parsing proc. */
