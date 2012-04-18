@@ -97,7 +97,7 @@ $(OBJ_DIR)/%.o:$(SRC_DIR)/%.c | $(SRC_PARSERS)
 	$(CC) $(C_FLAGS) $(FLAGS) -MD -MP -c $< -o $@ 
 
 SRC/verilog_flex.c: %.c: %.l
-	$(PARSER1) -o $@ $<
+	$(PARSER1) -o$@ $<
 
 SRC/verilog_bison.c: %.c: %.y
 	$(PARSER2) --verbose -d -t -o $@ $<
