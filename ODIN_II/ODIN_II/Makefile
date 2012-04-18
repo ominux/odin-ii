@@ -93,7 +93,7 @@ CTAGS :
 
 # Make sure the parsers are generated before compiling
 # any c files
-$(OBJ_DIR)/%.o:$(SRC_DIR)/%.c | $(SRC_PARSERS)
+$(OBJ_DIR)/%.o:$(SRC_DIR)/%.c | $(OBJ_DIR) $(SRC_PARSERS)
 	$(CC) $(C_FLAGS) $(FLAGS) -MD -MP -c $< -o $@ 
 
 SRC/verilog_flex.c: %.c: %.l
@@ -102,9 +102,13 @@ SRC/verilog_flex.c: %.c: %.l
 SRC/verilog_bison.c: %.c: %.y
 	$(PARSER2) --verbose -d -t -o $@ $<
 
+# Silently create the object directory as needed
+$(OBJ_DIR):
+	@ mkdir -p $@
+	
 clean :
-	rm -f $(SRC_PARSERS)
-	rm -f $(OBJ)
+	rm -f $(SRC_PARSERS)	
+	rm -rf $(OBJ_DIR)
 	rm -f SRC/verilog_bison.h
 	rm -f SRC/verilog_bison.output
 	rm -f SRC/tags
