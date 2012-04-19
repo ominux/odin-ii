@@ -43,7 +43,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 #define READ_BLIF_BUFFER 1048576 // 1MB
 
-int blif_line_number;
+int file_line_number;
 
 char *BLIF_ONE_STRING    = "ONE_VCC_CNS";
 char *BLIF_ZERO_STRING   = "ZERO_GND_ZERO";
@@ -89,7 +89,7 @@ typedef struct {
 
 
 //netlist_t * verilog_netlist;
-int blif_line_number;/* keeps track of the present line, used for printing the error line : line number */
+int file_line_number;/* keeps track of the present line, used for printing the error line : line number */
 short static skip_reading_bit_map=FALSE; 
 
 void rb_create_top_driver_nets(char *instance_name_prefix, hashtable_t *output_nets_hash);
@@ -152,7 +152,7 @@ void read_blif(char * blif_file)
 	/* Extracting the netlist by reading the blif file */
 	printf("Reading blif netlist..."); fflush(stdout);
 
-	blif_line_number  = 0;
+	file_line_number  = 0;
 	int line_count = 0;
 	int position   = -1;
 	double time    = wall_time();
@@ -345,7 +345,7 @@ void create_latch_node_and_driver(FILE *file, hashtable_t *output_nets_hash)
 		}
 		else
 		{	
-			error_message(NETLIST_ERROR,blif_line_number,-1, "This .latch Format not supported \n\t required format :.latch <input> <output> [<type> <control/clock>] <initial val>");
+			error_message(NETLIST_ERROR,file_line_number,-1, "This .latch Format not supported \n\t required format :.latch <input> <output> [<type> <control/clock>] <initial val>");
 		}
 	}
 
@@ -409,7 +409,7 @@ void create_latch_node_and_driver(FILE *file, hashtable_t *output_nets_hash)
 char* search_clock_name(FILE* file)
 {
 	fpos_t pos;
-	int last_line = blif_line_number;
+	int last_line = file_line_number;
 	fgetpos(file,&pos);
 	rewind(file);
 
@@ -461,7 +461,7 @@ char* search_clock_name(FILE* file)
 			}
 		}
 	}
-	blif_line_number = last_line;
+	file_line_number = last_line;
 	fsetpos(file,&pos);
 
 	if (found) return input_names[0];
@@ -565,7 +565,7 @@ void create_hard_block_nodes(hard_block_models *models, FILE *file, hashtable_t 
   		char *name    = mapping_index->get(mapping_index, mapping, strlen(mapping) * sizeof(char));
 
   		if (!name)
-  			error_message(NETLIST_ERROR, blif_line_number, -1, "Invalid hard block mapping: %s", mapping);
+  			error_message(NETLIST_ERROR, file_line_number, -1, "Invalid hard block mapping: %s", mapping);
 
 		npin_t *new_pin = allocate_npin();
 		new_pin->name = strdup(name);
@@ -581,7 +581,7 @@ void create_hard_block_nodes(hard_block_models *models, FILE *file, hashtable_t 
   		char *mapping = model->outputs->names[i];
   		char *name = mapping_index->get(mapping_index, mapping, strlen(mapping) * sizeof(char));
 
-  		if (!name) error_message(NETLIST_ERROR, blif_line_number, -1,"Invalid hard block mapping: %s", model->outputs->names[i]);
+  		if (!name) error_message(NETLIST_ERROR, file_line_number, -1,"Invalid hard block mapping: %s", model->outputs->names[i]);
 
 		npin_t *new_pin = allocate_npin();
 		new_pin->name = strdup(name);
@@ -756,7 +756,7 @@ void create_internal_node_and_driver(FILE *file, hashtable_t *output_nets_hash)
 short read_bit_map_find_unknown_gate(int input_count, nnode_t *node, FILE *file)
 {
 	fpos_t pos;
-	int last_line = blif_line_number;
+	int last_line = file_line_number;
 	fgetpos(file,&pos);
 
 	if(!input_count)
@@ -764,7 +764,7 @@ short read_bit_map_find_unknown_gate(int input_count, nnode_t *node, FILE *file)
 		char buffer[READ_BLIF_BUFFER];
 		my_fgets (buffer, READ_BLIF_BUFFER, file);
 
-		blif_line_number = last_line;
+		file_line_number = last_line;
 		fsetpos(file,&pos);
 
 		char *ptr = my_strtok(buffer,"\t\n", file, buffer);
@@ -790,7 +790,7 @@ short read_bit_map_find_unknown_gate(int input_count, nnode_t *node, FILE *file)
 		output_bit_map = strdup(my_strtok(NULL,TOKENS, file, buffer));
 	}
 
-	blif_line_number = last_line;
+	file_line_number = last_line;
 	fsetpos(file,&pos);
 
 	/* Single line bit map : */
@@ -1194,7 +1194,7 @@ void hook_up_node(nnode_t *node, hashtable_t *output_nets_hash)
 		nnet_t *output_net = output_nets_hash->get(output_nets_hash, input_pin->name, strlen(input_pin->name)*sizeof(char));
 
 		if(!output_net)
-			error_message(NETLIST_ERROR,blif_line_number, -1, "Error: Could not hook up the pin %s: not available.", input_pin->name);
+			error_message(NETLIST_ERROR,file_line_number, -1, "Error: Could not hook up the pin %s: not available.", input_pin->name);
 
 		add_fanout_pin_to_net(output_net, input_pin);
 	}
@@ -1209,7 +1209,7 @@ hard_block_model *read_hard_block_model(char *name_subckt, hard_block_ports *por
 {
 	// Store the current position in the file.
 	fpos_t pos;
-	int last_line = blif_line_number;
+	int last_line = file_line_number;
 	fgetpos(file,&pos);
 
 	hard_block_model *model;
@@ -1293,7 +1293,7 @@ hard_block_model *read_hard_block_model(char *name_subckt, hard_block_ports *por
 	}
 
 	// Restore the original position in the file.
-	blif_line_number = last_line;
+	file_line_number = last_line;
  	fsetpos(file,&pos);
 
 	return model;
@@ -1510,7 +1510,7 @@ long get_hard_block_pin_number(char *original_name)
 	long pin_number = strtol(pin_number_string, &endptr, 10);
 
 	if (pin_number_string == endptr)
-		error_message(NETLIST_ERROR,blif_line_number, -1,"The given port name \"%s\" does not contain a valid pin number.", original_name);
+		error_message(NETLIST_ERROR,file_line_number, -1,"The given port name \"%s\" does not contain a valid pin number.", original_name);
 
 	free(name);
 

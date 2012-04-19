@@ -936,7 +936,7 @@ void add_node_to_netlist(netlist_t *netlist, nnode_t *node, short special_node)
 		/* add the node to the list */
 		sc_spot = sc_add_string(netlist->nodes_sc, node->name);
 		if (netlist->nodes_sc->data[sc_spot] != NULL) {
-			error_message(NETLIST_ERROR, blif_line_number, -1, "Two nodes with the same name (%s)\n", node->name);
+			error_message(NETLIST_ERROR, file_line_number, -1, "Two nodes with the same name (%s)\n", node->name);
 		}
 		netlist->nodes_sc->data[sc_spot] = (void*)node;
 	}
@@ -992,7 +992,7 @@ mark_clock_node (
 	/* lookup the node */
 	if ((sc_spot = sc_lookup_string(netlist->nets_sc, clock_name)) == -1)
 	{
-		error_message(NETLIST_ERROR, blif_line_number, -1, "clock input does not exist (%s)\n", clock_name);
+		error_message(NETLIST_ERROR, file_line_number, -1, "clock input does not exist (%s)\n", clock_name);
 	}
 	clock_net = (nnet_t*)netlist->nets_sc->data[sc_spot];
 	clock_node = clock_net->driver_pin->node;
