@@ -1,5 +1,4 @@
 /*
-
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation
 files (the "Software"), to deal in the Software without
@@ -51,19 +50,18 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 int current_parse_file;
 t_arch Arch;
-
 global_args_t global_args;
-
 t_type_descriptor* type_descriptors;
 int block_tag;
+
 void get_options(int argc, char **argv);
 void do_high_level_synthesis();
 void do_simulation_of_netlist();
+void print_usage();
+
 #ifdef VPR5
 void do_activation_estimation(int num_types, t_type_descriptor * type_descriptors);
 #endif
-
-void print_usage();
 
 int main(int argc, char **argv)
 {
@@ -97,13 +95,13 @@ int main(int argc, char **argv)
 		#endif
 	}
 
+	#ifdef VPR5
 	if (global_args.activation_blif_file != NULL && global_args.activation_netlist_file != NULL)
 	{
-#ifdef VPR5
 		do_activation_estimation(num_types, type_descriptors);
-#endif
 	}
 	else
+	#endif
 	{
 		if (!global_args.blif_file)
 		{
@@ -115,11 +113,9 @@ int main(int argc, char **argv)
 			read_blif(global_args.blif_file);
 		}
 
-		/* Simulate blif netlist */
+		/* Simulate netlist */
 		do_simulation_of_netlist();
 	}
-
-	/* activation estimation tool */
 
 	#ifdef VPR6
 	report_mult_distribution();
@@ -128,6 +124,61 @@ int main(int argc, char **argv)
 
 	return 0;
 } 
+
+/*
+ * Prints usage information for Odin II. This should be kept up to date with the latest
+ * features added to Odin II.
+ */
+void print_usage()
+{
+	printf
+	(
+			"USAGE: odin_II.exe [-c <Configuration> | -b <BLIF> | -V <Verilog HDL>]\n"
+			"  -c <XML Configuration File>\n"
+			"  -V <Verilog HDL File>\n"
+			"  -b <BLIF File>\n"
+			" Other options:\n"
+			"  -o <output_path and file name>\n"
+			"  -a <architecture_file_in_VPR6.0_form>\n"
+			#ifdef VPR5
+			"  -B <blif_file_for_activation_estimation> \n"
+			"     Use with: -N <net_file_for_activation_estimation>\n"
+			#endif
+			"  -G Output netlist graph in graphviz .dot format. (net.dot, opens with dotty)\n"
+			"  -A Output AST graph in .dot format.\n"
+			"  -W Print all warnings. (Can be substantial.) \n"
+			"  -h Print help\n"
+			"\n"
+			" SIMULATION: Always produces input_vectors, output_vectors,\n"
+			"             and ModelSim test.do file.\n"
+			"  Activate simulation with either: \n"
+			"  -g <Number of random test vectors to generate>\n"
+			"     -L <Comma-separated list of primary inputs to hold \n"
+			"         high at cycle 0, and low for all subsequent cycles.>\n"
+			"     -H <Comma-separated list of primary inputs to hold low at \n"
+			"         cycle 0, and high for all subsequent cycles.>\n"
+			"     -3 Generate three valued logic. (Default is binary.)\n"
+			"  -t <input vector file>: Supply a predefined input vector file\n"
+
+			" Other Simulation Options: \n"
+			"  -T <output vector file>: Supply an output vector file to check output\n"
+			"                            vectors against.\n"
+			"  -E Output after both edges of the clock.\n"
+			"     (Default is to output only after the falling edge.)\n"
+			"  -R Output after rising edge of the clock only.\n"
+			"     (Default is to output only after the falling edge.)\n"
+			"  -p <Comma-separated list of additional pins/nodes to monitor\n"
+			"      during simulation.>\n"
+			"     Eg: \"-p input~0,input~1\" monitors pin 0 and 1 of input, \n"
+			"       or \"-p input\" monitors all pins of input as a single port. \n"
+			"       or \"-p input~\" monitors all pins of input as separate ports. (split) \n"
+			"     - Note: Non-existent pins are ignored. \n"
+			"     - Matching is done via strstr so general strings will match \n"
+			"       all similar pins and nodes.\n"
+			"         (Eg: FF_NODE will create a single port with all flipflops) \n"
+	);
+	fflush(stdout);
+}
 
 /*---------------------------------------------------------------------------------------------
  * (function: get_options)
@@ -200,23 +251,25 @@ void get_options(int argc, char **argv)
 			case 'o':
 				global_args.output_file = optarg;
 			break;
+			#ifdef VPR5
 			case 'B':
 				global_args.activation_blif_file = optarg;
-				break;
-			case 'b':
-				global_args.blif_file = optarg;
-				break;
+			break;
 			case 'N':
 				global_args.activation_netlist_file = optarg;
+			break;
+			#endif
+			case 'b':
+				global_args.blif_file = optarg;
 			break;
 			case 'f':
 				#ifdef VPR5
 				global_args.high_level_block = optarg;
 				#endif
 				#ifdef VPR6
-				warning_message(0, -1, 0, "VPR 6.0 doesn't have this feature yet.  You'll need to deal with the output_blif.c differences wrapped by \"if (global_args.high_level_block != NULL)\"\n");
+				warning_message(0, -1, 0, "Option -f: VPR 6.0 doesn't have this feature yet.  You'll need to deal with the output_blif.c differences wrapped by \"if (global_args.high_level_block != NULL)\"\n");
 				#endif
-				break;
+			break;
 			case 'h':
 				print_usage();
 				exit(-1);
@@ -272,7 +325,10 @@ void get_options(int argc, char **argv)
 			&& ((!global_args.activation_blif_file) || (!global_args.activation_netlist_file)))
 	{
 		print_usage();
-		error_message(-1,0,-1,"Must include either a activation blif and netlist file, "
+		error_message(-1,0,-1,"Must include either "
+				#ifdef VPR5
+				"a activation blif and netlist file, "
+				#endif
 				"a config file, a blif netlist, or a verilog file\n");
 	}
 	else if ((global_args.config_file && global_args.verilog_file) || global_args.activation_blif_file)
@@ -281,55 +337,15 @@ void get_options(int argc, char **argv)
 	}
 }
 
-void print_usage()
-{
-	printf
-	(
-			"Usage: odin_II.exe\n"
-			" One of:\n"
-			"  -c <config_file_name.xml>\n"
-			"  -V <verilog_file_name.v>\n"
-			"  -b <input_blif_file_name.blif>\n"
-			" Other options:\n"
-			"  -o <output_path and file name>\n"
-			"  -a <architecture_file_in_VPR6.0_form>\n"
-			"  -B <blif_file_for_activation_estimation> -N <net_file_for_activation_estimation>\n"
-			"  -G Output netlist graph in .dot format. (net.dot)\n"
-			"  -A Output AST graph in .dot format.\n"
-			"  -W Print all warnings. (Can be substantial.) \n"
-			"      Without this option, less useful warnings such as those about padding and \n"
-			"     additional drivers will not be printed.\n"
-			"  -h Print help\n"
-			"\n"
-			" Simulation: Produces input_vectors, output_vectors, and ModelSim test.do file.\n"
-			"  -g <Number of random test vectors to generate>\n"
-			"   -L <Comma-separated list of primary inputs to hold high at cycle 0, and low for all subsequent cycles.>\n"
-			"   -H <Comma-separated list of primary inputs to hold low at cycle 0, and high for all subsequent cycles.>\n"
-			"   -3 Generate three valued logic. (Default is binary.)\n"
-			"  -t <input vectors file>: Supply a predefined input vector file\n"
-			"  -T <output vectors file>: Supply an output vector file to check output vectors against.\n"
-			"  -E Output after both edges of the clock. (Default is to output only after the falling edge.)\n"
-			"  -R Output after rising edge of the clock only. (Default is to output only after the falling edge.)\n"
-			"  -p <Comma-separated list of additional pins/nodes to monitor during simulation.>\n"
-			"     Eg: \"-p input~0,input~1\" monitors pin 0 and 1 of input, \n"
-			"       or \"-p input\" monitors all pins of input as a single port. \n"
-			"       or \"-p input~\" monitors all pins of input as separate ports. (split) \n"
-			"     - Note: Non-existent pins are ignored. \n"
-			"     - Matching is done via strstr so general strings will match \n"
-			"       all similar pins and nodes. (Eg: FF_NODE will create a single port with all flipflops) \n"
-	);
-	fflush(stdout);
-}
-
-
 /*---------------------------------------------------------------------------
  * (function: do_high_level_synthesis)
  *-------------------------------------------------------------------------*/
 void do_high_level_synthesis()
 {
+	double elaboration_time = wall_time();
+
 	printf("--------------------------------------------------------------------\n");
 	printf("High-level synthesis Begin\n");
-
 	/* Perform any initialization routines here */
 	#ifdef VPR6
 	find_hard_multipliers();
@@ -373,9 +389,9 @@ void do_high_level_synthesis()
 	printf("Performing Partial Map to target device\n");
 	partial_map_top(verilog_netlist);
 
+	#ifdef VPR5
 	/* check for problems in the partial mapped netlist */
 	printf("Check for liveness and combinational loops\n");
-	#ifdef VPR5
 	levelize_and_check_for_combinational_loop_and_liveness(TRUE, verilog_netlist);
 	#endif
 
@@ -384,7 +400,11 @@ void do_high_level_synthesis()
 	printf("Outputting the netlist to the specified output format\n");
 	output_top(verilog_netlist);
 
-	printf("Successful High-level synthesis by Odin\n");
+	elaboration_time = wall_time() - elaboration_time;
+
+	printf("Successful High-level synthesis by Odin in ");
+	print_time(elaboration_time);
+	printf("\n");
 	printf("--------------------------------------------------------------------\n");
 
 	// FIXME: free contents?

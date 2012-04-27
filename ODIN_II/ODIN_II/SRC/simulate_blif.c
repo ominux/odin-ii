@@ -324,47 +324,6 @@ void simulate_cycle(int cycle, stages *s)
 	}
 }
 
-void original_simulate_cycle(netlist_t *netlist, int cycle)
-{
-	queue_t *queue = create_queue();
-
-	// Enqueue top input nodes
-	int i;
-	for (i = 0; i < netlist->num_top_input_nodes; i++)
-		enqueue_node_if_ready(queue,netlist->top_input_nodes[i],cycle);
-
-	// Enqueue constant nodes.
-	nnode_t *constant_nodes[] = {netlist->gnd_node, netlist->vcc_node, netlist->pad_node};
-	int num_constant_nodes = 3;
-	for (i = 0; i < num_constant_nodes; i++)
-		enqueue_node_if_ready(queue,constant_nodes[i],cycle);
-
-	nnode_t *node;
-	while ((node = queue->remove(queue)))
-	{
-		compute_and_store_value(node, cycle);
-
-		// Enqueue child nodes which are ready, not already queued, and not already complete.
-		int num_children = 0;
-		nnode_t **children = get_children_of(node, &num_children);
-
-		for (i = 0; i < num_children; i++)
-		{
-			nnode_t* node = children[i];
-
-			if (!node->in_queue && is_node_ready(node, cycle) && !is_node_complete(node, cycle))
-			{
-				node->in_queue = TRUE;
-				queue->add(queue,node);
-			}
-		}
-		free(children);
-
-		node->in_queue = FALSE;
-	}
-	queue->destroy(queue);
-}
-
 /*
  * Simulates the first cycle by traversing the netlist and returns
  * the nodes organised into parallelizable stages. Also adds lines to
