@@ -124,6 +124,12 @@ internal Odin II data structures. However, a cycle parameter is included to
 provide researchers with the ability to delay results of operations performed by
 the simulation code.
 
+DOCUMENTING ODIN II
+-------------------
+
+Any new command line options added to Odin II should be fully documented by
+the print_usage() function within odin_ii.c before checking in the changes.  
+
 TESTING ODIN II
 ----------------
 
@@ -153,8 +159,8 @@ new circuits.
 USING MODELSIM TO TEST ODIN II
 -------------------------------
 
-Modelsim may be installed as part of the Quartus II Web Edition IDE. Load
-the verilog circuit into a new project in ModelSim. Compile the circuit, 
+ModelSim may be installed as part of the Quartus II Web Edition IDE. Load
+the Verilog circuit into a new project in ModelSim. Compile the circuit, 
 and load the resulting library for simulation. 
 
 Simulate the circuit in Odin II using the -E option to ensure that Odin II
