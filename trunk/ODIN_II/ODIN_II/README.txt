@@ -1,7 +1,4 @@
-Odin II - Version 0.2 - Quick Start
-
-In the DOCUMENTATION directory there is more thorough details about
-Odin II.  This is a quick start guide.
+Odin II - Version 1.0 - User's Manual
 
 INSTALL
 ------------
@@ -126,6 +123,52 @@ parameters, leaving the code provided to simulate the hard blokc agnostic of the
 internal Odin II data structures. However, a cycle parameter is included to 
 provide researchers with the ability to delay results of operations performed by
 the simulation code.
+
+TESTING ODIN II
+----------------
+
+The verify_microbenchmarks.sh and verify_regression_tests.sh scripts 
+compile and simulate the microbenchmarks and a larger set of benchmark 
+circuits. These scripts use simulation results which have been verified 
+against ModelSim. 
+
+After you build Odin II, run verify_microbenchmarks.sh to ensure that 
+everything is working correctly on your system. Unlike the 
+verify_regression_tests.sh script, verify_microbenchmarks.sh also 
+simulates the blif output, as well as simulating the verilog with and 
+without the architecture file.
+
+Before checking in any changes to Odin II, please run both of these 
+scripts to ensure that both of these scripts execute correctly. If there 
+is a failure, use ModelSim to verify that the failure is within Odin II 
+and not a faulty regression test. The Odin II simulator will produce 
+a test.do file containing clock and input vector information for ModelSim. 
+
+When additional circuits are found to agree with ModelSim, they should 
+be added to these test sets. When new features are added to Odin II, new 
+microbenchmarks should be developed which test those features for 
+regression.  Use existing circuits as a template for the addition of 
+new circuits. 
+
+USING MODELSIM TO TEST ODIN II
+-------------------------------
+
+Modelsim may be installed as part of the Quartus II Web Edition IDE. Load
+the verilog circuit into a new project in ModelSim. Compile the circuit, 
+and load the resulting library for simulation. 
+
+Simulate the circuit in Odin II using the -E option to ensure that Odin II
+outputs both edges of the clock. You may use random vectors via the -g option, 
+or specify your own input vectors using the -t option. When simulation is 
+complete, load the resulting test.do file into your ModelSim project and 
+execute it. You may now directly compare the vectors in the output_vectors
+file with those produced by ModelSim. 
+
+To add the verified vectors and circuit to an existing test set, move the 
+verilog file (eg: test_circuit.v) to the test set folder. Next, move the 
+input_vectors file to the test set folder, and rename it test_circuit_input. 
+Finally, move the output_vectors file to the test set folder and rename 
+it test_circuit_output. 
 
 CONTACT
 -------------
